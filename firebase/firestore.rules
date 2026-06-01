@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /religiousWallpapers/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /attemptedQuestions/{questionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /quizSessions/{sessionId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId
+          && request.resource.data.status == 'completed'
+          && request.resource.data.sessionId == sessionId;
+        allow update, delete: if false;
+      }
+    }
+
+    match /leaderboards/{boardId}/entries/{entryId} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && request.auth.uid == entryId
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 50000
+        && request.resource.data.accuracy is number
+        && request.resource.data.accuracy >= 0
+        && request.resource.data.accuracy <= 100;
+    }
+
+    match /dailyVerses/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /dailyprayers/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /quotes/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /questions/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /studyPlans/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /witnessPosts/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /meetSessions/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /stories/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}

@@ -1,0 +1,16 @@
+// Minimal WallpapersScreen
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
+export default function WallpapersScreen() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.text}>Wallpapers Screen</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0A0A0F' },
+  text: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
+});

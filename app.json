@@ -1,0 +1,90 @@
+{
+  "expo": {
+    "name": "Faith Frames",
+    "slug": "faithframes",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "jsEngine": "hermes",
+    "scheme": "faithframes",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.faithframes.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSPhotoLibraryAddUsageDescription": "Faith Frames needs access to save wallpapers to your photo library.",
+        "NSPhotoLibraryUsageDescription": "Faith Frames needs access to your photo library to save wallpapers."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0A0A"
+      },
+      "package": "com.faithframes.app",
+      "versionCode": 1,
+      "jsEngine": "hermes",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.ACCESS_MEDIA_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/adaptive-icon.png",
+          "color": "#FF6B00",
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Faith Frames to save wallpapers to your gallery.",
+          "savePhotosPermission": "Allow Faith Frames to save wallpapers to your gallery.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0A0A0A",
+          "image": "./assets/splash.png",
+          "imageWidth": 200
+        }
+      ]
+    ],
+    "extra": {
+      "firebaseApiKey": "AIzaSyAXcF5XmpYS-BtQcH0f07GCGYfg5UYqSR0",
+      "firebaseAuthDomain": "faithframe-e816b.firebaseapp.com",
+      "firebaseProjectId": "faithframe-e816b",
+      "firebaseStorageBucket": "faithframe-e816b.firebasestorage.app",
+      "firebaseMessagingSenderId": "633541627436",
+      "firebaseAppId": "1:633541627436:web:d3833278fbb08807558b89",
+      "cloudinaryCloudName": "dhliwva4d",
+      "cloudinaryUploadPreset": "faithframes_uploads",
+      "eas": {
+        "projectId": "9ededa03-ec15-45fe-ad6b-a04f89222bf6"
+      }
+    }
+  }
+}

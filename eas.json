@@ -1,0 +1,57 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAXcF5XmpYS-BtQcH0f07GCGYfg5UYqSR0",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "faithframe-e816b.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "faithframe-e816b",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "faithframe-e816b.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "633541627436",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:633541627436:web:d3833278fbb08807558b89",
+        "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "dhliwva4d",
+        "EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET": "faithframes_uploads"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAXcF5XmpYS-BtQcH0f07GCGYfg5UYqSR0",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "faithframe-e816b.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "faithframe-e816b",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "faithframe-e816b.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "633541627436",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:633541627436:web:d3833278fbb08807558b89",
+        "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "dhliwva4d",
+        "EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET": "faithframes_uploads"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
+      }
+    }
+  }
+}
