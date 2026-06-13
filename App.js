@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import { AuthProvider } from './src/context/AuthContext';
+import { BibleProvider } from './src/context/BibleContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { ToastProvider } from './src/context/ToastContext';
 import RootNavigator from './src/navigation/RootNavigator';
@@ -72,12 +73,14 @@ export default function App() {
           <ThemeProvider>
             <ToastProvider>
               <AuthProvider>
-                <NavigationContainer theme={navTheme}>
-                  <StatusBar barStyle="light-content" backgroundColor={Colors.bgDark} />
-                  <View style={styles.root}>
-                    <RootNavigator />
-                  </View>
-                </NavigationContainer>
+                <BibleProvider>
+                  <NavigationContainer theme={navTheme}>
+                    <StatusBar barStyle="light-content" backgroundColor={Colors.bgDark} />
+                    <View style={styles.root}>
+                      <RootNavigator />
+                    </View>
+                  </NavigationContainer>
+                </BibleProvider>
               </AuthProvider>
             </ToastProvider>
           </ThemeProvider>

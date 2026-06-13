@@ -146,6 +146,15 @@ export default function QuizHomeScreen() {
           </Text>
         ) : null}
 
+        {!loading && !error && questionCount === 0 ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>
+              No quiz questions found. Upload from the admin panel, then pull down to refresh.
+            </Text>
+            <GradientButton title="Refresh Questions" onPress={() => refresh(true)} style={{ marginTop: 12 }} />
+          </View>
+        ) : null}
+
         {error ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>

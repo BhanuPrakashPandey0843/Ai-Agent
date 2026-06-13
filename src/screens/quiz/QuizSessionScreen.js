@@ -192,25 +192,28 @@ export default function QuizSessionScreen() {
             <Text style={styles.reference}>{current.reference}</Text>
           ) : null}
 
-          {current.options.map((opt, i) => {
-            let state = 'default';
-            if (revealed) {
-              if (i === current.correctIndex) state = 'correct';
-              else if (selected === i) state = 'wrong';
-            } else if (selected === i) {
-              state = 'selected';
-            }
-            return (
-              <QuizOptionButton
-                key={`${current.id}-${i}`}
-                label={opt}
-                letter={String.fromCharCode(65 + i)}
-                state={state}
-                disabled={revealed}
-                onPress={() => handleSelect(i)}
-              />
-            );
-          })}
+          {current.options
+            .map((opt, i) => ({ opt: String(opt || '').trim(), i }))
+            .filter(({ opt }) => opt.length > 0)
+            .map(({ opt, i }, displayIndex) => {
+              let state = 'default';
+              if (revealed) {
+                if (i === current.correctIndex) state = 'correct';
+                else if (selected === i) state = 'wrong';
+              } else if (selected === i) {
+                state = 'selected';
+              }
+              return (
+                <QuizOptionButton
+                  key={`${current.id}-${i}`}
+                  label={opt}
+                  letter={String.fromCharCode(65 + displayIndex)}
+                  state={state}
+                  disabled={revealed}
+                  onPress={() => handleSelect(i)}
+                />
+              );
+            })}
 
           {revealed && current.explanation ? (
             <Text style={styles.explanation}>{current.explanation}</Text>

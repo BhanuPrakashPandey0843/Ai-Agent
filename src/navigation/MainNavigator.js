@@ -10,10 +10,16 @@ import HomeScreen from '../screens/HomeScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import SearchScreen from '../screens/SearchScreen';
 import QuizNavigator from './QuizNavigator';
-import ProgressScreen from '../screens/ProgressScreen';
+import BibleNavigator from './BibleNavigator';
 import SettingsScreen from '../screens/SettingsScreen';
 import WallpaperDetailScreen from '../screens/WallpaperDetailScreen';
 import CategoryScreen from '../screens/CategoryScreen';
+import AboutScreen from '../screens/AboutScreen';
+import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
+import TermsConditionsScreen from '../screens/TermsConditionsScreen';
+import ContactUsScreen from '../screens/ContactUsScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import WallpaperSettingsScreen from '../screens/WallpaperSettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -22,12 +28,11 @@ const H = HomeTheme;
 const TABS = [
   { name: 'Home', icon: 'home', iconOff: 'home-outline' },
   { name: 'Library', icon: 'library', iconOff: 'library-outline' },
+  { name: 'Bible', icon: 'book', iconOff: 'book-outline' },
   { name: 'Quiz', icon: 'bulb', iconOff: 'bulb-outline' },
-  { name: 'Progress', icon: 'stats-chart', iconOff: 'stats-chart-outline' },
   { name: 'Settings', icon: 'settings', iconOff: 'settings-outline' },
 ];
 
-/** Floating white tab bar — matches DreamTales mockup */
 function DreamTabBar({ state, descriptors, navigation }) {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 10);
@@ -63,6 +68,8 @@ function DreamTabBar({ state, descriptors, navigation }) {
               style={styles.navItem}
               onPress={onPress}
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={label}
             >
               {focused ? (
                 <View style={styles.activeCircle}>
@@ -88,8 +95,8 @@ function HomeTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Library" component={LibraryScreen} />
+      <Tab.Screen name="Bible" component={BibleNavigator} />
       <Tab.Screen name="Quiz" component={QuizNavigator} />
-      <Tab.Screen name="Progress" component={ProgressScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
@@ -106,6 +113,12 @@ export default function MainNavigator() {
       />
       <Stack.Screen name="Category" component={CategoryScreen} />
       <Stack.Screen name="Search" component={SearchScreen} />
+      <Stack.Screen name="About" component={AboutScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+      <Stack.Screen name="TermsConditions" component={TermsConditionsScreen} />
+      <Stack.Screen name="ContactUs" component={ContactUsScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="WallpaperSettings" component={WallpaperSettingsScreen} />
     </Stack.Navigator>
   );
 }

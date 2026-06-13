@@ -10,12 +10,12 @@ export default function useQuizCatalog() {
   const [questionCount, setQuestionCount] = useState(0);
   const [attemptedCount, setAttemptedCount] = useState(0);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (forceRefresh = true) => {
     setLoading(true);
     setError(null);
     try {
       const [questions, attempted] = await Promise.all([
-        getQuestionsCatalog(uid),
+        getQuestionsCatalog(uid, { forceRefresh }),
         fetchAttemptedQuestionIds(uid),
       ]);
       setQuestionCount(questions.filter((q) => q.active !== false).length);

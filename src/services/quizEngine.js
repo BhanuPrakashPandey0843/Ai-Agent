@@ -1,18 +1,69 @@
 import { QUIZ_TYPES } from '../constants/quiz';
 import { hashString, seededShuffle, toDateKey } from '../utils/quizDates';
 
+const VALID_CATEGORIES = new Set(['bible', 'jesus', 'old', 'new', 'mixed']);
+
+const normalizeCategory = (value) => {
+  const raw = String(value || 'bible').trim().toLowerCase();
+  return VALID_CATEGORIES.has(raw) ? raw : 'bible';
+};
+
+const normalizeOptions = (data) => {
+  if (Array.isArray(data.options)) {
+    return data.options.map((option) => String(option ?? '').trim()).filter(Boolean);
+  }
+  if (Array.isArray(data.choices)) {
+    return data.choices.map((option) => String(option ?? '').trim()).filter(Boolean);
+  }
+  return [];
+};
+
+const resolveCorrectIndex = (data, rawOptions, options) => {
+  if (typeof data.correctIndex === 'number' && Number.isFinite(data.correctIndex)) {
+    const rawTarget = rawOptions[data.correctIndex];
+    if (rawTarget) {
+      const mapped = options.indexOf(String(rawTarget).trim());
+      if (mapped >= 0) return mapped;
+    }
+    if (data.correctIndex >= 0 && data.correctIndex < options.length) {
+      return data.correctIndex;
+    }
+  }
+  if (typeof data.correctAnswer === 'string' && data.correctAnswer.trim()) {
+    const target = data.correctAnswer.trim().toLowerCase();
+    const byText = options.findIndex((option) => option.toLowerCase() === target);
+    if (byText >= 0) return byText;
+  }
+  return 0;
+};
+
+export const isValidQuizQuestion = (question) =>
+  Boolean(question?.id) &&
+  Boolean(String(question?.question || '').trim()) &&
+  Array.isArray(question?.options) &&
+  question.options.length >= 2 &&
+  typeof question.correctIndex === 'number' &&
+  question.correctIndex >= 0 &&
+  question.correctIndex < question.options.length;
+
 export const normalizeQuestion = (doc) => {
   const data = doc.data ? doc.data() : doc;
   const id = doc.id || data.id;
+  const rawOptions = Array.isArray(data.options)
+    ? data.options.map((option) => String(option ?? '').trim())
+    : [];
+  const options = normalizeOptions(data);
+  const correctIndex = resolveCorrectIndex(data, rawOptions, options);
+
   return {
     id,
-    question: data.question || '',
-    options: Array.isArray(data.options) ? data.options : [],
-    correctIndex: typeof data.correctIndex === 'number' ? data.correctIndex : 0,
-    category: data.category || 'bible',
-    difficulty: data.difficulty || 'medium',
-    reference: data.reference || '',
-    explanation: data.explanation || '',
+    question: String(data.question || data.text || '').trim(),
+    options,
+    correctIndex,
+    category: normalizeCategory(data.category),
+    difficulty: String(data.difficulty || 'medium').trim().toLowerCase(),
+    reference: String(data.reference || '').trim(),
+    explanation: String(data.explanation || '').trim(),
     active: data.active !== false,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
@@ -37,9 +88,6 @@ const fisherYates = (array) => {
   return arr;
 };
 
-/**
- * Select questions the user has not attempted for this quiz type.
- */
 export const selectQuestionsForSession = ({
   allQuestions,
   attemptedIds,

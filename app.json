@@ -74,12 +74,13 @@
       ]
     ],
     "extra": {
-      "firebaseApiKey": "AIzaSyAXcF5XmpYS-BtQcH0f07GCGYfg5UYqSR0",
-      "firebaseAuthDomain": "faithframe-e816b.firebaseapp.com",
-      "firebaseProjectId": "faithframe-e816b",
-      "firebaseStorageBucket": "faithframe-e816b.firebasestorage.app",
-      "firebaseMessagingSenderId": "633541627436",
-      "firebaseAppId": "1:633541627436:web:d3833278fbb08807558b89",
+      "firebaseApiKey": "AIzaSyDNbydpnLFgjurjWKDfUWCZ3qOI61K7FxU",
+      "firebaseAuthDomain": "wallpaper-c74a3.firebaseapp.com",
+      "firebaseProjectId": "wallpaper-c74a3",
+      "firebaseStorageBucket": "wallpaper-c74a3.firebasestorage.app",
+      "firebaseMessagingSenderId": "704605252889",
+      "firebaseAppId": "1:704605252889:web:837b184c26117194eda988",
+      "firebaseMeasurementId": "G-YG62JZD1NQ",
       "cloudinaryCloudName": "dhliwva4d",
       "cloudinaryUploadPreset": "faithframes_uploads",
       "eas": {

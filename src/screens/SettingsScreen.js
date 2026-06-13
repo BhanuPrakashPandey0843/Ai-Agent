@@ -10,6 +10,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { APP_NAME, APP_VERSION, SUPPORT_EMAIL } from '../constants';
 import { useAuth } from '../context/AuthContext';
@@ -42,6 +43,7 @@ function SettingRow({ icon, label, value, onPress, danger }) {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const { user, userProfile, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { showToast } = useToast();
@@ -109,8 +111,45 @@ export default function SettingsScreen() {
 
         <Text style={styles.sectionLabel}>Support</Text>
         <View style={styles.section}>
-          <SettingRow icon="mail-outline" label="Contact Support" value={SUPPORT_EMAIL} />
-          <SettingRow icon="information-circle-outline" label="App Version" value={APP_VERSION} />
+          <SettingRow
+            icon="mail-outline"
+            label="Contact Us"
+            onPress={() => navigation.navigate('ContactUs')}
+          />
+          <SettingRow
+            icon="notifications-outline"
+            label="Notifications"
+            onPress={() => navigation.navigate('Notifications')}
+          />
+          <SettingRow
+            icon="image-outline"
+            label="Wallpaper Settings"
+            onPress={() => navigation.navigate('WallpaperSettings')}
+          />
+          <SettingRow
+            icon="information-circle-outline"
+            label="App Version"
+            value={APP_VERSION}
+          />
+        </View>
+
+        <Text style={styles.sectionLabel}>Legal &amp; Information</Text>
+        <View style={styles.section}>
+          <SettingRow
+            icon="information-circle-outline"
+            label="About Us"
+            onPress={() => navigation.navigate('About')}
+          />
+          <SettingRow
+            icon="shield-checkmark-outline"
+            label="Privacy Policy"
+            onPress={() => navigation.navigate('PrivacyPolicy')}
+          />
+          <SettingRow
+            icon="document-text-outline"
+            label="Terms &amp; Conditions"
+            onPress={() => navigation.navigate('TermsConditions')}
+          />
         </View>
 
         <Text style={styles.sectionLabel}>Account</Text>

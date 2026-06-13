@@ -15,7 +15,7 @@ import {
 import { db } from '../config/firebase';
 import { COLLECTIONS } from '../constants';
 import { QUIZ_COLLECTIONS, QUIZ_TYPES, XP_PER_CORRECT, XP_PER_QUIZ_COMPLETE } from '../constants/quiz';
-import { normalizeQuestion, selectQuestionsForSession } from './quizEngine';
+import { isValidQuizQuestion, normalizeQuestion, selectQuestionsForSession } from './quizEngine';
 import { computeAccuracy, computeSessionScore, compareLeaderboardEntries } from '../utils/quizScoring';
 import { evaluateAchievements } from '../utils/achievements';
 import { getLeaderboardPeriodKey, toDateKey } from '../utils/quizDates';
@@ -28,15 +28,20 @@ import {
 
 const QUESTIONS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 
+const mapQuestionDocs = (docs) =>
+  docs
+    .map((d) => normalizeQuestion({ id: d.id, ...d.data() }))
+    .filter(isValidQuizQuestion);
+
 export const fetchAllQuestionsFromFirestore = async () => {
   const ref = collection(db, COLLECTIONS.QUESTIONS);
   try {
     const snap = await getDocs(query(ref, orderBy('createdAt', 'desc'), limit(500)));
-    return snap.docs.map((d) => normalizeQuestion({ id: d.id, ...d.data() }));
+    return mapQuestionDocs(snap.docs);
   } catch (err) {
     if (err?.code === 'failed-precondition') {
       const snap = await getDocs(query(ref, limit(500)));
-      const items = snap.docs.map((d) => normalizeQuestion({ id: d.id, ...d.data() }));
+      const items = mapQuestionDocs(snap.docs);
       return items.sort((a, b) => {
         const ta = a.createdAt?.toMillis?.() ?? 0;
         const tb = b.createdAt?.toMillis?.() ?? 0;
@@ -47,15 +52,16 @@ export const fetchAllQuestionsFromFirestore = async () => {
   }
 };
 
-export const getQuestionsCatalog = async (uid) => {
-  const cached = await getQuestionCache(uid);
-  if (cached?.questions?.length && Date.now() - cached.cachedAt < QUESTIONS_CACHE_TTL_MS) {
-    return cached.questions;
+export const getQuestionsCatalog = async (uid, { forceRefresh = false } = {}) => {
+  if (!forceRefresh) {
+    const cached = await getQuestionCache(uid);
+    if (cached?.questions?.length && Date.now() - cached.cachedAt < QUESTIONS_CACHE_TTL_MS) {
+      return cached.questions.filter(isValidQuizQuestion);
+    }
   }
+
   const questions = await fetchAllQuestionsFromFirestore();
-  if (questions.length) {
-    await saveQuestionCache(uid, { questions });
-  }
+  await saveQuestionCache(uid, { questions, cachedAt: Date.now() });
   return questions;
 };
 
@@ -85,10 +91,17 @@ export const prepareQuizSession = async (uid, quizTypeId) => {
     fetchAttemptedQuestionIds(uid),
   ]);
 
-  const activeQuestions = allQuestions.filter((q) => q.active !== false);
+  const activeQuestions = allQuestions.filter((q) => q.active !== false && isValidQuizQuestion(q));
   if (!activeQuestions.length) {
-    return { error: 'no_questions', message: 'No quiz questions available yet.' };
+    return {
+      error: 'no_questions',
+      message: 'No quiz questions available yet. Upload questions in the admin panel, then pull to refresh.',
+    };
   }
+
+  const matchingCount = activeQuestions.filter((q) =>
+    quizType.categories.includes(q.category)
+  ).length;
 
   const { questions, exhausted } = selectQuestionsForSession({
     allQuestions: activeQuestions,
@@ -99,9 +112,15 @@ export const prepareQuizSession = async (uid, quizTypeId) => {
   });
 
   if (exhausted || !questions.length) {
+    if (matchingCount === 0) {
+      return {
+        error: 'no_questions',
+        message: `No questions match "${quizType.label}" yet. Upload with categories: ${quizType.categories.join(', ')}.`,
+      };
+    }
     return {
       error: 'exhausted',
-      message: 'You have completed all available questions.',
+      message: 'You have completed all available questions for this quiz type.',
     };
   }
 
