@@ -17,6 +17,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { COLLECTIONS } from '../constants';
 
 const AuthContext = createContext(null);
 
@@ -57,7 +58,7 @@ export const AuthProvider = ({ children }) => {
     setUserProfile(buildFallbackProfile(firebaseUser));
     setIsPremium(false);
     try {
-      const docSnap = await getDoc(doc(db, 'users', uid));
+      const docSnap = await getDoc(doc(db, COLLECTIONS.USERS, uid));
       if (docSnap.exists()) {
         const data = docSnap.data();
         setUserProfile(data);
@@ -90,8 +91,9 @@ export const AuthProvider = ({ children }) => {
       return { success: false, error: err.message };
     }
 
+    let profileError = null;
     try {
-      await setDoc(doc(db, 'users', firebaseUser.uid), {
+      await setDoc(doc(db, COLLECTIONS.USERS, firebaseUser.uid), {
         name,
         email,
         photoURL: firebaseUser.photoURL || '',
@@ -102,12 +104,17 @@ export const AuthProvider = ({ children }) => {
         updatedAt: Date.now(),
         createdAt: serverTimestamp(),
       });
-    } catch {
-      // User created in Firebase Auth; Firestore profile write failed silently
+    } catch (err) {
+      profileError = err.message;
     }
 
     await fetchUserProfile(firebaseUser.uid, firebaseUser);
     sendEmailVerification(firebaseUser).catch(() => {});
+    
+    if (profileError) {
+      // Auth succeeded, but profile failed — still return success, but add a warning
+      return { success: true, profileError: 'Profile creation failed temporarily. Your account was created.' };
+    }
     return { success: true };
   };
 
@@ -134,7 +141,7 @@ export const AuthProvider = ({ children }) => {
   const updateUserProfile = async (updates) => {
     if (!user) return;
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
+      await updateDoc(doc(db, COLLECTIONS.USERS, user.uid), {
         ...updates,
         updatedAt: Date.now(),
       });

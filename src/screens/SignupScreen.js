@@ -63,6 +63,9 @@ export default function SignupScreen({ navigation }) {
     setLoading(false);
     if (result.success) {
       showToast('Account created! Welcome to Faith Frames', 'success');
+      if (result.profileError) {
+        showToast(result.profileError, 'warning');
+      }
     } else {
       showToast(getAuthErrorMessage(result.error), 'error');
     }

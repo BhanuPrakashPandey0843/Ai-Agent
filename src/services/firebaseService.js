@@ -36,6 +36,56 @@ const wallpaperTimestamp = (item) => {
 const sortWallpapersNewest = (items) =>
   [...items].sort((a, b) => wallpaperTimestamp(b) - wallpaperTimestamp(a));
 
+const normalizeStoryFields = (id, data = {}) => ({
+  id,
+  title: data.title || data.name || '',
+  prophetName: data.prophetName || data.name || '',
+  name: data.name || data.prophetName || '',
+  shortdescription: data.shortdescription || data.description || '',
+  description: data.shortdescription || data.description || '',
+  fullstory: data.fullstory || data.content || '',
+  content: data.fullstory || data.content || '',
+  readingtime: data.readingtime || data.readingTime || '',
+  coverimage: data.coverimage || data.image || data.bgurl || '',
+  image: data.coverimage || data.image || data.bgurl || '',
+  featured: data.featured === true,
+  published: data.published !== false,
+  author: data.author || 'admin',
+  likes: Number(data.likes || 0),
+  shares: Number(data.shares || 0),
+  views: Number(data.views || 0),
+  createdAt: data.createdAt || data.uploadedAt || null,
+  updatedAt: data.updatedAt || null,
+});
+
+/** Accepts a Firestore doc snapshot or a plain { id, ...fields } object from safeOnSnapshot */
+const mapStoryDoc = (docSnap) => {
+  if (!docSnap) return null;
+  const hasDataFn = typeof docSnap.data === 'function';
+  const data = hasDataFn ? docSnap.data() : docSnap;
+  const id = docSnap.id || data?.id || '';
+  if (!id) return null;
+  const { id: _ignored, ...rest } = data && typeof data === 'object' ? data : {};
+  return normalizeStoryFields(id, rest);
+};
+
+const mapStoryDocs = (input) => {
+  if (Array.isArray(input)) {
+    return input.map((item) => mapStoryDoc(item)).filter(Boolean);
+  }
+  const docs = Array.isArray(input?.docs) ? input.docs : [];
+  return docs.map((d) => mapStoryDoc(d)).filter(Boolean);
+};
+
+export const storyTimestamp = (item) => {
+  const t = item?.createdAt;
+  if (t && typeof t.toMillis === 'function') return t.toMillis();
+  if (t?.seconds) return t.seconds * 1000;
+  if (t instanceof Date) return t.getTime();
+  if (typeof t === 'number') return t;
+  return 0;
+};
+
 /** Query without composite index — client sort */
 const fetchWallpapersUnindexed = async (category = null) => {
   let q = query(collection(db, COLLECTIONS.WALLPAPERS), limit(100));
@@ -60,7 +110,11 @@ const fetchWallpapersUnindexed = async (category = null) => {
 function safeOnSnapshot(queryRef, onData, onError) {
   return onSnapshot(
     queryRef,
-    (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (snap) => {
+      // Ensure we ALWAYS pass an array to onData, even if snap.docs is missing or undefined
+      const items = Array.isArray(snap?.docs) ? snap.docs.map((d) => ({ id: d.id, ...d.data() })) : [];
+      onData(items);
+    },
     (err) => {
       if (onError) onError(err);
     }
@@ -307,6 +361,101 @@ export const fetchWitness = async () => {
   );
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+};
+
+export const subscribeToStories = (onData, onError) => {
+  const q = query(
+    collection(db, COLLECTIONS.STORIES),
+    orderBy('createdAt', 'desc'),
+    limit(40)
+  );
+  return safeOnSnapshot(
+    q,
+    (items) => {
+      const stories = mapStoryDocs(items)
+        .filter((story) => story.published)
+        .sort((a, b) => storyTimestamp(b) - storyTimestamp(a));
+      onData(stories);
+    },
+    onError
+  );
+};
+
+export const subscribeToFeaturedStories = (onData, onError) => {
+  const q = query(
+    collection(db, COLLECTIONS.STORIES),
+    orderBy('createdAt', 'desc'),
+    limit(40)
+  );
+  return safeOnSnapshot(
+    q,
+    (items) => {
+      const stories = mapStoryDocs(items)
+        .filter((story) => story.published && story.featured)
+        .sort((a, b) => storyTimestamp(b) - storyTimestamp(a));
+      onData(stories);
+    },
+    onError
+  );
+};
+
+export const fetchStories = async () => {
+  const q = query(
+    collection(db, COLLECTIONS.STORIES),
+    orderBy('createdAt', 'desc'),
+    limit(40)
+  );
+  const snap = await getDocs(q);
+  return mapStoryDocs(snap);
+};
+
+export const getStories = async () => fetchStories();
+
+export const getFeaturedStories = async () => {
+  const q = query(
+    collection(db, COLLECTIONS.STORIES),
+    orderBy('createdAt', 'desc'),
+    limit(40)
+  );
+  const snap = await getDocs(q);
+  return mapStoryDocs(snap)
+    .filter((story) => story.published && story.featured)
+    .sort((a, b) => storyTimestamp(b) - storyTimestamp(a));
+};
+
+export const createStory = async (data) => {
+  const payload = {
+    ...data,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  const docRef = await addDoc(collection(db, COLLECTIONS.STORIES), payload);
+  return { id: docRef.id, ...payload };
+};
+
+export const updateStory = async (id, data) => {
+  await updateDoc(doc(db, COLLECTIONS.STORIES, id), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+export const deleteStory = async (id) => {
+  await deleteDoc(doc(db, COLLECTIONS.STORIES, id));
+};
+
+export const toggleFeatured = async (id, currentFeatured) => {
+  await updateDoc(doc(db, COLLECTIONS.STORIES, id), {
+    featured: !currentFeatured,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+export const togglePublished = async (id, currentPublished) => {
+  await updateDoc(doc(db, COLLECTIONS.STORIES, id), {
+    published: !currentPublished,
+    updatedAt: serverTimestamp(),
+  });
 };
 
 export const updateUserScore = async (uid, score) => {

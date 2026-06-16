@@ -1,7 +1,7 @@
-// src/context/ThemeContext.js — Dark + Light theme support
+// src/context/ThemeContext.js — Full Premium Dark + Light Theme Support
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors } from '../theme/colors';
+import { getColors, Typography, Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { HomeTheme } from '../theme/homeTheme';
 import { STORAGE_KEYS } from '../constants';
 
@@ -23,104 +23,54 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const theme = useMemo(() => {
-    if (isDark) {
-      return {
-        isDark: true,
-        toggleTheme,
-        colors: {
-          background: Colors.bgDark,
-          surface: Colors.bgCard,
-          card: Colors.bgCardLight,
-          text: Colors.textPrimary,
-          textSecondary: Colors.textSecondary,
-          textMuted: Colors.textMuted,
-          border: Colors.border,
-          primary: Colors.primary,
-          accent: Colors.primaryLight,
-          primaryMuted: Colors.accentSoft,
-          onPrimary: Colors.white,
-          error: Colors.error,
-          success: Colors.success,
-        },
-        navTheme: {
-          dark: true,
-          colors: {
-            primary: Colors.primary,
-            background: Colors.bgDark,
-            card: Colors.bgCard,
-            text: Colors.textPrimary,
-            border: Colors.border,
-            notification: Colors.primary,
-          },
-        },
-        elevation: (level = 'medium') => {
-          if (level === 'high') return Colors.card ? {} : ShadowsFallback.high;
-          return ShadowsFallback.medium;
-        },
-      };
-    }
-
+    const colors = getColors(isDark);
     return {
-      isDark: false,
+      isDark,
       toggleTheme,
       colors: {
-        background: HomeTheme.bg,
-        surface: HomeTheme.surface,
-        card: '#F8F4E8',
-        text: HomeTheme.text,
-        textSecondary: '#5C5C5C',
-        textMuted: HomeTheme.textMuted,
-        border: 'rgba(0,0,0,0.08)',
-        primary: HomeTheme.primary,
-        accent: HomeTheme.orange,
-        primaryMuted: '#E8EFFF',
-        onPrimary: '#FFFFFF',
-        error: Colors.error,
-        success: Colors.success,
+        ...colors,
+        // For backward compatibility, add some old keys:
+        bgDark: colors.bg,
+        bgCardLight: colors.bgCard,
+        text: colors.textPrimary,
+        primaryMuted: colors.accentSoft,
+        onPrimary: colors.white,
+        error: colors.error,
+        success: colors.success,
+        textMuted: colors.textMuted,
+        border: colors.border,
+        accentSoft: colors.accentSoft,
+        primary: colors.primary,
+        accent: colors.accent,
+      },
+      Typography,
+      Spacing,
+      BorderRadius,
+      Shadows: {
+        glow: Shadows.glow(isDark),
+        card: Shadows.card(isDark),
+        nav: Shadows.nav(isDark),
       },
       navTheme: {
-        dark: false,
+        dark: isDark,
         colors: {
-          primary: HomeTheme.primary,
-          background: HomeTheme.bg,
-          card: HomeTheme.surface,
-          text: HomeTheme.text,
-          border: 'rgba(0,0,0,0.08)',
-          notification: HomeTheme.orange,
+          primary: colors.primary,
+          background: colors.bg,
+          card: colors.bgCard,
+          text: colors.textPrimary,
+          border: colors.border,
+          notification: colors.primary,
         },
       },
       elevation: (level = 'medium') => {
-        if (level === 'high') return ShadowsFallback.highLight;
-        return HomeTheme.shadow;
+        if (level === 'high') return Shadows.nav(isDark);
+        if (level === 'glow') return Shadows.glow(isDark);
+        return Shadows.card(isDark);
       },
     };
   }, [isDark]);
 
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
-};
-
-const ShadowsFallback = {
-  medium: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  high: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  highLight: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 14,
-    elevation: 8,
-  },
 };
 
 export const useTheme = () => {

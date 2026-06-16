@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
   TextInput,
   StatusBar,
   Image,
@@ -13,21 +13,12 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { CATEGORIES, APP_NAME } from '../constants';
-import {
-  HomeTheme,
-  STORY_CATEGORIES,
-  FEATURED_STORIES,
-} from '../theme/homeTheme';
-import useWallpapers from '../hooks/useWallpapers';
-import useFavorites from '../hooks/useFavorites';
-import WallpaperCard from '../components/wallpaper/WallpaperCard';
-import { WallpaperCardSkeleton } from '../components/common/SkeletonLoader';
+import { APP_NAME } from '../constants';
+import { HomeTheme, STORY_CATEGORIES } from '../theme/homeTheme';
 import { useAuth } from '../context/AuthContext';
 import CategoryBowl from '../components/home/CategoryBowl';
-import FeaturedStoryCard from '../components/home/FeaturedStoryCard';
-import GospelBanner from '../components/home/GospelBanner';
-import CategoryFilterChip from '../components/home/CategoryFilterChip';
+import FeaturedStoriesSection from '../components/home/FeaturedStoriesSection';
+import ProphetStoriesSection from '../components/home/ProphetStoriesSection';
 
 const H = HomeTheme;
 
@@ -53,47 +44,17 @@ function ProfileAvatar({ onPress, photoURL }) {
 }
 
 export default function HomeScreen() {
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { user, userProfile } = useAuth();
-  const { wallpapers, loading, refreshing, error, refresh, retry } = useWallpapers(null);
-  const { toggle, isFavorite } = useFavorites();
-  const [selectedCat, setSelectedCat] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-
-  const filtered = useMemo(() => {
-    let items = wallpapers;
-    if (selectedCat !== 'all') items = items.filter((w) => w.category === selectedCat);
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      items = items.filter(
-        (w) =>
-          w.title?.toLowerCase().includes(q) ||
-          w.category?.toLowerCase().includes(q) ||
-          w.country?.toLowerCase().includes(q)
-      );
-    }
-    return items;
-  }, [wallpapers, selectedCat, searchQuery]);
 
   const goCategory = useCallback(
     (item) => {
       const cat = item.category || item;
       navigation.navigate('Category', { category: cat });
     },
-    [navigation]
-  );
-
-  const goFeatured = useCallback(
-    (story) => navigation.navigate('Category', { category: story.category }),
-    [navigation]
-  );
-
-  const goGospel = useCallback(
-    () =>
-      navigation.navigate('Category', {
-        category: { id: 'Christian', label: 'Christian' },
-      }),
     [navigation]
   );
 
@@ -104,14 +65,6 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={refresh}
-            tintColor={H.primary}
-            colors={[H.primary]}
-          />
-        }
       >
         <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
           <Text style={styles.brandTitle}>{APP_NAME}</Text>
@@ -162,78 +115,10 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        <Text style={[styles.sectionHeading, styles.sectionGap]}>Featured Stories</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.historyRow}
-        >
-          {FEATURED_STORIES.map((story) => (
-            <FeaturedStoryCard key={story.id} story={story} onPress={goFeatured} />
-          ))}
-        </ScrollView>
+        <FeaturedStoriesSection />
 
-        <Text style={[styles.sectionHeading, styles.sectionGap]}>Jesus & The Gospel</Text>
-        <View style={styles.bannerSection}>
-          <GospelBanner onPress={goGospel} />
-        </View>
+        <ProphetStoriesSection />
 
-        <Text style={[styles.sectionHeading, styles.sectionGap]}>Wallpapers</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-        >
-          <CategoryFilterChip
-            label="All"
-            active={selectedCat === 'all'}
-            onPress={() => setSelectedCat('all')}
-          />
-          {CATEGORIES.map((cat) => (
-            <CategoryFilterChip
-              key={cat.id}
-              label={cat.label}
-              icon={cat.icon}
-              color={cat.color}
-              active={selectedCat === cat.id}
-              onPress={() => setSelectedCat(cat.id)}
-            />
-          ))}
-        </ScrollView>
-
-        {error && !loading ? (
-          <View style={styles.errorBox}>
-            <Ionicons name="cloud-offline-outline" size={40} color={H.textMuted} />
-            <Text style={styles.errMsg}>{error}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={retry}>
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : loading ? (
-          <View style={styles.wallGrid}>
-            {[0, 1, 2, 3].map((i) => (
-              <WallpaperCardSkeleton key={i} />
-            ))}
-          </View>
-        ) : filtered.length === 0 ? (
-          <Text style={styles.emptyWall}>
-            {wallpapers.length === 0
-              ? 'No wallpapers yet. Add some in the admin panel.'
-              : 'No wallpapers match this filter'}
-          </Text>
-        ) : (
-          <View style={styles.wallGrid}>
-            {filtered.map((item, index) => (
-              <WallpaperCard
-                key={item.id}
-                item={item}
-                index={index}
-                isFavorite={isFavorite(item.id)}
-                onFavoriteToggle={toggle}
-              />
-            ))}
-          </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -339,54 +224,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 16,
     paddingBottom: 4,
-  },
-  bannerSection: {
-    paddingHorizontal: 20,
-    marginBottom: 8,
-  },
-  filterRow: {
-    paddingHorizontal: 20,
-    gap: 8,
-    marginBottom: 14,
-  },
-  wallGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-  },
-  emptyWall: {
-    textAlign: 'center',
-    color: H.textMuted,
-    paddingVertical: 24,
-    fontSize: 14,
-    paddingHorizontal: 24,
-    lineHeight: 20,
-  },
-  errorBox: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    marginHorizontal: 20,
-    backgroundColor: H.surface,
-    borderRadius: 16,
-    ...H.shadow,
-  },
-  errMsg: {
-    fontSize: 14,
-    color: H.textMuted,
-    textAlign: 'center',
-    marginVertical: 12,
-    lineHeight: 20,
-  },
-  retryBtn: {
-    backgroundColor: H.primary,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 24,
-  },
-  retryText: {
-    color: '#FFF',
-    fontWeight: '700',
   },
 });

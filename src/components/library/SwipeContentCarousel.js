@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, BorderRadius } from '../../theme/colors';
+import { Typography, BorderRadius } from '../../theme/colors';
+import { useTheme } from '../../context/ThemeContext';
 import SkeletonLoader from '../common/SkeletonLoader';
 import SwipeContentCard, { SWIPE_CARD_W } from './SwipeContentCard';
 import LibraryEmptyState from './LibraryEmptyState';
@@ -19,7 +20,7 @@ import { getBookmarkIds, toggleBookmarkId } from '../../storage';
 import { useToast } from '../../context/ToastContext';
 
 export default function SwipeContentCarousel({
-  items,
+  items = [],
   loading,
   error,
   accent,
@@ -35,6 +36,11 @@ export default function SwipeContentCarousel({
   fromCache,
 }) {
   const { showToast } = useToast();
+  const { isDark } = useTheme();
+  
+  const bgCard = isDark ? '#101010' : '#F5F5F5';
+  const textMuted = isDark ? '#9CA3AF' : '#6B7280';
+  const borderColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
   const [activeIndex, setActiveIndex] = useState(0);
   const [bookmarked, setBookmarked] = useState({});
   const flatRef = useRef(null);
@@ -125,7 +131,7 @@ export default function SwipeContentCarousel({
   return (
     <View style={styles.root}>
       {fromCache ? (
-        <View style={[styles.cacheBanner, { borderColor: accent + '40' }]}>
+        <View style={[styles.cacheBanner, { borderColor: accent + '40', backgroundColor: bgCard }]}>
           <Ionicons name="cloud-offline-outline" size={14} color={accent} />
           <Text style={[styles.cacheText, { color: accent }]}>Showing saved content</Text>
         </View>
@@ -176,7 +182,7 @@ export default function SwipeContentCarousel({
                   styles.dot,
                   i === activeIndex
                     ? { width: 20, backgroundColor: accent }
-                    : { width: 7, backgroundColor: Colors.textMuted + '60' },
+                    : { width: 7, backgroundColor: textMuted + '60' },
                 ]}
               />
             </TouchableOpacity>
@@ -184,8 +190,8 @@ export default function SwipeContentCarousel({
         </View>
       ) : null}
 
-      <View style={styles.countChip}>
-        <Text style={styles.countText}>
+      <View style={[styles.countChip, { backgroundColor: bgCard, borderColor: borderColor }]}>
+        <Text style={[styles.countText, { color: textMuted }]}>
           {activeIndex + 1} / {items.length}
         </Text>
       </View>
@@ -211,17 +217,14 @@ const styles = StyleSheet.create({
   dot: { height: 7, borderRadius: 4 },
   countChip: {
     alignSelf: 'center',
-    backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.round,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: Colors.border,
     marginBottom: 8,
   },
   countText: {
     fontSize: 11,
-    color: Colors.textMuted,
     fontWeight: Typography.fontWeightBold,
   },
   cacheBanner: {
@@ -235,7 +238,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: BorderRadius.round,
     borderWidth: 1,
-    backgroundColor: Colors.bgCard,
   },
   cacheText: {
     fontSize: 11,

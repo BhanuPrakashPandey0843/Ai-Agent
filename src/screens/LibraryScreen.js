@@ -1,466 +1,259 @@
 // src/screens/LibraryScreen.js
-// Premium Library Redesign with Tabbed Content
-// Inspired by premium Christian apps
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+// Premium Library Redesign with Animations & Dark/Light Mode
+import React, { useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Animated,
   StatusBar,
-  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, BorderRadius } from '../theme/colors';
-import { HomeTheme } from '../theme/homeTheme';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  Easing,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { useTheme } from '../context/ThemeContext';
 
-import DailyVerseScreen from './DailyVerseScreen';
-import DailyPrayerScreen from './DailyPrayerScreen';
-import QuotesScreen from './QuotesScreen';
-import StudyPlansScreen from './StudyPlansScreen';
-import WitnessScreen from './WitnessScreen';
-import MeetShareScreen from './MeetShareScreen';
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
-const { width: SCREEN_W } = Dimensions.get('window');
-
-// Original Tabs
-const TABS = [
-  {
-    id: 'verse',
-    label: 'Verse',
-    icon: 'book-open-outline',
-    lib: 'Ionicons',
-    color: '#558AFF',
-    gradient: ['#0D1B3E', '#1a2a5e'],
-  },
-  {
-    id: 'prayer',
-    label: 'Prayer',
-    icon: 'hands-pray',
-    lib: 'MaterialCommunity',
-    color: '#A855F7',
-    gradient: ['#1a0d2e', '#2d1b4e'],
-  },
-  {
-    id: 'quotes',
-    label: 'Quotes',
-    icon: 'chatbubble-ellipses-outline',
-    lib: 'Ionicons',
-    color: '#FF6B00',
-    gradient: ['#1a0a00', '#2d1500'],
-  },
-  {
-    id: 'study',
-    label: 'Study',
-    icon: 'library-outline',
-    lib: 'Ionicons',
-    color: '#22C55E',
-    gradient: ['#0a1a0a', '#1a3a1a'],
-  },
-  {
-    id: 'witness',
-    label: 'Witness',
-    icon: 'people-outline',
-    lib: 'Ionicons',
-    color: '#F59E0B',
-    gradient: ['#1a1200', '#2d2000'],
-  },
-  {
-    id: 'meet',
-    label: 'Meet',
-    icon: 'videocam-outline',
-    lib: 'Ionicons',
-    color: '#06B6D4',
-    gradient: ['#001a1a', '#002d2d'],
-  },
-];
-
-// Feature Grid Data
 const FEATURES = [
   {
     id: 'dailyVerse',
     title: 'Daily Verse',
-    category: 'SCRIPTURE',
-    description: "Divine wisdom and light for your path",
-    icon: 'book-open-outline',
-    iconLib: 'Ionicons',
-    color: '#FF6B00',
-    tabIndex: 0,
+    description: 'A verse to strengthen your faith daily.',
+    icon: 'book-outline',
+    gradientKey: 'gradientVerse',
+    screen: 'DailyVerse',
   },
   {
     id: 'dailyPrayer',
     title: 'Daily Prayer',
-    category: 'CONNECTION',
-    description: "A quiet space for your conversation with God",
-    icon: 'hands-pray',
-    iconLib: 'MaterialCommunity',
-    color: '#A855F7',
-    tabIndex: 1,
+    description: 'Start your day with powerful prayer.',
+    icon: 'heart-outline',
+    gradientKey: 'gradientPrayer',
+    screen: 'DailyPrayer',
+  },
+  {
+    id: 'wallpaper',
+    title: 'Wallpaper',
+    description: 'Faith-filled wallpapers for your device.',
+    icon: 'image-outline',
+    gradientKey: 'gradientWallpaper',
+    screen: 'Wallpapers',
   },
   {
     id: 'quotes',
-    title: "God's Words",
-    category: 'WISDOM',
-    description: "Timeless truths extracted for daily life",
+    title: 'Quotes',
+    description: 'Inspiring quotes to uplift your spirit.',
     icon: 'chatbubble-ellipses-outline',
-    iconLib: 'Ionicons',
-    color: '#22C55E',
-    tabIndex: 2,
+    gradientKey: 'gradientQuotes',
+    screen: 'Quotes',
+  },
+  {
+    id: 'study',
+    title: 'Study Plans',
+    description: 'Deepen your understanding with guided plans.',
+    icon: 'school-outline',
+    gradientKey: 'gradientStudy',
+    screen: 'StudyPlans',
   },
   {
     id: 'witness',
-    title: 'The Witness',
-    category: 'STORIES',
-    description: "Real faith stories from the community",
-    icon: 'people-outline',
-    iconLib: 'Ionicons',
-    color: '#F59E0B',
-    tabIndex: 4,
-  },
-  {
-    id: 'studyPlans',
-    title: 'Study Plans',
-    category: 'GROWTH',
-    description: "Guided journeys through Scripture",
-    icon: 'library-outline',
-    iconLib: 'Ionicons',
-    color: '#10B981',
-    tabIndex: 3,
+    title: 'Witness',
+    description: 'Share your faith and inspire others.',
+    icon: 'megaphone-outline',
+    gradientKey: 'gradientWitness',
+    screen: 'Witness',
   },
 ];
 
-// Daily Wisdom Cards
-const WISDOM_CARDS = [
-  {
-    id: 1,
-    title: "Today's Verse",
-    text: "For God so loved the world that he gave his one and only Son.",
-    reference: "John 3:16",
-  },
-  {
-    id: 2,
-    title: "Daily Inspiration",
-    text: "The Lord is my light and my salvation; whom shall I fear?",
-    reference: "Psalm 27:1",
-  },
-];
-
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "GOOD MORNING";
-  if (hour < 17) return "GOOD AFTERNOON";
-  if (hour < 21) return "GOOD EVENING";
-  return "GOOD NIGHT";
-}
-
-function Icon({ name, lib, size, color }) {
-  if (lib === 'MaterialCommunity') {
-    return <MaterialCommunityIcons name={name} size={size} color={color} />;
-  }
-  return <Ionicons name={name} size={size} color={color} />;
-}
-
-function WisdomCard({ item, index }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const onPressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.96,
-      useNativeDriver: true,
-      speed: 20,
-      bounciness: 4,
-    }).start();
-  };
-
-  const onPressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 20,
-      bounciness: 4,
-    }).start();
-  };
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-    >
-      <Animated.View
-        style={[
-          styles.wisdomCard,
-          {
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
-      >
-        <Text style={styles.wisdomText}>{item.text}</Text>
-        <Text style={styles.wisdomReference}>★ {item.reference}</Text>
-      </Animated.View>
-    </TouchableOpacity>
-  );
-}
-
-function FeatureCard({ item, index, onPress }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+const AnimatedFeatureCard = ({ item, index, onPress, isDark, colors }) => {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(0);
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
+    opacity.value = withTiming(1, {
       duration: 600,
-      delay: index * 80,
-      useNativeDriver: true,
-    }).start();
+      delay: index * 100,
+      easing: Easing.out(Easing.ease),
+    });
   }, []);
 
-  const onPressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      useNativeDriver: true,
-      speed: 20,
-      bounciness: 4,
-    }).start();
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  const handlePressIn = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    scale.value = withSpring(0.96, { damping: 20, stiffness: 300 });
   };
 
-  const onPressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 20,
-      bounciness: 4,
-    }).start();
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 20, stiffness: 300 });
+    onPress(item.screen);
   };
 
   return (
-    <TouchableOpacity
-      style={styles.featureCardWrapper}
+    <AnimatedTouchableOpacity
       activeOpacity={0.9}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      onPress={() => onPress(item.tabIndex)}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[styles.featureCardWrapper, animatedStyle]}
     >
-      <Animated.View
-        style={[
-          styles.featureCard,
-          {
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
+      <LinearGradient
+        colors={colors[item.gradientKey]}
+        style={[styles.featureCard, { backgroundColor: colors.bgCard }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
-        <View style={[styles.iconContainer, { backgroundColor: item.color + '20' }]}>
-          <Icon name={item.icon} lib={item.iconLib} size={36} color={item.color} />
+        <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+          <Ionicons name={item.icon} size={36} color="#FFFFFF" />
         </View>
-        <Text style={styles.featureTitle}>{item.title}</Text>
-        <Text style={styles.featureCategory}>{item.category}</Text>
-        <Text style={styles.featureDescription}>{item.description}</Text>
-      </Animated.View>
-    </TouchableOpacity>
+        <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>{item.title}</Text>
+        <Text style={[styles.featureDescription, { color: 'rgba(255,255,255,0.85)' }]}>
+          {item.description}
+        </Text>
+        <View style={[styles.arrowButton, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+          <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+        </View>
+      </LinearGradient>
+    </AnimatedTouchableOpacity>
   );
-}
+};
 
-function TabIcon({ tab, focused, size = 18 }) {
-  const color = focused ? tab.color : Colors.textMuted;
-  if (tab.lib === 'MaterialCommunity') {
-    return <MaterialCommunityIcons name={tab.icon} size={size} color={color} />;
-  }
-  return <Ionicons name={tab.icon} size={size} color={color} />;
-}
+const LiveWorshipCard = ({ onPress, isDark, colors }) => {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withTiming(1, {
+      duration: 600,
+      delay: 700,
+      easing: Easing.out(Easing.ease),
+    });
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  const handlePressIn = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    scale.value = withSpring(0.98, { damping: 20, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 20, stiffness: 300 });
+    onPress('MeetShare');
+  };
+
+  return (
+    <AnimatedTouchableOpacity
+      activeOpacity={0.9}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[styles.liveCardWrapper, animatedStyle]}
+    >
+      <LinearGradient
+        colors={colors.gradientMeet}
+        style={[styles.liveCard, { backgroundColor: colors.bgCard }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={[styles.liveIconContainer, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+          <Ionicons name="musical-notes" size={44} color="#FFFFFF" />
+        </View>
+        <View style={styles.liveTextContainer}>
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveBadgeText}>LIVE</Text>
+          </View>
+          <Text style={[styles.liveTitle, { color: '#FFFFFF' }]}>Worship Room</Text>
+          <Text style={[styles.liveDescription, { color: 'rgba(255,255,255,0.85)' }]}>
+            Join live worship and connect with believers.
+          </Text>
+        </View>
+        <View style={[styles.arrowButton, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+          <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+        </View>
+      </LinearGradient>
+    </AnimatedTouchableOpacity>
+  );
+};
 
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
-  const [greeting, setGreeting] = useState(getGreeting());
-  const [activeTab, setActiveTab] = useState(null); // null = home view
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
+  const navigation = useNavigation();
+  const { isDark, colors, Typography } = useTheme();
 
-  useEffect(() => {
-    const interval = setInterval(() => setGreeting(getGreeting()), 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const switchTab = useCallback(
-    (index) => {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 8,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setActiveTab(index);
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateY, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      });
-    },
-    [fadeAnim, translateY]
-  );
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 0: return <DailyVerseScreen />;
-      case 1: return <DailyPrayerScreen />;
-      case 2: return <QuotesScreen />;
-      case 3: return <StudyPlansScreen />;
-      case 4: return <WitnessScreen />;
-      case 5: return <MeetShareScreen />;
-      default: return null;
+  const handlePress = (screen) => {
+    const parentNav = navigation.getParent();
+    if (parentNav?.getState().routeNames.includes(screen)) {
+      parentNav.navigate(screen);
+    } else {
+      navigation.navigate(screen);
     }
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <StatusBar
-        barStyle="light-content"
+        barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent
       />
-
-      {/* Home View */}
-      {activeTab === null && (
-        <ScrollView
-          style={[styles.scrollView, { paddingTop: insets.top + 16 }]}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Hero Area */}
-          <View style={styles.heroArea}>
-            <Text style={styles.greeting}>{greeting}</Text>
-            <Text style={styles.title}>Library</Text>
-            <View style={styles.accentLine} />
-          </View>
-
-          {/* Daily Wisdom Section */}
-          <View style={styles.dailyWisdomSection}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="sparkles-outline" size={24} color={HomeTheme.orange} />
-              <Text style={styles.sectionTitle}>DAILY WISDOM</Text>
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.wisdomScroll}
-            >
-              {WISDOM_CARDS.map((item, index) => (
-                <WisdomCard key={item.id} item={item} index={index} />
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* Feature Grid */}
-          <View style={styles.featureGridSection}>
-            <View style={styles.featureGrid}>
-              {FEATURES.map((item, index) => (
-                <FeatureCard
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  onPress={(tabIdx) => switchTab(tabIdx)}
-                />
-              ))}
-            </View>
-          </View>
-
-          {/* Bottom padding for bottom nav */}
-          <View style={{ height: 120 }} />
-        </ScrollView>
-      )}
-
-      {/* Tabbed Content View */}
-      {activeTab !== null && (
-        <View style={styles.tabContentView}>
-          {/* Custom Header for Tabs */}
-          <View style={[styles.tabHeader, { paddingTop: insets.top + 8 }]}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => setActiveTab(null)}
-            >
-              <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-            </TouchableOpacity>
-            <View style={styles.headerRight}>
-              <TabIcon tab={TABS[activeTab]} focused size={20} />
-              <Text style={[styles.headerTitle, { color: TABS[activeTab].color }]}>
-                {TABS[activeTab].label}
-              </Text>
-            </View>
-          </View>
-
-          {/* Tab Pills */}
-          <View style={styles.tabRow}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.tabScrollContent}
-            >
-              {TABS.map((tab, index) => {
-                const focused = index === activeTab;
-                return (
-                  <TouchableOpacity
-                    key={tab.id}
-                    onPress={() => switchTab(index)}
-                    activeOpacity={0.8}
-                    style={[
-                      styles.tabPill,
-                      focused && {
-                        backgroundColor: tab.color + '18',
-                        borderColor: tab.color + '50',
-                      },
-                    ]}
-                  >
-                    <TabIcon tab={tab} focused={focused} size={15} />
-                    <Text
-                      style={[
-                        styles.tabLabel,
-                        { color: focused ? tab.color : Colors.textMuted },
-                      ]}
-                    >
-                      {tab.label}
-                    </Text>
-                    {focused && (
-                      <View style={[styles.tabActiveDot, { backgroundColor: tab.color }]} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          {/* Content with fade/slide animation */}
-          <Animated.View
-            style={[
-              styles.contentArea,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY }],
-              },
-            ]}
-          >
-            {renderContent()}
-          </Animated.View>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Title Section */}
+        <View style={styles.titleSection}>
+          <Text style={[styles.title, { color: colors.textPrimary, fontSize: Typography.fontSize4XL }]}>
+            Library
+          </Text>
+          <View style={[styles.accentLine, { backgroundColor: colors.primary }]} />
+          <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: Typography.fontSizeLG }]}>
+            Grow in faith. Access helpful tools for your spiritual journey.
+          </Text>
         </View>
-      )}
+
+        {/* Feature Grid */}
+        <View style={styles.featureGrid}>
+          {FEATURES.map((item, index) => (
+            <AnimatedFeatureCard
+              key={item.id}
+              item={item}
+              index={index}
+              onPress={handlePress}
+              isDark={isDark}
+              colors={colors}
+            />
+          ))}
+        </View>
+
+        {/* Live Worship Card */}
+        <LiveWorshipCard
+          onPress={handlePress}
+          isDark={isDark}
+          colors={colors}
+        />
+
+        {/* Bottom padding for bottom nav */}
+        <View style={{ height: 120 }} />
+      </ScrollView>
     </View>
   );
 }
@@ -468,201 +261,146 @@ export default function LibraryScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.bgDark,
   },
+
   scrollView: {
     flex: 1,
   },
+
   scrollContent: {
-    paddingBottom: 20,
+    paddingHorizontal: 20,
   },
-  heroArea: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xl,
+
+  titleSection: {
+    marginBottom: 32,
   },
-  greeting: {
-    fontFamily: 'System',
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textMuted,
-    letterSpacing: 3,
-    marginBottom: 8,
-  },
+
   title: {
-    fontFamily: 'System',
-    fontSize: Typography.fontSize4XL,
     fontWeight: '800',
-    color: Colors.textPrimary,
-    letterSpacing: -1.5,
+    letterSpacing: -1.2,
   },
+
   accentLine: {
-    width: 48,
+    width: 56,
     height: 4,
-    backgroundColor: HomeTheme.orange,
-    borderRadius: 2,
-    marginTop: Spacing.md,
+    borderRadius: 999,
+    marginTop: 10,
   },
-  dailyWisdomSection: {
-    marginBottom: Spacing.xl,
+
+  subtitle: {
+    lineHeight: 26,
+    marginTop: 12,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.textMuted,
-    letterSpacing: 2,
-  },
-  wisdomScroll: {
-    paddingHorizontal: Spacing.xl,
-    gap: 16,
-  },
-  wisdomCard: {
-    width: SCREEN_W * 0.75,
-    padding: 32,
-    borderRadius: 32,
-    backgroundColor: Colors.bgCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  wisdomText: {
-    fontSize: 22,
-    fontWeight: '500',
-    color: Colors.textPrimary,
-    lineHeight: 32,
-    marginBottom: 16,
-  },
-  wisdomReference: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: HomeTheme.orange,
-  },
-  featureGridSection: {
-    paddingHorizontal: Spacing.xl,
-  },
+
   featureGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 16,
+    marginBottom: 20,
   },
+
   featureCardWrapper: {
-    width: '47%',
-  },
-  featureCard: {
-    width: '100%',
-    padding: 24,
-    borderRadius: 32,
-    backgroundColor: Colors.bgCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    alignItems: 'flex-start',
-  },
-  iconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: '48%',
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
-  featureTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-    marginBottom: 8,
-    letterSpacing: -0.5,
+
+  featureCard: {
+    borderRadius: 28,
+    padding: 20,
+    minHeight: 250,
   },
-  featureCategory: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.textMuted,
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
-  featureDescription: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: Colors.textSecondary,
-    lineHeight: 22,
-  },
-  // Tab View Styles
-  tabContentView: {
-    flex: 1,
-  },
-  tabHeader: {
-    flexDirection: 'row',
+
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.md,
+    marginBottom: 16,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+
+  featureTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    marginBottom: 8,
+  },
+
+  featureDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+
+  arrowButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.bgCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    alignSelf: 'flex-start',
   },
-  headerRight: {
+
+  liveCardWrapper: {
+    marginTop: 4,
+  },
+
+  liveCard: {
+    borderRadius: 32,
+    padding: 22,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  tabRow: {
-    paddingBottom: Spacing.md,
-  },
-  tabScrollContent: {
-    paddingHorizontal: Spacing.xl,
-    gap: 8,
-  },
-  tabPill: {
-    flexDirection: 'row',
+
+  liveIconContainer: {
+    width: 88,
+    height: 88,
+    borderRadius: 28,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 14,
-    backgroundColor: Colors.bgCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    position: 'relative',
+    marginRight: 16,
   },
-  tabLabel: {
-    fontSize: 12,
-    fontWeight: Typography.fontWeightBold,
-  },
-  tabActiveDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginLeft: 2,
-  },
-  contentArea: {
+
+  liveTextContainer: {
     flex: 1,
+    paddingRight: 12,
+  },
+
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginBottom: 8,
+  },
+
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+    marginRight: 6,
+  },
+
+  liveBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+
+  liveTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginBottom: 6,
+  },
+
+  liveDescription: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

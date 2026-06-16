@@ -44,22 +44,31 @@ const WallpaperCard = ({ item, index = 0, isFavorite = false, onFavoriteToggle }
   // Vary card height for masonry feel
   const cardHeight = index % 3 === 0 ? 240 : 200;
 
+const [imageError, setImageError] = React.useState(false);
+
   return (
-    <Animated.View style={[styles.container, { opacity, transform: [{ scale }] }]}>
+    <Animated.View style={[styles.container, { opacity, transform: [{ scale }] }]}> 
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={openDetail}
         onPressIn={pressIn}
         onPressOut={pressOut}
       >
-        <Image
-          source={{ uri: item.uri }}
-          style={[styles.image, { height: cardHeight }]}
-          contentFit="cover"
-          transition={300}
-          placeholder={{ thumbhash: item.thumbhash }}
-          cachePolicy="memory-disk"
-        />
+        {item.uri && !imageError ? (
+          <Image
+            source={{ uri: item.uri }}
+            style={[styles.image, { height: cardHeight }]}
+            contentFit="cover"
+            transition={300}
+            placeholder={{ thumbhash: item.thumbhash }}
+            cachePolicy="memory-disk"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <View style={[styles.image, styles.imageFallback, { height: cardHeight }]}> 
+            <Ionicons name="image-outline" size={40} color="#D1D5DB" />
+          </View>
+        )}
 
         {/* Gradient overlay */}
         <LinearGradient
@@ -129,6 +138,11 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     borderRadius: BorderRadius.lg,
+  },
+  imageFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1f2937',
   },
   gradient: {
     position: 'absolute',

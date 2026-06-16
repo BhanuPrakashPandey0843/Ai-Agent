@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Colors, Typography, Spacing, BorderRadius } from '../../theme/colors';
 
-export default function CategoryChipRow({ categories, selected, onSelect, accent }) {
+export default function CategoryChipRow({ categories = [], selected, onSelect, accent }) {
   return (
     <ScrollView
       horizontal

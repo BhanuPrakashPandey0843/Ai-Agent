@@ -78,5 +78,7 @@ export const cacheLibraryItems = async (storageKey, items) => {
 
 export const getCachedLibraryItems = async (storageKey) => {
   const cached = await getJSON(storageKey);
-  return cached?.items || null;
+  // Ensure we ALWAYS return an array, no matter what!
+  const items = cached?.items;
+  return Array.isArray(items) ? items : [];
 };

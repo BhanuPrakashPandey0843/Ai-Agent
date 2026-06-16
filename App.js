@@ -41,6 +41,7 @@ const navTheme = {
 };
 
 export default function App() {
+  console.log('App is rendering');
   const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {

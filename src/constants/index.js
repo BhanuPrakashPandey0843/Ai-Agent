@@ -1,7 +1,7 @@
 export const COLLECTIONS = {
   WALLPAPERS: 'religiousWallpapers',
   DAILY_VERSES: 'dailyVerses',
-  DAILY_PRAYERS: 'dailyprayers',
+  DAILY_PRAYERS: 'dailyPrayers',
   QUESTIONS: 'questions',
   QUOTES: 'quotes',
   USERS: 'users',
@@ -14,10 +14,6 @@ export const COLLECTIONS = {
 /** Wallpaper filters — icon names are MaterialCommunityIcons */
 export const CATEGORIES = [
   { id: 'Christian', label: 'Christian', icon: 'cross', color: '#558AFF' },
-  { id: 'Islamic', label: 'Islamic', icon: 'star-crescent', color: '#4CAF50' },
-  { id: 'Hindu', label: 'Hindu', icon: 'om', color: '#FF6B35' },
-  { id: 'Sikh', label: 'Sikh', icon: 'khanda', color: '#FF9800' },
-  { id: 'Buddhist', label: 'Buddhist', icon: 'dharmachakra', color: '#9C27B0' },
 ];
 
 /** Premium welcome carousel — full-screen background images */
@@ -61,12 +57,15 @@ export const STORAGE_KEYS = {
   QUIZ_ACTIVE_SESSION: 'faithframes_quiz_active_session',
   VERSE_BOOKMARKS: 'faithframes_verse_bookmarks',
   PRAYER_BOOKMARKS: 'faithframes_prayer_bookmarks',
+  STORY_BOOKMARKS: 'faithframes_story_bookmarks',
   LIBRARY_CACHE_VERSE: 'faithframes_library_cache_verse',
   LIBRARY_CACHE_PRAYERS: 'faithframes_library_cache_prayers',
   LIBRARY_CACHE_QUOTES: 'faithframes_library_cache_quotes',
   LIBRARY_CACHE_STUDY: 'faithframes_library_cache_study',
   LIBRARY_CACHE_WITNESS: 'faithframes_library_cache_witness',
   LIBRARY_CACHE_MEET: 'faithframes_library_cache_meet',
+  LIBRARY_CACHE_STORIES: 'faithframes_library_cache_stories',
+  LIBRARY_CACHE_FEATURED_STORIES: 'faithframes_library_cache_featured_stories',
 };
 
 /** Quote categories — mirrors admin UploadQuotesPanel */

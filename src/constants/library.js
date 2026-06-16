@@ -2,6 +2,7 @@
 export const LIBRARY_ACCENTS = {
   verse: '#558AFF',
   prayer: '#A855F7',
+  wallpaper: '#8B5CF6',
   quotes: '#FF6B00',
   study: '#22C55E',
   witness: '#F59E0B',

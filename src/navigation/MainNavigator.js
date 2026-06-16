@@ -4,8 +4,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
 
-import { HomeTheme } from '../theme/homeTheme';
 import HomeScreen from '../screens/HomeScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import SearchScreen from '../screens/SearchScreen';
@@ -13,17 +13,23 @@ import QuizNavigator from './QuizNavigator';
 import BibleNavigator from './BibleNavigator';
 import SettingsScreen from '../screens/SettingsScreen';
 import WallpaperDetailScreen from '../screens/WallpaperDetailScreen';
+import ProphetStoryDetailsScreen from '../screens/ProphetStoryDetailsScreen';
 import CategoryScreen from '../screens/CategoryScreen';
+import WallpapersScreen from '../screens/WallpapersScreen';
 import AboutScreen from '../screens/AboutScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsConditionsScreen from '../screens/TermsConditionsScreen';
 import ContactUsScreen from '../screens/ContactUsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import WallpaperSettingsScreen from '../screens/WallpaperSettingsScreen';
+import DailyVerseScreen from '../screens/DailyVerseScreen';
+import DailyPrayerScreen from '../screens/DailyPrayerScreen';
+import WitnessScreen from '../screens/WitnessScreen';
+import StudyPlansScreen from '../screens/StudyPlansScreen';
+import MeetShareScreen from '../screens/MeetShareScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
-const H = HomeTheme;
 
 const TABS = [
   { name: 'Home', icon: 'home', iconOff: 'home-outline' },
@@ -36,10 +42,30 @@ const TABS = [
 function DreamTabBar({ state, descriptors, navigation }) {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 10);
+  const { colors, isDark } = useTheme();
+
+  const navBg = isDark ? '#101010' : '#FFFFFF';
+  const navInactive = isDark ? '#757575' : '#9CA3AF';
+  const accentColor = colors.primary;
+  const navShadow = isDark
+    ? {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 10,
+      }
+    : {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 8,
+      };
 
   return (
     <View style={[styles.navOuter, { paddingBottom: bottomPad }]}>
-      <View style={[styles.navBar, HomeTheme.shadow]}>
+      <View style={[styles.navBar, navShadow, { backgroundColor: navBg }]}>
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const focused = state.index === index;
@@ -72,13 +98,13 @@ function DreamTabBar({ state, descriptors, navigation }) {
               accessibilityLabel={label}
             >
               {focused ? (
-                <View style={styles.activeCircle}>
+                <View style={[styles.activeCircle, { backgroundColor: accentColor }]}>
                   <Ionicons name={tab.icon} size={22} color="#FFFFFF" />
                 </View>
               ) : (
-                <Ionicons name={tab.iconOff} size={24} color={H.navInactive} />
+                <Ionicons name={tab.iconOff} size={24} color={navInactive} />
               )}
-              <Text style={[styles.navLabel, focused && styles.navLabelActive]}>{label}</Text>
+              <Text style={[styles.navLabel, { color: focused ? accentColor : navInactive }, focused && styles.navLabelActive]}>{label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -106,6 +132,7 @@ export default function MainNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <Stack.Screen name="Tabs" component={HomeTabs} />
+      <Stack.Screen name="Wallpapers" component={WallpapersScreen} />
       <Stack.Screen
         name="WallpaperDetail"
         component={WallpaperDetailScreen}
@@ -119,6 +146,12 @@ export default function MainNavigator() {
       <Stack.Screen name="ContactUs" component={ContactUsScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="WallpaperSettings" component={WallpaperSettingsScreen} />
+      <Stack.Screen name="DailyVerse" component={DailyVerseScreen} />
+      <Stack.Screen name="DailyPrayer" component={DailyPrayerScreen} />
+      <Stack.Screen name="Witness" component={WitnessScreen} />
+      <Stack.Screen name="ProphetStoryDetails" component={ProphetStoryDetailsScreen} options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="StudyPlans" component={StudyPlansScreen} />
+      <Stack.Screen name="MeetShare" component={MeetShareScreen} />
     </Stack.Navigator>
   );
 }
@@ -136,7 +169,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: H.navBg,
     borderRadius: 32,
     height: 72,
     paddingHorizontal: 4,
@@ -153,17 +185,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: H.orange,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: H.navInactive,
   },
   navLabelActive: {
-    color: H.orange,
     fontWeight: '700',
   },
 });

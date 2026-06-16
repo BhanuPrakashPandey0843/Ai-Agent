@@ -99,6 +99,8 @@ export default function SwipeContentCard({
     </View>
   );
 
+  const [imageError, setImageError] = React.useState(false);
+
   return (
     <Animated.View
       style={[
@@ -106,7 +108,7 @@ export default function SwipeContentCard({
         { opacity: opacityAnim, transform: [{ scale: scaleAnim }] },
       ]}
     >
-      {bgurl ? (
+      {bgurl && !imageError ? (
         <View style={styles.cardBgWrap}>
           <Image
             source={{ uri: bgurl }}
@@ -114,7 +116,7 @@ export default function SwipeContentCard({
             contentFit="cover"
             transition={400}
             cachePolicy="memory-disk"
-            onError={() => {}}
+            onError={() => setImageError(true)}
           />
           <LinearGradient
             colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.93)']}
@@ -124,7 +126,7 @@ export default function SwipeContentCard({
         </View>
       ) : (
         <LinearGradient
-          colors={gradient}
+          colors={imageError ? ['#0D0F18', '#121827'] : gradient}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 0.9, y: 1 }}
           style={styles.cardBgWrap}

@@ -14,7 +14,7 @@ export default function AchievementsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { profile, loading } = useQuizProfile();
-  const items = achievementProgress(profile || {});
+  const items = achievementProgress(profile || {}) || [];
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>

@@ -17,12 +17,14 @@ export default function useFirestoreSubscription(subscribeFn, cacheKey = null) {
   const applyItems = useCallback(
     async (nextItems, live = true) => {
       if (!mountedRef.current) return;
-      setItems(nextItems);
+      // Ensure we always set an array, even if nextItems is undefined/null or not an array
+      const safeItems = Array.isArray(nextItems) ? nextItems : [];
+      setItems(safeItems);
       setLoading(false);
       setError(null);
       setFromCache(!live);
       if (live && cacheKey) {
-        await cacheLibraryItems(cacheKey, nextItems);
+        await cacheLibraryItems(cacheKey, safeItems);
       }
     },
     [cacheKey]
@@ -68,7 +70,8 @@ export default function useFirestoreSubscription(subscribeFn, cacheKey = null) {
 
   const refresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
+    setError(null);
+    setRetryCount((c) => c + 1);
   }, []);
 
   const retry = useCallback(() => {
