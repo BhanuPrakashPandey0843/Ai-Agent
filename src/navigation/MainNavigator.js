@@ -27,6 +27,14 @@ import DailyPrayerScreen from '../screens/DailyPrayerScreen';
 import WitnessScreen from '../screens/WitnessScreen';
 import StudyPlansScreen from '../screens/StudyPlansScreen';
 import MeetShareScreen from '../screens/MeetShareScreen';
+import QuotesScreen from '../screens/QuotesScreen';
+import PaywallScreen from '../screens/PaywallScreen';
+import SubscriptionScreen from '../screens/SubscriptionScreen';
+import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
+import PaymentFailedScreen from '../screens/PaymentFailedScreen';
+import ExpiredSubscriptionScreen from '../screens/ExpiredSubscriptionScreen';
+import SuspendedAccountScreen from '../screens/SuspendedAccountScreen';
+import RestoreAccessScreen from '../screens/RestoreAccessScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -152,6 +160,14 @@ export default function MainNavigator() {
       <Stack.Screen name="ProphetStoryDetails" component={ProphetStoryDetailsScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="StudyPlans" component={StudyPlansScreen} />
       <Stack.Screen name="MeetShare" component={MeetShareScreen} />
+      <Stack.Screen name="Quotes" component={QuotesScreen} />
+      <Stack.Screen name="Paywall" component={PaywallScreen} />
+      <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+      <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
+      <Stack.Screen name="PaymentFailed" component={PaymentFailedScreen} />
+      <Stack.Screen name="ExpiredSubscription" component={ExpiredSubscriptionScreen} />
+      <Stack.Screen name="SuspendedAccount" component={SuspendedAccountScreen} />
+      <Stack.Screen name="RestoreAccess" component={RestoreAccessScreen} />
     </Stack.Navigator>
   );
 }

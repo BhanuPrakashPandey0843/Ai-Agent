@@ -14,6 +14,7 @@ import WallpaperCard from '../components/wallpaper/WallpaperCard';
 import { WallpaperCardSkeleton } from '../components/common/SkeletonLoader';
 import BackHeader from '../components/common/BackHeader';
 import { useTheme } from '../context/ThemeContext';
+import { Spacing, Typography } from '../theme/colors';
 
 export default function WallpapersScreen() {
   const insets = useSafeAreaInsets();
@@ -28,7 +29,7 @@ export default function WallpapersScreen() {
     hasMore,
   } = useWallpapers(null);
   const { toggle, isFavorite } = useFavorites();
-  const { isDark, colors, Typography, Spacing } = useTheme();
+  const { isDark, colors } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>

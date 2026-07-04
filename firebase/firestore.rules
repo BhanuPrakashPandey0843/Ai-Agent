@@ -2,40 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ------------------------------
+    // EXISTING CONTENT COLLECTIONS (NO CHANGES EXCEPT contactMessages
+    // ------------------------------
     match /religiousWallpapers/{docId} {
       allow read: if true;
       allow write: if false;
     }
-
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-
-      match /attemptedQuestions/{questionId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      match /quizSessions/{sessionId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow create: if request.auth != null && request.auth.uid == userId
-          && request.resource.data.status == 'completed'
-          && request.resource.data.sessionId == sessionId;
-        allow update, delete: if false;
-      }
-    }
-
-    match /leaderboards/{boardId}/entries/{entryId} {
-      allow read: if true;
-      allow create, update: if request.auth != null
-        && request.auth.uid == entryId
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.score is number
-        && request.resource.data.score >= 0
-        && request.resource.data.score <= 50000
-        && request.resource.data.accuracy is number
-        && request.resource.data.accuracy >= 0
-        && request.resource.data.accuracy <= 100;
-    }
-
     match /dailyVerses/{docId} {
       allow read: if true;
       allow write: if false;
@@ -68,17 +41,131 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    match /featuredStories/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
     match /contactMessages/{docId} {
-      allow create: if request.resource.data.name is string
+      allow create: if request.auth != null
+        && request.resource.data.name is string
         && request.resource.data.email is string
         && request.resource.data.message is string
         && request.resource.data.name.size() > 0
-        && request.resource.data.email.size() > 0
-        && request.resource.data.message.size() > 0
         && request.resource.data.name.size() <= 120
+        && request.resource.data.email.size() > 0
         && request.resource.data.email.size() <= 200
+        && request.resource.data.message.size() > 0
         && request.resource.data.message.size() <= 2000;
       allow read, update, delete: if false;
+    }
+    match /leaderboards/{boardId}/entries/{entryId} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && request.auth.uid == entryId
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 50000
+        && request.resource.data.accuracy is number
+        && request.resource.data.accuracy >= 0
+        && request.resource.data.accuracy <= 100;
+    }
+
+    // ------------------------------
+    // CORE USER DATA
+    // ------------------------------
+    match /users/{userId} {
+      // Read: Only the authenticated user themselves
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Write: NEVER allow client writes! Only Cloud Functions/Admin SDK
+      allow write: if false;
+
+      // Existing user subcollections
+      match /attemptedQuestions/{questionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /quizSessions/{sessionId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId
+          && request.resource.data.status == 'completed'
+          && request.resource.data.sessionId == sessionId;
+        allow update, delete: if false;
+      }
+    }
+
+    // ------------------------------
+    // SUBSCRIPTIONS
+    // ------------------------------
+    match /subscriptions/{subscriptionId} {
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ------------------------------
+    // PAYMENTS
+    // ------------------------------
+    match /payments/{paymentId} {
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ------------------------------
+    // AUDIT LOGS
+    // ------------------------------
+    match /auditLogs/{logId} {
+      allow read, write: if false;
+    }
+
+    // ------------------------------
+    // ADMIN USERS
+    // ------------------------------
+    match /adminUsers/{adminId} {
+      allow read, write: if false;
+    }
+
+    // ------------------------------
+    // SUPPORT TICKETS
+    // ------------------------------
+    match /supportTickets/{ticketId} {
+      allow read: if request.auth != null
+        && (resource.data.userId == request.auth.uid || isAdmin(request.auth.uid));
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.subject is string
+        && request.resource.data.subject.size() <= 200
+        && request.resource.data.status == 'open'
+        && request.resource.data.priority in ['low', 'medium', 'high', 'urgent'];
+      allow update: if request.auth != null
+        && (isAdmin(request.auth.uid) || resource.data.userId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // ------------------------------
+    // ANALYTICS
+    // ------------------------------
+    match /analytics/dailyStats/{dateStr} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ------------------------------
+    // SYSTEM SETTINGS
+    // ------------------------------
+    match /systemSettings/{settingId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ------------------------------
+    // HELPER FUNCTIONS
+    // ------------------------------
+    function isAdmin(uid) {
+      return request.auth != null && request.auth.token.isAdmin == true;
+    }
+    function isSuperAdmin(uid) {
+      return request.auth != null && request.auth.token.role == 'super_admin';
     }
   }
 }

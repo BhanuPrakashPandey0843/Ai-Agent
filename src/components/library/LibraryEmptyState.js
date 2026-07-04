@@ -10,18 +10,15 @@ export default function LibraryEmptyState({
   title = 'Nothing here yet',
   message,
 }) {
-  const { isDark } = useTheme();
-  
-  const textPrimary = isDark ? '#FFFFFF' : '#000000';
-  const textMuted = isDark ? '#9CA3AF' : '#6B7280';
+  const { colors } = useTheme();
   
   return (
     <View style={styles.container}>
       <View style={[styles.iconWrap, { borderColor: accent + '40', backgroundColor: accent + '10' }]}>
         <Ionicons name={icon} size={36} color={accent} />
       </View>
-      <Text style={[styles.title, { color: textPrimary }]}>{title}</Text>
-      {message ? <Text style={[styles.message, { color: textMuted }]}>{message}</Text> : null}
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+      {message ? <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text> : null}
     </View>
   );
 }

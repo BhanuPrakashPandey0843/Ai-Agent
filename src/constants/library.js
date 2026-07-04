@@ -1,6 +1,6 @@
 /** Library tab accent colors — must match LibraryScreen.TABS */
 export const LIBRARY_ACCENTS = {
-  verse: '#558AFF',
+  verse: '#C96A1B',
   prayer: '#A855F7',
   wallpaper: '#8B5CF6',
   quotes: '#FF6B00',

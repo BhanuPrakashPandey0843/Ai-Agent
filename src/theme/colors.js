@@ -1,27 +1,27 @@
 // Premium Faith Frames Design System - Full Light & Dark Mode
 export const LightColors = {
-  primary: '#558AFF', // Christian Blue
-  primaryDark: '#3D6FD9',
-  primaryLight: '#7AA2FF',
-  accent: '#558AFF',
-  accentSoft: 'rgba(85, 138, 255, 0.15)',
-  glow: 'rgba(85, 138, 255, 0.35)',
-  divine: '#F0F4FF',
+  primary: '#C96A1B',
+  primaryDark: '#A85612',
+  primaryLight: '#E18A3A',
+  accent: '#C96A1B',
+  accentSoft: 'rgba(201,106,27,0.15)',
+  glow: 'rgba(201,106,27,0.35)',
+  divine: '#FFF4EB',
 
   bg: '#F8F9FF',
   bgSecondary: '#FFFFFF',
   bgCard: '#FFFFFF',
-  bgCardSoft: '#F0F4FF',
+  bgCardSoft: '#FFF4EB',
   surface: '#FFFFFF',
   glass: 'rgba(0,0,0,0.04)',
 
   textPrimary: '#1A1A2E',
   textSecondary: '#4A4A68',
   textMuted: '#8A8AA0',
-  textAccent: '#558AFF',
+  textAccent: '#C96A1B',
 
   border: 'rgba(0,0,0,0.06)',
-  borderAccent: 'rgba(85,138,255,0.25)',
+  borderAccent: 'rgba(201,106,27,0.25)',
 
   success: '#22C55E',
   error: '#EF4444',
@@ -30,7 +30,7 @@ export const LightColors = {
   black: '#000000',
   transparent: 'transparent',
 
-  gradientPrimary: ['#558AFF', '#7AA2FF'],
+  gradientPrimary: ['#C96A1B', '#E18A3A'],
   gradientVerse: ['#1A2A6C', '#265077'],
   gradientPrayer: ['#4C1D95', '#6D28D9'],
   gradientWallpaper: ['#5B21B6', '#7C3AED'],
@@ -43,12 +43,12 @@ export const LightColors = {
 };
 
 export const DarkColors = {
-  primary: '#7AA2FF', // Lighter blue for dark mode
-  primaryDark: '#558AFF',
-  primaryLight: '#A0BFFF',
-  accent: '#7AA2FF',
-  accentSoft: 'rgba(122, 162, 255, 0.15)',
-  glow: 'rgba(122, 162, 255, 0.35)',
+  primary: '#E18A3A',
+  primaryDark: '#C96A1B',
+  primaryLight: '#F0A05A',
+  accent: '#E18A3A',
+  accentSoft: 'rgba(225,138,58,0.15)',
+  glow: 'rgba(225,138,58,0.35)',
   divine: '#1A1A2E',
 
   bg: '#05050A',
@@ -61,10 +61,10 @@ export const DarkColors = {
   textPrimary: '#FFFFFF',
   textSecondary: '#BDBDCC',
   textMuted: '#75758A',
-  textAccent: '#7AA2FF',
+  textAccent: '#E18A3A',
 
   border: 'rgba(255,255,255,0.08)',
-  borderAccent: 'rgba(122,162,255,0.25)',
+  borderAccent: 'rgba(225,138,58,0.25)',
 
   success: '#4ADE80',
   error: '#F87171',
@@ -73,7 +73,7 @@ export const DarkColors = {
   black: '#000000',
   transparent: 'transparent',
 
-  gradientPrimary: ['#7AA2FF', '#A0BFFF'],
+  gradientPrimary: ['#E18A3A', '#F0A05A'],
   gradientVerse: ['#265077', '#3A6A99'],
   gradientPrayer: ['#6D28D9', '#8B5CF6'],
   gradientWallpaper: ['#7C3AED', '#A78BFA'],
@@ -129,7 +129,7 @@ export const BorderRadius = {
 
 export const Shadows = {
   glow: (isDark) => ({
-    shadowColor: isDark ? '#7AA2FF' : '#558AFF',
+    shadowColor: isDark ? '#E18A3A' : '#C96A1B',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.45,
     shadowRadius: 12,
@@ -155,12 +155,12 @@ export const getColors = (isDark) => (isDark ? DarkColors : LightColors);
 
 // Backward compatibility
 export const Colors = {
-  primary: '#FF6B00',
-  primaryDark: '#E55A00',
-  primaryLight: '#FF8C42',
-  accent: '#FF6B00',
-  accentSoft: 'rgba(255, 107, 0, 0.15)',
-  glow: 'rgba(255, 107, 0, 0.35)',
+  primary: '#C96A1B',
+  primaryDark: '#A85612',
+  primaryLight: '#E18A3A',
+  accent: '#C96A1B',
+  accentSoft: 'rgba(201,106,27,0.15)',
+  glow: 'rgba(201,106,27,0.35)',
   divine: '#FFF4EB',
 
   bgDark: '#0A0A0A',
@@ -173,10 +173,10 @@ export const Colors = {
   textPrimary: '#FFFFFF',
   textSecondary: '#BDBDBD',
   textMuted: '#757575',
-  textAccent: '#FF8C42',
+  textAccent: '#E18A3A',
 
   border: 'rgba(255,255,255,0.08)',
-  borderAccent: 'rgba(255,107,0,0.25)',
+  borderAccent: 'rgba(201,106,27,0.25)',
 
   success: '#4CAF50',
   error: '#F44336',
@@ -185,9 +185,9 @@ export const Colors = {
   black: '#000000',
   transparent: 'transparent',
 
-  gradientPrimary: ['#FF6B00', '#FF8C42'],
-  gradientGold: ['#FF6B00', '#FF8C42'],
-  gradientOrange: ['#FF6B00', '#FF8C42', '#FFB347'],
+  gradientPrimary: ['#C96A1B', '#E18A3A'],
+  gradientGold: ['#C96A1B', '#E18A3A'],
+  gradientOrange: ['#C96A1B', '#E18A3A', '#F0A05A'],
   gradientDark: ['#0A0A0A', '#121212'],
   gradientOverlay: ['transparent', 'rgba(0,0,0,0.75)', 'rgba(0,0,0,0.92)'],
   gradientGlass: ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.03)'],

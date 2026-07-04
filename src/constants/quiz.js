@@ -41,7 +41,7 @@ export const QUIZ_TYPES = {
     label: 'Bible Knowledge Quiz',
     subtitle: 'Test your Scripture knowledge',
     icon: 'book-cross',
-    color: '#558AFF',
+    color: '#C96A1B',
     categories: ['bible', 'mixed'],
     questionsCount: QUESTIONS_PER_SESSION,
   },

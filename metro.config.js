@@ -14,4 +14,7 @@ config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
 };
 
+// Ignore node_modules to prevent OOM errors
+config.watchFolders = config.watchFolders.filter(folder => !folder.includes('node_modules'));
+
 module.exports = config;

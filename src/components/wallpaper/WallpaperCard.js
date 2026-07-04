@@ -1,4 +1,3 @@
-// src/components/wallpaper/WallpaperCard.js — Animated masonry card
 import React, { useRef, useCallback } from 'react';
 import {
   Animated,
@@ -13,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Colors, Typography, BorderRadius, Spacing } from '../../theme/colors';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - Spacing.lg * 2 - Spacing.sm) / 2;
@@ -21,33 +21,31 @@ const WallpaperCard = ({ item, index = 0, isFavorite = false, onFavoriteToggle }
   const navigation = useNavigation();
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const { colors: themeColors } = useTheme();
 
-  // Staggered entrance
   React.useEffect(() => {
     Animated.timing(opacity, {
       toValue: 1,
-      duration: 400,
-      delay: index * 60,
+      duration: 500,
+      delay: index * 80,
       useNativeDriver: true,
     }).start();
   }, []);
 
   const pressIn = () =>
-    Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start();
+    Animated.spring(scale, { toValue: 0.95, useNativeDriver: true, friction: 7 }).start();
   const pressOut = () =>
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 7 }).start();
 
   const openDetail = useCallback(() => {
     navigation.navigate('WallpaperDetail', { wallpaper: item });
   }, [item, navigation]);
 
-  // Vary card height for masonry feel
-  const cardHeight = index % 3 === 0 ? 240 : 200;
-
-const [imageError, setImageError] = React.useState(false);
+  const cardHeight = index % 3 === 0 ? 260 : 220;
+  const [imageError, setImageError] = React.useState(false);
 
   return (
-    <Animated.View style={[styles.container, { opacity, transform: [{ scale }] }]}> 
+    <Animated.View style={[styles.container, { opacity, transform: [{ scale }] }]}>
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={openDetail}
@@ -59,25 +57,25 @@ const [imageError, setImageError] = React.useState(false);
             source={{ uri: item.uri }}
             style={[styles.image, { height: cardHeight }]}
             contentFit="cover"
-            transition={300}
-            placeholder={{ thumbhash: item.thumbhash }}
+            transition={400}
+            placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
             cachePolicy="memory-disk"
             onError={() => setImageError(true)}
           />
         ) : (
-          <View style={[styles.image, styles.imageFallback, { height: cardHeight }]}> 
+          <View style={[styles.image, styles.imageFallback, { height: cardHeight }]}>
             <Ionicons name="image-outline" size={40} color="#D1D5DB" />
           </View>
         )}
 
         {/* Gradient overlay */}
         <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.75)']}
-          style={[styles.gradient, { height: cardHeight * 0.5 }]}
+          colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.75)']}
+          style={[styles.gradient, { height: cardHeight }]}
         />
 
         {/* Category badge */}
-        <View style={[styles.badge, { backgroundColor: getCategoryColor(item.category) + '99' }]}>
+        <View style={[styles.badge, { backgroundColor: 'rgba(0,0,0,0.45)' }]}>
           <Text style={styles.badgeText}>{item.category || 'Art'}</Text>
         </View>
 
@@ -102,7 +100,7 @@ const [imageError, setImageError] = React.useState(false);
             <Ionicons
               name={isFavorite ? 'heart' : 'heart-outline'}
               size={18}
-              color={isFavorite ? Colors.error : Colors.white}
+              color={isFavorite ? Colors.primary : Colors.white}
             />
           </TouchableOpacity>
         )}
@@ -111,33 +109,22 @@ const [imageError, setImageError] = React.useState(false);
   );
 };
 
-const getCategoryColor = (cat) => {
-  const map = {
-    Hindu: Colors.hindu,
-    Islamic: Colors.islamic,
-    Christian: Colors.christian,
-    Sikh: Colors.sikh,
-    Buddhist: Colors.buddhist,
-  };
-  return map[cat] || Colors.primary;
-};
-
 const styles = StyleSheet.create({
   container: {
     width: CARD_W,
     margin: Spacing.xs,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl,
     overflow: 'hidden',
     backgroundColor: Colors.bgCard,
-    elevation: 4,
+    elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
   },
   image: {
     width: '100%',
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl,
   },
   imageFallback: {
     alignItems: 'center',
@@ -149,53 +136,55 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    borderBottomLeftRadius: BorderRadius.lg,
-    borderBottomRightRadius: BorderRadius.lg,
+    borderBottomLeftRadius: BorderRadius.xl,
+    borderBottomRightRadius: BorderRadius.xl,
   },
   badge: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    top: Spacing.sm,
+    left: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.round,
     backdropFilter: 'blur(10px)',
   },
   badgeText: {
     color: Colors.white,
-    fontSize: 9,
-    fontWeight: Typography.fontWeightBold,
+    fontSize: Typography.fontSizeXS,
+    fontWeight: Typography.fontWeightSemiBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   footer: {
     position: 'absolute',
-    bottom: 8,
-    left: 8,
-    right: 8,
+    bottom: Spacing.sm,
+    left: Spacing.sm,
+    right: Spacing.sm,
   },
   title: {
     color: Colors.white,
     fontSize: Typography.fontSizeSM,
-    fontWeight: Typography.fontWeightSemiBold,
-    lineHeight: 16,
+    fontWeight: Typography.fontWeightBold,
+    lineHeight: 20,
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
-    gap: 2,
+    marginTop: Spacing.xs,
+    gap: Spacing.xs,
   },
   ratingText: {
     color: Colors.primary,
-    fontSize: 9,
+    fontSize: Typography.fontSizeXS,
     fontWeight: Typography.fontWeightBold,
   },
   favBtn: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: Spacing.sm,
+    right: Spacing.sm,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
     justifyContent: 'center',

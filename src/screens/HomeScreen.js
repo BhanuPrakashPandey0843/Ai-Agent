@@ -10,26 +10,15 @@ import {
   StatusBar,
   Image,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { APP_NAME } from '../constants';
-import { HomeTheme, STORY_CATEGORIES } from '../theme/homeTheme';
+import { STORY_CATEGORIES } from '../theme/homeTheme';
 import { useAuth } from '../context/AuthContext';
 import CategoryBowl from '../components/home/CategoryBowl';
 import FeaturedStoriesSection from '../components/home/FeaturedStoriesSection';
 import ProphetStoriesSection from '../components/home/ProphetStoriesSection';
-
-const H = HomeTheme;
-
-function PointsBadge({ count }) {
-  return (
-    <View style={styles.pointsBadge}>
-      <MaterialCommunityIcons name="star-four-points" size={14} color={H.coinStar} />
-      <Text style={styles.pointsText}>{String(count ?? 0).padStart(2, '0')}</Text>
-    </View>
-  );
-}
 
 function ProfileAvatar({ onPress, photoURL }) {
   return (
@@ -44,7 +33,7 @@ function ProfileAvatar({ onPress, photoURL }) {
 }
 
 export default function HomeScreen() {
-  const theme = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { user, userProfile } = useAuth();
@@ -59,17 +48,16 @@ export default function HomeScreen() {
   );
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={H.bg} />
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
         <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-          <Text style={styles.brandTitle}>{APP_NAME}</Text>
+          <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>{APP_NAME}</Text>
           <View style={styles.headerRight}>
-            <PointsBadge count={userProfile?.coins} />
             <ProfileAvatar
               photoURL={userProfile?.photoURL || user?.photoURL}
               onPress={() => navigation.navigate('Settings')}
@@ -78,23 +66,23 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.searchWrap}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color={H.textMuted} />
+          <View style={[styles.searchBar, { backgroundColor: colors.bgCard }]}>
+            <Ionicons name="search" size={20} color={colors.textMuted} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.textPrimary }]}
               placeholder="Search wallpapers & verses"
-              placeholderTextColor={H.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
             />
             {searchQuery.length > 0 ? (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color={H.textMuted} />
+                <Ionicons name="close-circle" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={styles.searchBtn}
+                style={[styles.searchBtn, { backgroundColor: colors.primary }]}
                 activeOpacity={0.85}
                 onPress={() => navigation.navigate('Search')}
               >
@@ -104,7 +92,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionHeading}>Explore Faith</Text>
+        <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Explore Faith</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -127,7 +115,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: H.bg,
   },
   header: {
     flexDirection: 'row',
@@ -139,27 +126,11 @@ const styles = StyleSheet.create({
   brandTitle: {
     fontSize: 26,
     fontWeight: '800',
-    color: H.text,
     letterSpacing: -0.5,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  pointsBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: H.coinBg,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 4,
-  },
-  pointsText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: H.coinText,
   },
   avatarWrap: {
     width: 40,
@@ -169,7 +140,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#B8D4E8',
     borderWidth: 2,
     borderColor: '#FFFFFF',
-    ...H.shadow,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
   },
   avatarImg: {
     width: '100%',
@@ -182,32 +157,32 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: H.searchBg,
     borderRadius: 28,
     height: 52,
     paddingLeft: 16,
     paddingRight: 6,
     gap: 10,
-    ...H.shadow,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: H.text,
     paddingVertical: 0,
   },
   searchBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: H.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sectionHeading: {
     fontSize: 20,
     fontWeight: '800',
-    color: H.text,
     paddingHorizontal: 20,
     marginBottom: 14,
     letterSpacing: -0.3,

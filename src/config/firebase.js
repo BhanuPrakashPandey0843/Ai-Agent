@@ -10,7 +10,9 @@ assertFirebaseConfig();
 
 const firebaseConfig = { ...Env.firebase };
 
+console.log('🔍 [Firebase Config] Initializing with project ID:', firebaseConfig.projectId);
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+console.log('✅ [Firebase Config] App initialized, name:', app.name, 'options:', app.options);
 const db = getFirestore(app);
 const storage = getStorage(app);
 

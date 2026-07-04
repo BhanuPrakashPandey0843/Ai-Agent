@@ -23,6 +23,8 @@ import { db } from '../config/firebase';
 import { COLLECTIONS, PAGE_SIZE } from '../constants';
 import { fetchAllQuestionsFromFirestore } from './quizService';
 
+console.log('🔍 [Firebase Service] DB initialized, project info:', db.app.options);
+
 const mapWallpaperDocs = (snapshot) =>
   snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -108,14 +110,23 @@ const fetchWallpapersUnindexed = async (category = null) => {
 
 /** onSnapshot with error callback — prevents uncaught listener crashes */
 function safeOnSnapshot(queryRef, onData, onError) {
+  // Log query details
+  const queryPath = queryRef?._query?.path?.toString() || 'unknown';
+  console.log('🔍 [Firestore Query] Creating listener for:', queryPath);
+
   return onSnapshot(
     queryRef,
     (snap) => {
+      console.log('✅ [Firestore Success] Query:', queryPath, '- Docs:', snap?.docs?.length);
       // Ensure we ALWAYS pass an array to onData, even if snap.docs is missing or undefined
       const items = Array.isArray(snap?.docs) ? snap.docs.map((d) => ({ id: d.id, ...d.data() })) : [];
       onData(items);
     },
     (err) => {
+      console.error('❌ [Firestore Error] Query:', queryPath);
+      console.error('  - Error code:', err?.code);
+      console.error('  - Error message:', err?.message);
+      console.error('  - Full error:', err);
       if (onError) onError(err);
     }
   );
@@ -123,13 +134,15 @@ function safeOnSnapshot(queryRef, onData, onError) {
 
 export const getFirestoreErrorMessage = (err) => {
   const code = err?.code || '';
+  const message = err?.message || 'Unknown error';
+  console.error('🔍 getFirestoreErrorMessage called with:', { code, message, err });
   if (code === 'permission-denied') {
-    return 'Firestore access denied. Deploy firebase/firestore.rules in the Firebase Console.';
+    return `Firestore access denied (code: ${code}). Deploy firebase/firestore.rules in the Firebase Console.`;
   }
   if (code === 'unavailable') {
     return 'Firestore is temporarily unavailable. Check your connection.';
   }
-  return err?.message || 'Failed to load data';
+  return `${message} (code: ${code})`;
 };
 
 // ─── Wallpapers ───────────────────────────────────────────────────────────────
@@ -383,7 +396,7 @@ export const subscribeToStories = (onData, onError) => {
 
 export const subscribeToFeaturedStories = (onData, onError) => {
   const q = query(
-    collection(db, COLLECTIONS.STORIES),
+    collection(db, COLLECTIONS.FEATURED_STORIES),
     orderBy('createdAt', 'desc'),
     limit(40)
   );
@@ -391,7 +404,7 @@ export const subscribeToFeaturedStories = (onData, onError) => {
     q,
     (items) => {
       const stories = mapStoryDocs(items)
-        .filter((story) => story.published && story.featured)
+        .filter((story) => story.published)
         .sort((a, b) => storyTimestamp(b) - storyTimestamp(a));
       onData(stories);
     },
@@ -413,13 +426,13 @@ export const getStories = async () => fetchStories();
 
 export const getFeaturedStories = async () => {
   const q = query(
-    collection(db, COLLECTIONS.STORIES),
+    collection(db, COLLECTIONS.FEATURED_STORIES),
     orderBy('createdAt', 'desc'),
     limit(40)
   );
   const snap = await getDocs(q);
   return mapStoryDocs(snap)
-    .filter((story) => story.published && story.featured)
+    .filter((story) => story.published)
     .sort((a, b) => storyTimestamp(b) - storyTimestamp(a));
 };
 

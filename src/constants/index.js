@@ -9,11 +9,12 @@ export const COLLECTIONS = {
   WITNESS: 'witnessPosts',
   MEET_SHARE: 'meetSessions',
   STORIES: 'stories',
+  FEATURED_STORIES: 'featuredStories',
 };
 
 /** Wallpaper filters — icon names are MaterialCommunityIcons */
 export const CATEGORIES = [
-  { id: 'Christian', label: 'Christian', icon: 'cross', color: '#558AFF' },
+  { id: 'Christian', label: 'Christian', icon: 'cross', color: '#C96A1B' },
 ];
 
 /** Premium welcome carousel — full-screen background images */

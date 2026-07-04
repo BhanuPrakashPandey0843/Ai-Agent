@@ -18,12 +18,15 @@ import CategoryChipRow from '../components/library/CategoryChipRow';
 import LibraryEmptyState from '../components/library/LibraryEmptyState';
 import LibraryErrorState from '../components/library/LibraryErrorState';
 import SkeletonLoader from '../components/common/SkeletonLoader';
+import BackHeader from '../components/common/BackHeader';
 import { Spacing } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 
 export default function QuotesScreen() {
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const { items, loading, error, refreshing, fromCache, refresh, retry } =
+  const { items, loading, error, refreshing, refresh, retry } =
     useFirestoreSubscription(subscribeToQuotes, STORAGE_KEYS.LIBRARY_CACHE_QUOTES);
+  const { colors } = useTheme();
 
   const filtered = useMemo(() => {
     if (selectedCategory === 'All') return items;
@@ -41,27 +44,34 @@ export default function QuotesScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        {[0, 1, 2].map((i) => (
-          <SkeletonLoader
-            key={i}
-            height={160}
-            borderRadius={24}
-            style={{ marginBottom: Spacing.lg, marginHorizontal: Spacing.xl }}
-          />
-        ))}
+      <View style={[styles.root, { backgroundColor: colors.bg }]}>
+        <BackHeader title="Quotes" />
+        <View style={styles.loading}>
+          {[0, 1, 2].map((i) => (
+            <SkeletonLoader
+              key={i}
+              height={160}
+              borderRadius={24}
+              style={{ marginBottom: Spacing.lg, marginHorizontal: Spacing.xl }}
+            />
+          ))}
+        </View>
       </View>
     );
   }
 
   if (error) {
     return (
-      <LibraryErrorState message={error} onRetry={retry} accent={LIBRARY_ACCENTS.quotes} />
+      <View style={[styles.root, { backgroundColor: colors.bg }]}>
+        <BackHeader title="Quotes" />
+        <LibraryErrorState message={error} onRetry={retry} accent={LIBRARY_ACCENTS.quotes} />
+      </View>
     );
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <BackHeader title="Quotes" />
       <CategoryChipRow
         categories={QUOTE_CATEGORIES}
         selected={selectedCategory}
@@ -81,7 +91,7 @@ export default function QuotesScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            tintColor={LIBRARY_ACCENTS.quotes}
+            tintColor={colors.primary}
           />
         }
         ListEmptyComponent={

@@ -5,19 +5,16 @@ import { Typography, Spacing } from '../../theme/colors';
 import GradientButton from '../common/GradientButton';
 import { useTheme } from '../../context/ThemeContext';
 
-export default function LibraryErrorState({ message, onRetry, accent = '#FF6B00' }) {
-  const { isDark, colors } = useTheme();
-  
-  const textPrimary = isDark ? '#FFFFFF' : '#000000';
-  const textMuted = isDark ? '#9CA3AF' : '#6B7280';
+export default function LibraryErrorState({ message, onRetry, accent }) {
+  const { colors } = useTheme();
   
   return (
     <View style={styles.container}>
-      <View style={[styles.iconWrap, { backgroundColor: accent + '15' }]}>
-        <Ionicons name="cloud-offline-outline" size={32} color={accent} />
+      <View style={[styles.iconWrap, { backgroundColor: (accent || colors.primary) + '15' }]}>
+        <Ionicons name="cloud-offline-outline" size={32} color={accent || colors.primary} />
       </View>
-      <Text style={[styles.title, { color: textPrimary }]}>Unable to load content</Text>
-      <Text style={[styles.message, { color: textMuted }]}>{message || 'Check your connection and try again.'}</Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Unable to load content</Text>
+      <Text style={[styles.message, { color: colors.textSecondary }]}>{message || 'Check your connection and try again.'}</Text>
       {onRetry ? (
         <GradientButton title="Retry" onPress={onRetry} style={styles.btn} />
       ) : null}

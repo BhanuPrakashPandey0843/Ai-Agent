@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
+import PremiumGuard from '../components/common/PremiumGuard';
 import { Colors, Typography, Spacing } from '../theme/colors';
 
 function AuthCheckingScreen() {
@@ -26,7 +27,13 @@ export default function RootNavigator() {
     return <AuthCheckingScreen />;
   }
 
-  return user ? <MainNavigator /> : <AuthNavigator />;
+  return user ? (
+    <PremiumGuard>
+      <MainNavigator />
+    </PremiumGuard>
+  ) : (
+    <AuthNavigator />
+  );
 }
 
 const styles = StyleSheet.create({

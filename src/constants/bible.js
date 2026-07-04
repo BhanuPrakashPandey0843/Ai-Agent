@@ -11,7 +11,7 @@ export const READING_THEMES = {
     surface: '#FFFFFF',
     text: '#2D2D2D',
     muted: '#6B7280',
-    accent: '#558AFF',
+    accent: '#C96A1B',
   },
   dark: {
     id: 'dark',
@@ -20,7 +20,7 @@ export const READING_THEMES = {
     surface: '#1A1A1A',
     text: '#F5F5F5',
     muted: '#9CA3AF',
-    accent: '#FF8C42',
+    accent: '#E18A3A',
   },
   sepia: {
     id: 'sepia',
@@ -58,7 +58,7 @@ export const READING_PLANS = [
     title: '30 Day Faith Journey',
     subtitle: 'Foundations of Christian living',
     days: 30,
-    color: '#558AFF',
+    color: '#C96A1B',
   },
   {
     id: '90_bible',

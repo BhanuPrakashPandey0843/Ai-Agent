@@ -46,11 +46,7 @@ export const ThemeProvider = ({ children }) => {
       Typography,
       Spacing,
       BorderRadius,
-      Shadows: {
-        glow: Shadows.glow(isDark),
-        card: Shadows.card(isDark),
-        nav: Shadows.nav(isDark),
-      },
+      Shadows,
       navTheme: {
         dark: isDark,
         colors: {

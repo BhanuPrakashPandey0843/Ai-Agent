@@ -35,7 +35,7 @@ const CategoryCard = ({
 
   const gradientColors = [
     ['#FF6B35', '#E65A2B'],
-    ['#558AFF', '#3A6FE8'],
+    ['#C96A1B', '#A85612'],
     ['#4CAF50', '#2E7D32'],
     ['#A78BFA', '#8B6BF0'],
   ];

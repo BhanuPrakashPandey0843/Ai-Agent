@@ -13,18 +13,20 @@ import LibraryErrorState from '../components/library/LibraryErrorState';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 import { Spacing } from '../theme/colors';
 import BackHeader from '../components/common/BackHeader';
+import { useTheme } from '../context/ThemeContext';
 
 export default function WitnessScreen() {
   const { items, loading, error, refreshing, refresh, retry } = useFirestoreSubscription(
     subscribeToWitness,
     STORAGE_KEYS.LIBRARY_CACHE_WITNESS
   );
+  const { isDark, colors } = useTheme();
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.bg }]}>
         <StatusBar
-          barStyle="light-content"
+          barStyle={isDark ? 'light-content' : 'dark-content'}
           backgroundColor="transparent"
           translucent
         />
@@ -45,9 +47,9 @@ export default function WitnessScreen() {
 
   if (error) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.bg }]}>
         <StatusBar
-          barStyle="light-content"
+          barStyle={isDark ? 'light-content' : 'dark-content'}
           backgroundColor="transparent"
           translucent
         />
@@ -58,9 +60,9 @@ export default function WitnessScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <StatusBar
-        barStyle="light-content"
+        barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent
       />
@@ -77,8 +79,8 @@ export default function WitnessScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            tintColor={LIBRARY_ACCENTS.witness}
-            backgroundColor="#000000"
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
         ListEmptyComponent={
@@ -101,7 +103,6 @@ export default function WitnessScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   loading: { flex: 1, paddingTop: Spacing.md },
   listContent: {

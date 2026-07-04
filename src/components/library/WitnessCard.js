@@ -10,11 +10,13 @@ import {
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, BorderRadius } from '../../theme/colors';
+import { Typography, Spacing, BorderRadius } from '../../theme/colors';
+import { useTheme } from '../../context/ThemeContext';
 
 const MAX_COLLAPSED = 140;
 
 export default function WitnessCard({ item, index, accent }) {
+  const { colors } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(16)).current;
@@ -24,7 +26,7 @@ export default function WitnessCard({ item, index, accent }) {
       Animated.timing(opacityAnim, { toValue: 1, duration: 320, delay: index * 45, useNativeDriver: true }),
       Animated.spring(translateY, { toValue: 0, friction: 8, tension: 75, delay: index * 45, useNativeDriver: true }),
     ]).start();
-  }, [index, opacityAnim, translateY]);
+  }, [index]);
 
   const longMessage = (item.message?.length || 0) > MAX_COLLAPSED;
   const displayMessage =
@@ -40,7 +42,7 @@ export default function WitnessCard({ item, index, accent }) {
 
   return (
     <Animated.View style={[styles.wrap, { opacity: opacityAnim, transform: [{ translateY }] }]}>
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
         {item.imageUrl ? (
           <View style={styles.heroWrap}>
             <Image
@@ -66,8 +68,8 @@ export default function WitnessCard({ item, index, accent }) {
             <Text style={[styles.tagText, { color: accent }]}>Testimony</Text>
           </View>
 
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.message}>{displayMessage}</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{item.title}</Text>
+          <Text style={[styles.message, { color: colors.textSecondary }]}>{displayMessage}</Text>
 
           {longMessage ? (
             <TouchableOpacity onPress={() => setExpanded((v) => !v)} activeOpacity={0.8}>
@@ -78,15 +80,15 @@ export default function WitnessCard({ item, index, accent }) {
           ) : null}
 
           <View style={styles.footer}>
-            <View style={styles.likesBadge}>
+            <View style={[styles.likesBadge, { backgroundColor: colors.glass }]}>
               <Ionicons name="heart" size={14} color={accent} />
-              <Text style={styles.likesText}>{item.likes ?? 0}</Text>
+              <Text style={[styles.likesText, { color: colors.textSecondary }]}>{item.likes ?? 0}</Text>
             </View>
             {item.userId ? (
-              <Text style={styles.meta}>{item.userId}</Text>
+              <Text style={[styles.meta, { color: colors.textMuted }]}>{item.userId}</Text>
             ) : null}
-            <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.8}>
-              <Ionicons name="share-outline" size={16} color={Colors.textMuted} />
+            <TouchableOpacity style={[styles.shareBtn, { backgroundColor: colors.glass, borderColor: colors.border }]} onPress={handleShare} activeOpacity={0.8}>
+              <Ionicons name="share-outline" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         </View>
@@ -100,9 +102,6 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: BorderRadius.xxl,
     overflow: 'hidden',
-    backgroundColor: Colors.bgCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   heroWrap: { height: 180, position: 'relative' },
   hero: { width: '100%', height: '100%' },
@@ -130,12 +129,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: Typography.fontSizeXL,
     fontWeight: Typography.fontWeightBold,
-    color: Colors.textPrimary,
     marginBottom: Spacing.sm,
   },
   message: {
     fontSize: Typography.fontSizeMD,
-    color: Colors.textSecondary,
     lineHeight: Typography.lineHeightMD,
   },
   readMore: {
@@ -153,29 +150,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.glass,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: BorderRadius.round,
   },
   likesText: {
     fontSize: Typography.fontSizeSM,
-    color: Colors.textSecondary,
     fontWeight: Typography.fontWeightSemiBold,
   },
   meta: {
     flex: 1,
     fontSize: Typography.fontSizeSM,
-    color: Colors.textMuted,
   },
   shareBtn: {
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: Colors.glass,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
   },
 });

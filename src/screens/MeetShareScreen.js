@@ -14,11 +14,13 @@ import SkeletonLoader from '../components/common/SkeletonLoader';
 import { useToast } from '../context/ToastContext';
 import { Spacing } from '../theme/colors';
 import BackHeader from '../components/common/BackHeader';
+import { useTheme } from '../context/ThemeContext';
 
 export default function MeetShareScreen() {
   const { showToast } = useToast();
   const { items, loading, error, refreshing, refresh, retry } =
     useFirestoreSubscription(subscribeToMeetSessions, STORAGE_KEYS.LIBRARY_CACHE_MEET);
+  const { isDark, colors } = useTheme();
 
   const handleJoinError = useCallback(
     (message) => showToast(message, 'error'),
@@ -27,9 +29,9 @@ export default function MeetShareScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.bg }]}>
         <StatusBar
-          barStyle="light-content"
+          barStyle={isDark ? 'light-content' : 'dark-content'}
           backgroundColor="transparent"
           translucent
         />
@@ -50,9 +52,9 @@ export default function MeetShareScreen() {
 
   if (error) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.bg }]}>
         <StatusBar
-          barStyle="light-content"
+          barStyle={isDark ? 'light-content' : 'dark-content'}
           backgroundColor="transparent"
           translucent
         />
@@ -63,9 +65,9 @@ export default function MeetShareScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <StatusBar
-        barStyle="light-content"
+        barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent
       />
@@ -87,8 +89,8 @@ export default function MeetShareScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            tintColor={LIBRARY_ACCENTS.meet}
-            backgroundColor="#000000"
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
         ListEmptyComponent={
@@ -111,7 +113,6 @@ export default function MeetShareScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   loading: { flex: 1, paddingTop: Spacing.md },
   listContent: {

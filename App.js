@@ -13,6 +13,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { BibleProvider } from './src/context/BibleContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { ToastProvider } from './src/context/ToastContext';
+import { SubscriptionProvider } from './src/context/SubscriptionContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import { Colors } from './src/theme/colors';
 
@@ -74,14 +75,16 @@ export default function App() {
           <ThemeProvider>
             <ToastProvider>
               <AuthProvider>
-                <BibleProvider>
-                  <NavigationContainer theme={navTheme}>
-                    <StatusBar barStyle="light-content" backgroundColor={Colors.bgDark} />
-                    <View style={styles.root}>
-                      <RootNavigator />
-                    </View>
-                  </NavigationContainer>
-                </BibleProvider>
+                <SubscriptionProvider>
+                  <BibleProvider>
+                    <NavigationContainer theme={navTheme}>
+                      <StatusBar barStyle="light-content" backgroundColor={Colors.bgDark} />
+                      <View style={styles.root}>
+                        <RootNavigator />
+                      </View>
+                    </NavigationContainer>
+                  </BibleProvider>
+                </SubscriptionProvider>
               </AuthProvider>
             </ToastProvider>
           </ThemeProvider>

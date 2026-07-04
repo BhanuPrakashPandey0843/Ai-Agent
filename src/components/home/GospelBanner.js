@@ -10,7 +10,7 @@ export default function GospelBanner({ onPress }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={styles.wrap}>
       <LinearGradient
-        colors={['#1a2848', '#2d4a8c', '#558AFF', '#1a2848']}
+        colors={['#1a1210', '#2d1f1a', '#C96A1B', '#1a1210']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
