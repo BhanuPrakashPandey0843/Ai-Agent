@@ -1,9 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { HomeTheme } from '../../theme/homeTheme';
-
-const H = HomeTheme;
+import { useTheme } from '../../context/ThemeContext';
 
 export default function QuizOptionButton({
   label,
@@ -12,6 +10,7 @@ export default function QuizOptionButton({
   disabled,
   onPress,
 }) {
+  const { colors, isDark } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -23,21 +22,21 @@ export default function QuizOptionButton({
     }
   }, [state, scale]);
 
-  const containerStyle = [styles.option];
-  if (state === 'correct') containerStyle.push(styles.correct);
-  if (state === 'wrong') containerStyle.push(styles.wrong);
-  if (state === 'selected') containerStyle.push(styles.selected);
+  const containerStyle = [styles.option, { backgroundColor: colors.bg, borderColor: isDark ? '#2A2A44' : '#EDE8DC' }];
+  if (state === 'correct') containerStyle.push({ borderColor: colors.success, backgroundColor: isDark ? '#1B3B1F' : '#E8F5E9' });
+  if (state === 'wrong') containerStyle.push({ borderColor: colors.error, backgroundColor: isDark ? '#3B1B1B' : '#FFEBEE' });
+  if (state === 'selected') containerStyle.push({ borderColor: colors.primary, backgroundColor: isDark ? '#2A2A44' : '#E8EFFF' });
 
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress} disabled={disabled}>
       <Animated.View style={[containerStyle, { transform: [{ scale }] }]}>
-        <Text style={styles.letter}>{letter}</Text>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={[styles.letter, { backgroundColor: colors.primary }]}>{letter}</Text>
+        <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
         {state === 'correct' ? (
-          <MaterialCommunityIcons name="check-circle" size={22} color="#2E7D32" />
+          <MaterialCommunityIcons name="check-circle" size={22} color={colors.success} />
         ) : null}
         {state === 'wrong' ? (
-          <MaterialCommunityIcons name="close-circle" size={22} color="#C62828" />
+          <MaterialCommunityIcons name="close-circle" size={22} color={colors.error} />
         ) : null}
       </Animated.View>
     </TouchableOpacity>
@@ -48,36 +47,21 @@ const styles = StyleSheet.create({
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: H.bg,
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#EDE8DC',
     gap: 12,
-  },
-  selected: {
-    borderColor: H.primary,
-    backgroundColor: '#E8EFFF',
-  },
-  correct: {
-    borderColor: '#4CAF50',
-    backgroundColor: '#E8F5E9',
-  },
-  wrong: {
-    borderColor: '#F44336',
-    backgroundColor: '#FFEBEE',
   },
   letter: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: H.primary,
     color: '#FFF',
     textAlign: 'center',
     lineHeight: 28,
     fontWeight: '700',
     fontSize: 14,
   },
-  label: { flex: 1, fontSize: 15, color: H.text, fontWeight: '500' },
+  label: { flex: 1, fontSize: 15, fontWeight: '500' },
 });

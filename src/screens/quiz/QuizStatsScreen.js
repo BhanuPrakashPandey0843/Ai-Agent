@@ -3,24 +3,23 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-nat
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { HomeTheme } from '../../theme/homeTheme';
+import { useTheme } from '../../context/ThemeContext';
 import BackHeader from '../../components/common/BackHeader';
 import useQuizProfile from '../../hooks/useQuizProfile';
 import { xpProgressInLevel, computeAccuracy } from '../../utils/quizScoring';
 
-const H = HomeTheme;
-
-function StatCard({ icon, label, value }) {
+function StatCard({ icon, label, value, colors }) {
   return (
-    <View style={styles.card}>
-      <MaterialCommunityIcons name={icon} size={24} color={H.primary} />
-      <Text style={styles.cardValue}>{value}</Text>
-      <Text style={styles.cardLabel}>{label}</Text>
+    <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
+      <MaterialCommunityIcons name={icon} size={24} color={colors.primary} />
+      <Text style={[styles.cardValue, { color: colors.textPrimary }]}>{value}</Text>
+      <Text style={[styles.cardLabel, { color: colors.textMuted }]}>{label}</Text>
     </View>
   );
 }
 
 export default function QuizStatsScreen() {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { profile, loading } = useQuizProfile();
@@ -46,48 +45,48 @@ export default function QuizStatsScreen() {
     .sort((a, b) => b.rate - a.rate);
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
       <BackHeader title="Quiz Statistics" transparent />
 
       {loading ? (
-        <ActivityIndicator size="large" color={H.primary} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView
           contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 100 }}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.levelCard}>
-            <Text style={styles.levelTitle}>Level {xp.level}</Text>
-            <View style={styles.xpBar}>
-              <View style={[styles.xpFill, { width: `${(xp.current / xp.needed) * 100}%` }]} />
+          <View style={[styles.levelCard, { backgroundColor: colors.bgCard }]}>
+            <Text style={[styles.levelTitle, { color: colors.textPrimary }]}>Level {xp.level}</Text>
+            <View style={[styles.xpBar, { backgroundColor: isDark ? '#1A1A33' : '#EDE8DC' }]}>
+              <View style={[styles.xpFill, { width: `${(xp.current / xp.needed) * 100}%`, backgroundColor: colors.primary }]} />
             </View>
-            <Text style={styles.xpText}>
+            <Text style={[styles.xpText, { color: colors.textMuted }]}>
               {xp.current} / {xp.needed} XP
             </Text>
           </View>
 
           <View style={styles.grid}>
-            <StatCard icon="clipboard-list" label="Total Quizzes" value={profile?.totalQuizzes || 0} />
-            <StatCard icon="help-circle" label="Questions" value={profile?.totalQuestions || 0} />
-            <StatCard icon="bullseye-arrow" label="Accuracy" value={`${accuracy}%`} />
-            <StatCard icon="timer" label="Best Time" value={avgTime} />
-            <StatCard icon="fire" label="Current Streak" value={profile?.currentStreak || 0} />
-            <StatCard icon="fire-circle" label="Longest Streak" value={profile?.longestStreak || 0} />
-            <StatCard icon="star" label="Best Score" value={profile?.bestScore || 0} />
-            <StatCard icon="trophy" label="Best Accuracy" value={`${profile?.bestAccuracy || 0}%`} />
+            <StatCard icon="clipboard-list" label="Total Quizzes" value={profile?.totalQuizzes || 0} colors={colors} />
+            <StatCard icon="help-circle" label="Questions" value={profile?.totalQuestions || 0} colors={colors} />
+            <StatCard icon="bullseye-arrow" label="Accuracy" value={`${accuracy}%`} colors={colors} />
+            <StatCard icon="timer" label="Best Time" value={avgTime} colors={colors} />
+            <StatCard icon="fire" label="Current Streak" value={profile?.currentStreak || 0} colors={colors} />
+            <StatCard icon="fire-circle" label="Longest Streak" value={profile?.longestStreak || 0} colors={colors} />
+            <StatCard icon="star" label="Best Score" value={profile?.bestScore || 0} colors={colors} />
+            <StatCard icon="trophy" label="Best Accuracy" value={`${profile?.bestAccuracy || 0}%`} colors={colors} />
           </View>
 
-          <Text style={styles.sectionTitle}>Category Strengths</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Category Strengths</Text>
           {strengths.length === 0 ? (
-            <Text style={styles.muted}>Play quizzes to see strengths by category.</Text>
+            <Text style={[styles.muted, { color: colors.textMuted }]}>Play quizzes to see strengths by category.</Text>
           ) : (
             strengths.map((s) => (
               <View key={s.cat} style={styles.strengthRow}>
-                <Text style={styles.catName}>{s.cat}</Text>
-                <View style={styles.strengthBar}>
-                  <View style={[styles.strengthFill, { width: `${s.rate}%` }]} />
+                <Text style={[styles.catName, { color: colors.textPrimary }]}>{s.cat}</Text>
+                <View style={[styles.strengthBar, { backgroundColor: isDark ? '#1A1A33' : '#EDE8DC' }]}>
+                  <View style={[styles.strengthFill, { width: `${s.rate}%`, backgroundColor: colors.primary }]} />
                 </View>
-                <Text style={styles.rate}>{s.rate}%</Text>
+                <Text style={[styles.rate, { color: colors.primary }]}>{s.rate}%</Text>
               </View>
             ))
           )}
@@ -98,23 +97,25 @@ export default function QuizStatsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: H.bg },
+  root: { flex: 1 },
   levelCard: {
-    backgroundColor: H.surface,
     borderRadius: 18,
     padding: 20,
     marginBottom: 16,
-    ...H.shadow,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  levelTitle: { fontSize: 22, fontWeight: '800', color: H.text, marginBottom: 12 },
+  levelTitle: { fontSize: 22, fontWeight: '800', marginBottom: 12 },
   xpBar: {
     height: 10,
-    backgroundColor: '#EDE8DC',
     borderRadius: 5,
     overflow: 'hidden',
   },
-  xpFill: { height: '100%', backgroundColor: H.primary },
-  xpText: { fontSize: 12, color: H.textMuted, marginTop: 8 },
+  xpFill: { height: '100%' },
+  xpText: { fontSize: 12, marginTop: 8 },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -123,30 +124,32 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '47%',
-    backgroundColor: H.surface,
     borderRadius: 14,
     padding: 14,
     alignItems: 'center',
-    ...H.shadow,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  cardValue: { fontSize: 20, fontWeight: '800', color: H.text, marginTop: 8 },
-  cardLabel: { fontSize: 11, color: H.textMuted, marginTop: 4, textAlign: 'center' },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: H.text, marginBottom: 12 },
+  cardValue: { fontSize: 20, fontWeight: '800', marginTop: 8 },
+  cardLabel: { fontSize: 11, marginTop: 4, textAlign: 'center' },
+  sectionTitle: { fontSize: 18, fontWeight: '800', marginBottom: 12 },
   strengthRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
     gap: 8,
   },
-  catName: { width: 56, fontSize: 12, fontWeight: '700', color: H.text, textTransform: 'capitalize' },
+  catName: { width: 56, fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },
   strengthBar: {
     flex: 1,
     height: 8,
-    backgroundColor: '#EDE8DC',
     borderRadius: 4,
     overflow: 'hidden',
   },
-  strengthFill: { height: '100%', backgroundColor: H.primary },
-  rate: { width: 40, fontSize: 12, fontWeight: '700', color: H.primary, textAlign: 'right' },
-  muted: { color: H.textMuted, fontSize: 14 },
+  strengthFill: { height: '100%' },
+  rate: { width: 40, fontSize: 12, fontWeight: '700', textAlign: 'right' },
+  muted: { fontSize: 14 },
 });

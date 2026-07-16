@@ -7,18 +7,23 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   FlatList,
+  RefreshControl,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-import { useTheme } from '../../context/ThemeContext';
-import useFirestoreSubscription from '../../hooks/useFirestoreSubscription';
-import { subscribeToStories, storyTimestamp } from '../../services/firebaseService';
-import { STORAGE_KEYS } from '../../constants';
-import EmptyState from '../common/EmptyState';
-import SkeletonLoader from '../common/SkeletonLoader';
+import { useTheme } from '../context/ThemeContext';
+import useFirestoreSubscription from '../hooks/useFirestoreSubscription';
+import { subscribeToStories, subscribeToFeaturedStories } from '../services/firebaseService';
+import { STORAGE_KEYS } from '../constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import BackHeader from '../components/common/BackHeader';
+import useStoryBookmarks from '../hooks/useStoryBookmarks';
+import EmptyState from '../components/common/EmptyState';
+import SkeletonLoader from '../components/common/SkeletonLoader';
 
 const SIDE_INSET = 20;
 const VERTICAL_GAP = 20;
@@ -89,8 +94,7 @@ const ProphetStoryCard = React.memo(function ProphetStoryCard({
         onPressOut={handlePressOut}
         onPress={handlePress}
         accessibilityRole="button"
-        accessibilityLabel={`Open story ${story.title || 'prophet story'}`}
-        accessibilityHint={`Read the story of ${story.prophetName || story.category || 'a prophet'}`}
+        accessibilityLabel={`Open story ${story.title || 'story'}`}
       >
         <View
           style={[
@@ -147,31 +151,6 @@ const ProphetStoryCard = React.memo(function ProphetStoryCard({
   );
 });
 
-function SectionHeader({ colors, isDark, onViewAll }) {
-  return (
-    <View style={styles.headerRow}>
-      <View style={styles.headerTextGroup}>
-        <Text style={[styles.heading, { color: colors.textPrimary }]}>Faith Stories</Text>
-        <Text style={[styles.subheading, { color: colors.textSecondary }]} numberOfLines={1}>
-          Timeless lessons from God's messengers
-        </Text>
-      </View>
-      {onViewAll ? (
-        <TouchableOpacity
-          onPress={onViewAll}
-          activeOpacity={0.7}
-          style={[styles.viewAllButton, { backgroundColor: colors.accentSoft }]}
-          accessibilityRole="button"
-          accessibilityLabel="View all faith stories"
-        >
-          <Text style={[styles.viewAllText, { color: colors.primary }]}>View More</Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.primary} />
-        </TouchableOpacity>
-      ) : null}
-    </View>
-  );
-}
-
 const SkeletonCard = React.memo(function SkeletonCard({ cardWidth, colors, isDark }) {
   const imageHeight = cardWidth * 0.56;
 
@@ -207,25 +186,31 @@ const SkeletonCard = React.memo(function SkeletonCard({ cardWidth, colors, isDar
   );
 });
 
-export default function ProphetStoriesSection() {
+export default function FavoriteStoriesScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation();
   const { width: screenWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const { bookmarks } = useStoryBookmarks();
 
-  const { items, loading, error, fromCache, refresh, retry } = useFirestoreSubscription(
+  const { items: regularStories, loading: loadingRegular, error: errorRegular, refresh, retry } = useFirestoreSubscription(
     subscribeToStories,
     STORAGE_KEYS.LIBRARY_CACHE_STORIES
   );
 
-  const stories = useMemo(() => {
-    if (!items?.length) return [];
-    return [...items].sort((a, b) => {
-      const aFeatured = a.featured ? 1 : 0;
-      const bFeatured = b.featured ? 1 : 0;
-      if (aFeatured !== bFeatured) return bFeatured - aFeatured;
-      return storyTimestamp(b) - storyTimestamp(a);
-    });
-  }, [items]);
+  const { items: featuredStories, loading: loadingFeatured, error: errorFeatured } = useFirestoreSubscription(
+    subscribeToFeaturedStories,
+    STORAGE_KEYS.LIBRARY_CACHE_FEATURED_STORIES
+  );
+
+  const allStories = useMemo(() => {
+    return [...(regularStories || []), ...(featuredStories || [])];
+  }, [regularStories, featuredStories]);
+
+  const favoriteStories = useMemo(() => {
+    if (!allStories?.length || !bookmarks?.length) return [];
+    return allStories.filter(story => bookmarks.includes(story.id));
+  }, [allStories, bookmarks]);
 
   const handleOpenStory = useCallback(
     (story) => {
@@ -233,11 +218,6 @@ export default function ProphetStoriesSection() {
     },
     [navigation]
   );
-
-  const handleViewAll = useCallback(async () => {
-    await Haptics.selectionAsync();
-    navigation.navigate('StudyPlans');
-  }, [navigation]);
 
   const cardWidth = screenWidth - SIDE_INSET * 2;
 
@@ -257,111 +237,83 @@ export default function ProphetStoriesSection() {
 
   const keyExtractor = useCallback((item) => item.id, []);
 
-  if (loading) {
-    return (
-      <View style={[styles.section, { backgroundColor: colors.bg }]}>
-        <SectionHeader colors={colors} isDark={isDark} />
-        <View style={styles.loadingContainer}>
-          {[0, 1, 2].map((key) => (
-            <View key={key} style={{ marginBottom: VERTICAL_GAP }}>
-              <SkeletonCard cardWidth={cardWidth} colors={colors} isDark={isDark} />
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  }
-
-  if (error && !stories.length) {
-    return (
-      <View style={[styles.section, { backgroundColor: colors.bg }]}>
-        <SectionHeader colors={colors} isDark={isDark} />
-        <EmptyState
-          icon="cloud-offline-outline"
-          title="Unable to load stories"
-          message={fromCache ? 'Cached stories are unavailable. Check your connection and try again.' : error}
-          actionLabel="Retry"
-          onAction={retry}
-        />
-      </View>
-    );
-  }
-
-  if (!loading && !stories.length) {
-    return (
-      <View style={[styles.section, { backgroundColor: colors.bg }]}>
-        <SectionHeader colors={colors} isDark={isDark} />
-        <EmptyState
-          icon="book-outline"
-          title="No stories available yet"
-          message="New Prophet stories will appear here as soon as they are published."
-          actionLabel="Refresh"
-          onAction={refresh}
-        />
-      </View>
-    );
-  }
+  const loading = loadingRegular || loadingFeatured;
+  const error = errorRegular || errorFeatured;
 
   return (
-    <View style={[styles.section, { backgroundColor: colors.bg }]}>
-      <SectionHeader colors={colors} isDark={isDark} onViewAll={handleViewAll} />
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <BackHeader title="Favorite Stories" />
+
+      {error && !loading && !favoriteStories.length ? (
+        <View style={styles.infoBox}>
+          <EmptyState
+            icon="cloud-offline-outline"
+            title="Unable to load stories"
+            message={error}
+            actionLabel="Retry"
+            onAction={retry}
+          />
+        </View>
+      ) : null}
+
       <FlatList
-        key={`prophet-stories-${NUM_COLUMNS}`}
-        data={stories}
+        data={favoriteStories}
+        keyExtractor={keyExtractor}
         numColumns={NUM_COLUMNS}
         renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        contentContainerStyle={styles.flatListContent}
-        scrollEnabled={false}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.flatListContent,
+          { paddingBottom: insets.bottom + 24 }
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={false}
+            onRefresh={refresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.loadingContainer}>
+              {[0, 1, 2].map((key) => (
+                <View key={key} style={{ marginBottom: VERTICAL_GAP }}>
+                  <SkeletonCard cardWidth={cardWidth} colors={colors} isDark={isDark} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <EmptyState
+                icon="bookmark-outline"
+                title="No favorite stories yet"
+                message="Tap the bookmark button on any story to add it here."
+              />
+            </View>
+          )
+        }
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  section: {
-    marginTop: 26,
-    marginBottom: 30,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  container: { flex: 1 },
+  flatListContent: {
     paddingHorizontal: SIDE_INSET,
-    marginBottom: 22,
-  },
-  headerTextGroup: {
-    flex: 1,
-    marginRight: 12,
-  },
-  heading: {
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  subheading: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 3,
-  },
-  viewAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-    borderRadius: 999,
-  },
-  viewAllText: {
-    fontSize: 13,
-    fontWeight: '700',
+    paddingTop: 12,
   },
   loadingContainer: {
     paddingHorizontal: SIDE_INSET,
+    paddingTop: 12,
   },
-  flatListContent: {
-    paddingHorizontal: SIDE_INSET,
+  infoBox: {
+    marginHorizontal: 20,
+    marginTop: 12,
+  },
+  emptyState: {
+    marginTop: 60,
   },
   cardWrapper: {
     marginBottom: VERTICAL_GAP,

@@ -7,6 +7,10 @@ export const LIBRARY_ACCENTS = {
   study: '#22C55E',
   witness: '#F59E0B',
   meet: '#06B6D4',
+  bible: '#C96A1B',
+  jesus: '#D4AF37',
+  prayers: '#6B8F71',
+  worship: '#7B6BA8',
 };
 
 export const SWIPE_GRADIENTS = {

@@ -25,6 +25,7 @@ import WallpaperSettingsScreen from '../screens/WallpaperSettingsScreen';
 import DailyVerseScreen from '../screens/DailyVerseScreen';
 import DailyPrayerScreen from '../screens/DailyPrayerScreen';
 import WitnessScreen from '../screens/WitnessScreen';
+import VideoPlayerScreen from '../screens/VideoPlayerScreen';
 import StudyPlansScreen from '../screens/StudyPlansScreen';
 import MeetShareScreen from '../screens/MeetShareScreen';
 import QuotesScreen from '../screens/QuotesScreen';
@@ -35,6 +36,15 @@ import PaymentFailedScreen from '../screens/PaymentFailedScreen';
 import ExpiredSubscriptionScreen from '../screens/ExpiredSubscriptionScreen';
 import SuspendedAccountScreen from '../screens/SuspendedAccountScreen';
 import RestoreAccessScreen from '../screens/RestoreAccessScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
+import FavoriteWallpapersScreen from '../screens/FavoriteWallpapersScreen';
+import FavoriteStoriesScreen from '../screens/FavoriteStoriesScreen';
+import SavedVideosScreen from '../screens/SavedVideosScreen';
+import BibleContentScreen from '../screens/BibleScreen';
+import JesusContentScreen from '../screens/JesusScreen';
+import PrayersContentScreen from '../screens/PrayersScreen';
+import WorshipContentScreen from '../screens/WorshipScreen';
+import ContentDetailScreen from '../screens/ContentDetailScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -157,6 +167,11 @@ export default function MainNavigator() {
       <Stack.Screen name="DailyVerse" component={DailyVerseScreen} />
       <Stack.Screen name="DailyPrayer" component={DailyPrayerScreen} />
       <Stack.Screen name="Witness" component={WitnessScreen} />
+      <Stack.Screen
+        name="VideoPlayer"
+        component={VideoPlayerScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
       <Stack.Screen name="ProphetStoryDetails" component={ProphetStoryDetailsScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="StudyPlans" component={StudyPlansScreen} />
       <Stack.Screen name="MeetShare" component={MeetShareScreen} />
@@ -168,6 +183,19 @@ export default function MainNavigator() {
       <Stack.Screen name="ExpiredSubscription" component={ExpiredSubscriptionScreen} />
       <Stack.Screen name="SuspendedAccount" component={SuspendedAccountScreen} />
       <Stack.Screen name="RestoreAccess" component={RestoreAccessScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="FavoriteWallpapers" component={FavoriteWallpapersScreen} />
+      <Stack.Screen name="FavoriteStories" component={FavoriteStoriesScreen} />
+      <Stack.Screen name="SavedVideos" component={SavedVideosScreen} />
+      <Stack.Screen name="BibleContent" component={BibleContentScreen} />
+      <Stack.Screen name="JesusContent" component={JesusContentScreen} />
+      <Stack.Screen name="PrayersContent" component={PrayersContentScreen} />
+      <Stack.Screen name="WorshipContent" component={WorshipContentScreen} />
+      <Stack.Screen
+        name="ContentDetail"
+        component={ContentDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
     </Stack.Navigator>
   );
 }

@@ -36,7 +36,7 @@ const FEATURES = [
   },
   {
     id: 'dailyPrayer',
-    title: 'Daily Prayer',
+    title: 'Prayer Room',
     description: 'Start your day with powerful prayer.',
     image: require('../../assets/lib/hand.png'),
     screen: 'DailyPrayer',
@@ -50,7 +50,7 @@ const FEATURES = [
   },
   {
     id: 'witness',
-    title: 'Witness',
+    title: 'Scripture Videos',
     description: 'Share your faith and inspire others.',
     image: require('../../assets/lib/bird.png'),
     screen: 'Witness',

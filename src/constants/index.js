@@ -10,6 +10,20 @@ export const COLLECTIONS = {
   MEET_SHARE: 'meetSessions',
   STORIES: 'stories',
   FEATURED_STORIES: 'featuredStories',
+  WITNESS_VIDEOS: 'witnessVideos',
+  WITNESS_CAROUSEL: 'witnessCarousel',
+  BIBLE_READING_PLANS: 'bibleReadingPlans',
+  BIBLE_DAILY_VERSES: 'bibleDailyVerses',
+  BIBLE_BANNERS: 'bibleBanners',
+  BIBLE_ANNOUNCEMENTS: 'bibleAnnouncements',
+  BIBLE_CONTENT: 'bibleContent',
+  BIBLE_CAROUSEL: 'bibleCarousel',
+  JESUS_CONTENT: 'jesusContent',
+  JESUS_CAROUSEL: 'jesusCarousel',
+  PRAYERS_CONTENT: 'prayersContent',
+  PRAYERS_CAROUSEL: 'prayersCarousel',
+  WORSHIP_CONTENT: 'worshipContent',
+  WORSHIP_CAROUSEL: 'worshipCarousel',
 };
 
 /** Wallpaper filters — icon names are MaterialCommunityIcons */
@@ -59,6 +73,8 @@ export const STORAGE_KEYS = {
   VERSE_BOOKMARKS: 'faithframes_verse_bookmarks',
   PRAYER_BOOKMARKS: 'faithframes_prayer_bookmarks',
   STORY_BOOKMARKS: 'faithframes_story_bookmarks',
+  STORY_LIKES: 'faithframes_story_likes',
+  STORY_READ: 'faithframes_story_read',
   LIBRARY_CACHE_VERSE: 'faithframes_library_cache_verse',
   LIBRARY_CACHE_PRAYERS: 'faithframes_library_cache_prayers',
   LIBRARY_CACHE_QUOTES: 'faithframes_library_cache_quotes',
@@ -67,6 +83,16 @@ export const STORAGE_KEYS = {
   LIBRARY_CACHE_MEET: 'faithframes_library_cache_meet',
   LIBRARY_CACHE_STORIES: 'faithframes_library_cache_stories',
   LIBRARY_CACHE_FEATURED_STORIES: 'faithframes_library_cache_featured_stories',
+  LIBRARY_CACHE_WITNESS_VIDEOS: 'faithframes_library_cache_witness_videos',
+  LIBRARY_CACHE_WITNESS_CAROUSEL: 'faithframes_library_cache_witness_carousel',
+  LIBRARY_CACHE_BIBLE_CAROUSEL: 'faithframes_library_cache_bible_carousel',
+  LIBRARY_CACHE_BIBLE_CONTENT: 'faithframes_library_cache_bible_content',
+  LIBRARY_CACHE_JESUS_CAROUSEL: 'faithframes_library_cache_jesus_carousel',
+  LIBRARY_CACHE_JESUS_CONTENT: 'faithframes_library_cache_jesus_content',
+  LIBRARY_CACHE_PRAYERS_CAROUSEL: 'faithframes_library_cache_prayers_carousel',
+  LIBRARY_CACHE_PRAYERS_CONTENT: 'faithframes_library_cache_prayers_content',
+  LIBRARY_CACHE_WORSHIP_CAROUSEL: 'faithframes_library_cache_worship_carousel',
+  LIBRARY_CACHE_WORSHIP_CONTENT: 'faithframes_library_cache_worship_content',
 };
 
 /** Quote categories — mirrors admin UploadQuotesPanel */

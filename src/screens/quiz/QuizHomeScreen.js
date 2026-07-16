@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { HomeTheme } from '../../theme/homeTheme';
+import { useTheme } from '../../context/ThemeContext';
 import { QUIZ_TYPE_LIST } from '../../constants/quiz';
 import { prepareQuizSession } from '../../services/quizService';
 import { getActiveSession } from '../../storage/quizStorage';
@@ -23,9 +23,8 @@ import { useToast } from '../../context/ToastContext';
 import { xpProgressInLevel } from '../../utils/quizScoring';
 import GradientButton from '../../components/common/GradientButton';
 
-const H = HomeTheme;
-
 export default function QuizHomeScreen() {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { user } = useAuth();
@@ -72,26 +71,26 @@ export default function QuizHomeScreen() {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100, paddingHorizontal: 20 }}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={H.primary} />
+          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} />
         }
       >
-        <Text style={styles.title}>Faith Quiz</Text>
-        <Text style={styles.subtitle}>Christ-centered challenges from your question bank</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Faith Quiz</Text>
+        <Text style={[styles.subtitle, { color: colors.textMuted }]}>Christ-centered challenges from your question bank</Text>
 
         {savedSession ? (
           <TouchableOpacity
-            style={styles.resumeCard}
+            style={[styles.resumeCard, { backgroundColor: isDark ? colors.bgCardSoft : '#E8EFFF', borderColor: colors.primary }]}
             onPress={() => navigation.navigate('QuizSession', { session: savedSession })}
           >
-            <MaterialCommunityIcons name="play-circle" size={28} color={H.primary} />
+            <MaterialCommunityIcons name="play-circle" size={28} color={colors.primary} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.resumeTitle}>Resume quiz</Text>
-              <Text style={styles.resumeSub}>
+              <Text style={[styles.resumeTitle, { color: colors.textPrimary }]}>Resume quiz</Text>
+              <Text style={[styles.resumeSub, { color: colors.textMuted }]}>
                 Question {(savedSession.currentIndex || 0) + 1} of{' '}
                 {savedSession.questions?.length || 0}
               </Text>
@@ -100,55 +99,55 @@ export default function QuizHomeScreen() {
         ) : null}
 
         {profile ? (
-          <View style={styles.statsCard}>
+          <View style={[styles.statsCard, { backgroundColor: colors.bgCard }]}>
             <View style={styles.statCol}>
-              <Text style={styles.statValue}>Lv {xp.level}</Text>
-              <Text style={styles.statLabel}>Level</Text>
+              <Text style={[styles.statValue, { color: colors.primary }]}>Lv {xp.level}</Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>Level</Text>
             </View>
             <View style={styles.statCol}>
-              <Text style={styles.statValue}>{profile.currentStreak || 0}</Text>
-              <Text style={styles.statLabel}>Streak</Text>
+              <Text style={[styles.statValue, { color: colors.primary }]}>{profile.currentStreak || 0}</Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>Streak</Text>
             </View>
             <View style={styles.statCol}>
-              <Text style={styles.statValue}>{profile.bestScore || 0}</Text>
-              <Text style={styles.statLabel}>Best</Text>
+              <Text style={[styles.statValue, { color: colors.primary }]}>{profile.bestScore || 0}</Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>Best</Text>
             </View>
           </View>
         ) : null}
 
         <View style={styles.quickRow}>
           <TouchableOpacity
-            style={styles.quickBtn}
+            style={[styles.quickBtn, { backgroundColor: colors.bgCard }]}
             onPress={() => navigation.navigate('Leaderboard')}
           >
-            <MaterialCommunityIcons name="trophy" size={22} color={H.primary} />
-            <Text style={styles.quickText}>Leaderboard</Text>
+            <MaterialCommunityIcons name="trophy" size={22} color={colors.primary} />
+            <Text style={[styles.quickText, { color: colors.textPrimary }]}>Leaderboard</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.quickBtn}
+            style={[styles.quickBtn, { backgroundColor: colors.bgCard }]}
             onPress={() => navigation.navigate('QuizStats')}
           >
-            <MaterialCommunityIcons name="chart-line" size={22} color={H.primary} />
-            <Text style={styles.quickText}>My Stats</Text>
+            <MaterialCommunityIcons name="chart-line" size={22} color={colors.primary} />
+            <Text style={[styles.quickText, { color: colors.textPrimary }]}>My Stats</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.quickBtn}
+            style={[styles.quickBtn, { backgroundColor: colors.bgCard }]}
             onPress={() => navigation.navigate('Achievements')}
           >
-            <MaterialCommunityIcons name="medal" size={22} color={H.primary} />
-            <Text style={styles.quickText}>Badges</Text>
+            <MaterialCommunityIcons name="medal" size={22} color={colors.primary} />
+            <Text style={[styles.quickText, { color: colors.textPrimary }]}>Badges</Text>
           </TouchableOpacity>
         </View>
 
         {!loading && questionCount > 0 ? (
-          <Text style={styles.catalogMeta}>
+          <Text style={[styles.catalogMeta, { color: colors.textMuted }]}>
             {questionCount} questions · {attemptedCount} attempted
           </Text>
         ) : null}
 
         {!loading && !error && questionCount === 0 ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>
+          <View style={[styles.errorBox, { backgroundColor: colors.bgCard }]}>
+            <Text style={[styles.errorText, { color: colors.textMuted }]}>
               No quiz questions found. Upload from the admin panel, then pull down to refresh.
             </Text>
             <GradientButton title="Refresh Questions" onPress={() => refresh(true)} style={{ marginTop: 12 }} />
@@ -156,14 +155,14 @@ export default function QuizHomeScreen() {
         ) : null}
 
         {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorBox, { backgroundColor: colors.bgCard }]}>
+            <Text style={[styles.errorText, { color: colors.textMuted }]}>{error}</Text>
             <GradientButton title="Retry" onPress={refresh} style={{ marginTop: 12 }} />
           </View>
         ) : null}
 
         {loading ? (
-          <ActivityIndicator size="large" color={H.primary} style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
         ) : (
           QUIZ_TYPE_LIST.map((type) => (
             <QuizTypeCard
@@ -185,52 +184,55 @@ export default function QuizHomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: H.bg },
-  title: { fontSize: 28, fontWeight: '800', color: H.text, marginTop: 8 },
-  subtitle: { fontSize: 14, color: H.textMuted, marginTop: 6, marginBottom: 20, lineHeight: 20 },
+  root: { flex: 1 },
+  title: { fontSize: 28, fontWeight: '800', marginTop: 8 },
+  subtitle: { fontSize: 14, marginTop: 6, marginBottom: 20, lineHeight: 20 },
   statsCard: {
     flexDirection: 'row',
-    backgroundColor: H.surface,
     borderRadius: 18,
     padding: 16,
     marginBottom: 16,
-    ...H.shadow,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
   statCol: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 20, fontWeight: '800', color: H.primary },
-  statLabel: { fontSize: 12, color: H.textMuted, marginTop: 4 },
+  statValue: { fontSize: 20, fontWeight: '800' },
+  statLabel: { fontSize: 12, marginTop: 4 },
   quickRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   quickBtn: {
     flex: 1,
-    backgroundColor: H.surface,
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
     gap: 4,
-    ...H.shadow,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  quickText: { fontSize: 11, fontWeight: '700', color: H.text },
-  catalogMeta: { fontSize: 12, color: H.textMuted, marginBottom: 12 },
+  quickText: { fontSize: 11, fontWeight: '700' },
+  catalogMeta: { fontSize: 12, marginBottom: 12 },
   resumeCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#E8EFFF',
     borderRadius: 16,
     padding: 14,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: H.primary,
   },
-  resumeTitle: { fontSize: 15, fontWeight: '800', color: H.text },
-  resumeSub: { fontSize: 12, color: H.textMuted, marginTop: 2 },
+  resumeTitle: { fontSize: 15, fontWeight: '800' },
+  resumeSub: { fontSize: 12, marginTop: 2 },
   errorBox: {
-    backgroundColor: H.surface,
     padding: 16,
     borderRadius: 14,
     marginBottom: 16,
   },
-  errorText: { color: H.textMuted, textAlign: 'center' },
+  errorText: { textAlign: 'center' },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.25)',

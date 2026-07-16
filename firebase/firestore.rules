@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ------------------------------
-    // EXISTING CONTENT COLLECTIONS (NO CHANGES EXCEPT contactMessages
+    // EXISTING CONTENT COLLECTIONS
     // ------------------------------
     match /religiousWallpapers/{docId} {
       allow read: if true;
@@ -36,6 +36,15 @@ service cloud.firestore {
     match /meetSessions/{docId} {
       allow read: if true;
       allow write: if false;
+
+      match /rsvps/{uid} {
+        allow read: if true;
+        allow create, update: if request.auth != null
+          && request.auth.uid == uid
+          && request.resource.data.response in ['going', 'not_going']
+          && request.resource.data.keys().hasOnly(['response', 'updatedAt']);
+        allow delete: if false;
+      }
     }
     match /stories/{docId} {
       allow read: if true;
@@ -45,6 +54,117 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+
+    // ------------------------------
+    // WITNESS VIDEOS COLLECTIONS
+    // ------------------------------
+    match /witnessVideos/{docId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /userInteractions/{uid} {
+        allow read, create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['liked', 'disliked', 'viewed', 'updatedAt'])
+          && request.resource.data.liked is bool
+          && request.resource.data.disliked is bool
+          && request.resource.data.viewed is bool
+          && !(request.resource.data.liked == true && request.resource.data.disliked == true);
+        allow delete: if false;
+      }
+    }
+    match /witnessCarousel/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ------------------------------
+    // Bible Content
+    // ------------------------------
+    match /bibleContent/{docId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /userInteractions/{uid} {
+        allow read, create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['liked', 'disliked', 'viewed', 'updatedAt'])
+          && request.resource.data.liked is bool
+          && request.resource.data.disliked is bool
+          && request.resource.data.viewed is bool
+          && !(request.resource.data.liked == true && request.resource.data.disliked == true);
+        allow delete: if false;
+      }
+    }
+    match /bibleCarousel/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ------------------------------
+    // Jesus Content
+    // ------------------------------
+    match /jesusContent/{docId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /userInteractions/{uid} {
+        allow read, create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['liked', 'disliked', 'viewed', 'updatedAt'])
+          && request.resource.data.liked is bool
+          && request.resource.data.disliked is bool
+          && request.resource.data.viewed is bool
+          && !(request.resource.data.liked == true && request.resource.data.disliked == true);
+        allow delete: if false;
+      }
+    }
+    match /jesusCarousel/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ------------------------------
+    // Prayers Content
+    // ------------------------------
+    match /prayersContent/{docId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /userInteractions/{uid} {
+        allow read, create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['liked', 'disliked', 'viewed', 'updatedAt'])
+          && request.resource.data.liked is bool
+          && request.resource.data.disliked is bool
+          && request.resource.data.viewed is bool
+          && !(request.resource.data.liked == true && request.resource.data.disliked == true);
+        allow delete: if false;
+      }
+    }
+    match /prayersCarousel/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ------------------------------
+    // Worship Content
+    // ------------------------------
+    match /worshipContent/{docId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /userInteractions/{uid} {
+        allow read, create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['liked', 'disliked', 'viewed', 'updatedAt'])
+          && request.resource.data.liked is bool
+          && request.resource.data.disliked is bool
+          && request.resource.data.viewed is bool
+          && !(request.resource.data.liked == true && request.resource.data.disliked == true);
+        allow delete: if false;
+      }
+    }
+    match /worshipCarousel/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /contactMessages/{docId} {
       allow create: if request.auth != null
         && request.resource.data.name is string
@@ -75,12 +195,18 @@ service cloud.firestore {
     // CORE USER DATA
     // ------------------------------
     match /users/{userId} {
-      // Read: Only the authenticated user themselves
       allow read: if request.auth != null && request.auth.uid == userId;
-      // Write: NEVER allow client writes! Only Cloud Functions/Admin SDK
-      allow write: if false;
+      allow create, update: if request.auth != null && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['name', 'email', 'address', 'photoURL', 'updatedAt'])
+        && (!request.resource.data.name || request.resource.data.name is string)
+        && (!request.resource.data.email || request.resource.data.email is string)
+        && (!request.resource.data.address || request.resource.data.address is string)
+        && (!request.resource.data.photoURL || request.resource.data.photoURL is string)
+        && (!request.resource.data.isPremium || request.resource.data.isPremium == resource.data.isPremium)
+        && (!request.resource.data.lastScore || request.resource.data.lastScore == resource.data.lastScore)
+        && (!request.resource.data.lastPlayed || request.resource.data.lastPlayed == resource.data.lastPlayed)
+        && (!request.resource.data.createdAt || request.resource.data.createdAt == resource.data.createdAt);
 
-      // Existing user subcollections
       match /attemptedQuestions/{questionId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
@@ -90,6 +216,21 @@ service cloud.firestore {
           && request.resource.data.status == 'completed'
           && request.resource.data.sessionId == sessionId;
         allow update, delete: if false;
+      }
+      match /favorites/{wallpaperId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /bookmarks/{storyId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /savedVideos/{videoId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /likedVideos/{videoId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /dislikedVideos/{videoId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
 

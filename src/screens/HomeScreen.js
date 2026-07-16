@@ -39,10 +39,24 @@ export default function HomeScreen() {
   const { user, userProfile } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
 
+  const handleSearchSubmit = useCallback(() => {
+    navigation.navigate('Search', { initialQuery: searchQuery.trim() });
+  }, [navigation, searchQuery]);
+
   const goCategory = useCallback(
     (item) => {
-      const cat = item.category || item;
-      navigation.navigate('Category', { category: cat });
+      if (item.id === 'bible') {
+        navigation.navigate('BibleContent');
+      } else if (item.id === 'jesus') {
+        navigation.navigate('JesusContent');
+      } else if (item.id === 'prayer') {
+        navigation.navigate('PrayersContent');
+      } else if (item.id === 'worship') {
+        navigation.navigate('WorshipContent');
+      } else {
+        const cat = item.category || item;
+        navigation.navigate('Category', { category: cat });
+      }
     },
     [navigation]
   );
@@ -75,6 +89,7 @@ export default function HomeScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
+              onSubmitEditing={handleSearchSubmit}
             />
             {searchQuery.length > 0 ? (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
@@ -84,7 +99,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 style={[styles.searchBtn, { backgroundColor: colors.primary }]}
                 activeOpacity={0.85}
-                onPress={() => navigation.navigate('Search')}
+                onPress={handleSearchSubmit}
               >
                 <Ionicons name="options-outline" size={18} color="#FFFFFF" />
               </TouchableOpacity>

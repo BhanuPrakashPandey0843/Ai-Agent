@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   StatusBar,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,9 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import ScreenContainer from '../components/common/ScreenContainer';
+import useFavorites from '../hooks/useFavorites';
+import useStoryBookmarks from '../hooks/useStoryBookmarks';
+import useSavedVideos from '../hooks/useSavedVideos';
 
 function StatCard({ icon, label, value, colors, isDark }) {
   const cardBg = isDark ? '#101010' : '#F5F5F5';
@@ -60,6 +64,9 @@ export default function SettingsScreen() {
   const { user, userProfile, logout } = useAuth();
   const { colors, isDark, toggleTheme } = useTheme();
   const { showToast } = useToast();
+  const { favorites } = useFavorites();
+  const { bookmarks } = useStoryBookmarks();
+  const { savedVideos } = useSavedVideos();
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -75,8 +82,6 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const score = userProfile?.lastScore ?? 0;
-  const coins = userProfile?.coins ?? 0;
   const textPrimary = isDark ? '#FFFFFF' : '#000000';
   const textSecondary = isDark ? '#9CA3AF' : '#6B7280';
   const cardBg = isDark ? '#101010' : '#F5F5F5';
@@ -95,14 +100,23 @@ export default function SettingsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.screenTitle, { color: textPrimary }]}>Profile</Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.screenTitle, { color: textPrimary }]}>Profile</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('EditProfile')} hitSlop={12}>
+            <Ionicons name="pencil" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
 
         <View style={[styles.profileCard, { backgroundColor: cardBg }]}>
-          <LinearGradient colors={[colors.primary, '#FF9A33']} style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(userProfile?.name || user?.email || 'U')[0].toUpperCase()}
-            </Text>
-          </LinearGradient>
+          {userProfile?.photoURL ? (
+            <Image source={{ uri: userProfile.photoURL }} style={styles.avatar} />
+          ) : (
+            <LinearGradient colors={[colors.primary, '#FF9A33']} style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {(userProfile?.name || user?.email || 'U')[0].toUpperCase()}
+              </Text>
+            </LinearGradient>
+          )}
           <View style={styles.profileInfo}>
             <Text style={[styles.profileName, { color: textPrimary }]}>{userProfile?.name || 'Believer'}</Text>
             <Text style={[styles.profileEmail, { color: textSecondary }]}>{user?.email}</Text>
@@ -116,8 +130,15 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.statsRow}>
-          <StatCard icon="star" label="Last Score" value={String(score)} colors={colors} isDark={isDark} />
-          <StatCard icon="flame" label="Coins" value={String(coins)} colors={colors} isDark={isDark} />
+          <TouchableOpacity onPress={() => navigation.navigate('FavoriteWallpapers')} activeOpacity={0.8}>
+            <StatCard icon="images" label="Favorite Wallpapers" value={String(favorites.length)} colors={colors} isDark={isDark} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('FavoriteStories')} activeOpacity={0.8}>
+            <StatCard icon="bookmark" label="Favorite Stories" value={String(bookmarks.length)} colors={colors} isDark={isDark} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('SavedVideos')} activeOpacity={0.8}>
+            <StatCard icon="videocam" label="Saved Videos" value={String(savedVideos.length)} colors={colors} isDark={isDark} />
+          </TouchableOpacity>
         </View>
 
         <Text style={[styles.sectionLabel, { color: textSecondary }]}>Preferences</Text>
@@ -202,10 +223,15 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 20 },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 32,
+  },
   screenTitle: {
     fontSize: 32,
     fontWeight: '800',
-    marginBottom: 32,
   },
   profileCard: {
     flexDirection: 'row',

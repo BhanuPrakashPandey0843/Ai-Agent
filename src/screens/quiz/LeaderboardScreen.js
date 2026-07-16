@@ -4,17 +4,17 @@ import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { HomeTheme } from '../../theme/homeTheme';
+import { useTheme } from '../../context/ThemeContext';
 import { LEADERBOARD_PERIODS } from '../../constants/quiz';
 import useLeaderboard from '../../hooks/useLeaderboard';
 import PodiumLeaderboard from '../../components/quiz/PodiumLeaderboard';
 import LeaderboardRow from '../../components/quiz/LeaderboardRow';
 import BackHeader from '../../components/common/BackHeader';
 
-const H = HomeTheme;
 const PERIODS = Object.values(LEADERBOARD_PERIODS);
 
 export default function LeaderboardScreen() {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [period, setPeriod] = useState('daily');
@@ -24,27 +24,27 @@ export default function LeaderboardScreen() {
   const rest = entries.filter((e) => e.rank > 3);
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
       <BackHeader title="Leaderboard" transparent />
 
       <View style={styles.tabs}>
         {PERIODS.map((p) => (
           <TouchableOpacity
             key={p.id}
-            style={[styles.tab, period === p.id && styles.tabOn]}
+            style={[styles.tab, { backgroundColor: colors.bgCard }, period === p.id && { backgroundColor: colors.primary }]}
             onPress={() => setPeriod(p.id)}
           >
-            <Text style={[styles.tabText, period === p.id && styles.tabTextOn]}>{p.label}</Text>
+            <Text style={[styles.tabText, { color: colors.textMuted }, period === p.id && styles.tabTextOn]}>{p.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={H.primary} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
       ) : error ? (
-        <Text style={styles.error}>{error}</Text>
+        <Text style={[styles.error, { color: colors.textMuted }]}>{error}</Text>
       ) : entries.length === 0 ? (
-        <Text style={styles.empty}>No scores yet. Be the first to play!</Text>
+        <Text style={[styles.empty, { color: colors.textMuted }]}>No scores yet. Be the first to play!</Text>
       ) : (
         <View style={styles.listWrap}>
           <PodiumLeaderboard entries={top3} />
@@ -64,7 +64,7 @@ export default function LeaderboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: H.bg },
+  root: { flex: 1 },
   tabs: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -75,13 +75,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: H.surface,
     alignItems: 'center',
   },
-  tabOn: { backgroundColor: H.primary },
-  tabText: { fontSize: 12, fontWeight: '700', color: H.textMuted },
+  tabText: { fontSize: 12, fontWeight: '700' },
   tabTextOn: { color: '#FFF' },
-  error: { textAlign: 'center', color: H.textMuted, marginTop: 24 },
-  empty: { textAlign: 'center', color: H.textMuted, marginTop: 40, paddingHorizontal: 24 },
+  error: { textAlign: 'center', marginTop: 24 },
+  empty: { textAlign: 'center', marginTop: 40, paddingHorizontal: 24 },
   listWrap: { flex: 1 },
 });

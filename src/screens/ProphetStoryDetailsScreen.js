@@ -1,13 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '../context/ThemeContext';
 import BackHeader from '../components/common/BackHeader';
 import useFirestoreSubscription from '../hooks/useFirestoreSubscription';
+import useStoryBookmarks from '../hooks/useStoryBookmarks';
+import useStoryLikes from '../hooks/useStoryLikes';
+import useStoryRead from '../hooks/useStoryRead';
 import { subscribeToStories, subscribeToFeaturedStories } from '../services/firebaseService';
 import { STORAGE_KEYS } from '../constants';
 
@@ -15,8 +19,11 @@ const IMAGE_HEIGHT = 320;
 
 export default function ProphetStoryDetailsScreen({ route }) {
   const { storyId } = route.params || {};
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, Spacing, Typography } = useTheme();
   const insets = useSafeAreaInsets();
+  const { isBookmarked, toggleBookmark } = useStoryBookmarks();
+  const { isLiked, toggleLike } = useStoryLikes();
+  const { isRead, markRead } = useStoryRead();
 
   const { items: regularStories, loading: loadingRegular, error: errorRegular } = useFirestoreSubscription(
     subscribeToStories,
@@ -33,8 +40,35 @@ export default function ProphetStoryDetailsScreen({ route }) {
     return allStories.find((item) => item.id === storyId);
   }, [regularStories, featuredStories, storyId]);
 
+  useEffect(() => {
+    if (story && !isRead(story.id)) {
+      markRead(story.id);
+    }
+  }, [story?.id, isRead, markRead]);
+
   const loading = loadingRegular || loadingFeatured;
   const error = errorRegular || errorFeatured;
+
+  const handleLike = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await toggleLike(story.id);
+  };
+
+  const handleSave = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await toggleBookmark(story.id);
+  };
+
+  const handleShare = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await Share.share({
+        message: `Check out this story: ${story.title}\n${story.description || ''}`,
+      });
+    } catch (err) {
+      Alert.alert('Error', 'Could not share the story');
+    }
+  };
 
   if (loading) {
     return (
@@ -58,13 +92,13 @@ export default function ProphetStoryDetailsScreen({ route }) {
     );
   }
 
-  const metaLabel = story?.prophetName ? `Prophet ${story.prophetName} (A.S.)` : story?.category;
+  const metaLabel = story?.category;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background || colors.bg }]}>
       <BackHeader title="Story" />
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroWrap}>
@@ -77,7 +111,7 @@ export default function ProphetStoryDetailsScreen({ route }) {
               style={styles.heroImage}
             />
           ) : (
-            <View style={[styles.heroImage, { backgroundColor: colors.bgCardSoft }]}>
+            <View style={[styles.heroImage, { backgroundColor: colors.bgCardSoft || colors.bgCard }]}>
               <Ionicons name="book" size={64} color={colors.primary} />
             </View>
           )}
@@ -116,6 +150,66 @@ export default function ProphetStoryDetailsScreen({ route }) {
           ) : null}
         </View>
       </ScrollView>
+
+      {/* Action Buttons */}
+      <View style={[
+        styles.actionBar,
+        { 
+          backgroundColor: isDark ? 'rgba(5,5,12,0.98)' : 'rgba(255,255,255,0.98)',
+          paddingBottom: insets.bottom + 16,
+          borderTopColor: colors.border,
+        }
+      ]}>
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+          onPress={handleLike}
+        >
+          <Ionicons 
+            name={isLiked(story.id) ? 'heart' : 'heart-outline'} 
+            size={24} 
+            color={isLiked(story.id) ? colors.primary : colors.textPrimary} 
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+          onPress={handleSave}
+        >
+          <Ionicons 
+            name={isBookmarked(story.id) ? 'bookmark' : 'bookmark-outline'} 
+            size={24} 
+            color={isBookmarked(story.id) ? colors.primary : colors.textPrimary} 
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+          onPress={handleShare}
+        >
+          <Ionicons 
+            name="share-outline" 
+            size={24} 
+            color={colors.textPrimary} 
+          />
+        </TouchableOpacity>
+
+        <View style={[
+          styles.readIndicator,
+          { 
+            backgroundColor: colors.accentSoft,
+            borderColor: colors.border,
+          }
+        ]}>
+          <Ionicons 
+            name="checkmark-done-circle" 
+            size={20} 
+            color={colors.primary} 
+          />
+          <Text style={[styles.readText, { color: colors.primary }]}>
+            {isRead(story.id) ? 'Read' : 'Marked as Read'}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -178,5 +272,39 @@ const styles = StyleSheet.create({
   bodyText: {
     fontSize: 15,
     lineHeight: 24,
+  },
+  actionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    gap: 12,
+    borderTopWidth: 1,
+  },
+  actionBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readIndicator: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 28,
+    borderWidth: 1,
+    gap: 8,
+  },
+  readText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

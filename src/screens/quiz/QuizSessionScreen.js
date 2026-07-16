@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { HomeTheme } from '../../theme/homeTheme';
+import { useTheme } from '../../context/ThemeContext';
 import { QUIZ_TYPES, SECONDS_PER_QUESTION } from '../../constants/quiz';
 import { pointsForQuestion } from '../../utils/quizScoring';
 import QuizProgressBar from '../../components/quiz/QuizProgressBar';
@@ -20,9 +20,8 @@ import EmptyState from '../../components/common/EmptyState';
 import { saveActiveSession, clearActiveSession } from '../../storage/quizStorage';
 import { useAuth } from '../../context/AuthContext';
 
-const H = HomeTheme;
-
 export default function QuizSessionScreen() {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
@@ -140,7 +139,7 @@ export default function QuizSessionScreen() {
 
   if (exhausted) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
         <EmptyState
           icon="checkmark-done-circle-outline"
           title="All caught up!"
@@ -156,29 +155,29 @@ export default function QuizSessionScreen() {
 
   if (!session || !current) {
     return (
-      <View style={[styles.root, styles.centered, { paddingTop: insets.top }]}>
-        <Text style={styles.muted}>Loading session...</Text>
+      <View style={[styles.root, styles.centered, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
+        <Text style={[styles.muted, { color: colors.textMuted }]}>Loading session...</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.root, { paddingTop: insets.top + 8, backgroundColor: colors.bg, paddingHorizontal: 20 }]}>
       <View style={styles.topBar}>
         <TouchableOpacity onPress={quit} hitSlop={12}>
-          <Ionicons name="close" size={28} color={H.text} />
+          <Ionicons name="close" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.typeLabel}>{quizType?.label}</Text>
+        <Text style={[styles.typeLabel, { color: colors.textPrimary }]}>{quizType?.label}</Text>
         <View style={styles.timer}>
-          <Ionicons name="time-outline" size={16} color={secondsLeft <= 10 ? '#C62828' : H.textMuted} />
-          <Text style={[styles.timerText, secondsLeft <= 10 && styles.timerUrgent]}>
+          <Ionicons name="time-outline" size={16} color={secondsLeft <= 10 ? '#C62828' : colors.textMuted} />
+          <Text style={[styles.timerText, { color: colors.textMuted }, secondsLeft <= 10 && styles.timerUrgent]}>
             {secondsLeft}s
           </Text>
         </View>
       </View>
 
       <QuizProgressBar progress={progress} />
-      <Text style={styles.counter}>
+      <Text style={[styles.counter, { color: colors.textMuted }]}>
         Question {index + 1} of {questions.length}
       </Text>
 
@@ -186,10 +185,10 @@ export default function QuizSessionScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.card}>
-          <Text style={styles.question}>{current.question}</Text>
+        <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
+          <Text style={[styles.question, { color: colors.textPrimary }]}>{current.question}</Text>
           {current.reference ? (
-            <Text style={styles.reference}>{current.reference}</Text>
+            <Text style={[styles.reference, { color: colors.primary }]}>{current.reference}</Text>
           ) : null}
 
           {current.options
@@ -216,7 +215,7 @@ export default function QuizSessionScreen() {
             })}
 
           {revealed && current.explanation ? (
-            <Text style={styles.explanation}>{current.explanation}</Text>
+            <Text style={[styles.explanation, { color: colors.textMuted }]}>{current.explanation}</Text>
           ) : null}
         </View>
 
@@ -233,7 +232,7 @@ export default function QuizSessionScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: H.bg, paddingHorizontal: 20 },
+  root: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center' },
   topBar: {
     flexDirection: 'row',
@@ -241,37 +240,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  typeLabel: { fontSize: 14, fontWeight: '700', color: H.text },
+  typeLabel: { fontSize: 14, fontWeight: '700' },
   timer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  timerText: { fontSize: 14, fontWeight: '700', color: H.textMuted },
+  timerText: { fontSize: 14, fontWeight: '700' },
   timerUrgent: { color: '#C62828' },
-  counter: { fontSize: 13, color: H.textMuted, marginTop: 8, marginBottom: 16 },
+  counter: { fontSize: 13, marginTop: 8, marginBottom: 16 },
   scroll: { paddingTop: 4 },
   card: {
-    backgroundColor: H.surface,
     borderRadius: 20,
     padding: 20,
-    ...H.shadow,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
   question: {
     fontSize: 18,
     fontWeight: '700',
-    color: H.text,
     lineHeight: 26,
     marginBottom: 8,
   },
   reference: {
     fontSize: 13,
-    color: H.primary,
     fontWeight: '600',
     marginBottom: 16,
   },
   explanation: {
     marginTop: 12,
     fontSize: 13,
-    color: H.textMuted,
     lineHeight: 20,
     fontStyle: 'italic',
   },
-  muted: { color: H.textMuted },
+  muted: {},
 });

@@ -66,7 +66,7 @@ export default function FeaturedStoriesSection() {
   if (loading) {
     return (
       <View style={[styles.section, { backgroundColor: colors.bg }]}>
-        <Text style={[styles.heading, { color: colors.textPrimary }]}>Featured Stories</Text>
+        <Text style={[styles.heading, { color: colors.textPrimary }]}>Women of the Bible</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollContent}>
           {[0, 1, 2].map(renderSkeleton)}
         </ScrollView>
@@ -77,7 +77,7 @@ export default function FeaturedStoriesSection() {
   if (error && !stories.length) {
     return (
       <View style={[styles.section, { backgroundColor: colors.bg }]}>
-        <Text style={[styles.heading, { color: colors.textPrimary }]}>Featured Stories</Text>
+        <Text style={[styles.heading, { color: colors.textPrimary }]}>Women of the Bible</Text>
         <EmptyState
           icon="cloud-offline-outline"
           title="Unable to load featured stories"
@@ -92,7 +92,7 @@ export default function FeaturedStoriesSection() {
   if (!stories.length) {
     return (
       <View style={[styles.section, { backgroundColor: colors.bg }]}>
-        <Text style={[styles.heading, { color: colors.textPrimary }]}>Featured Stories</Text>
+        <Text style={[styles.heading, { color: colors.textPrimary }]}>Women of the Bible</Text>
         <View style={[styles.emptyState, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <View style={[styles.emptyIconContainer, { backgroundColor: colors.accentSoft }]}>
             <Ionicons name="star-outline" size={40} color={colors.primary} />
@@ -108,7 +108,7 @@ export default function FeaturedStoriesSection() {
 
   return (
     <View style={[styles.section, { backgroundColor: colors.bg }]}>
-      <Text style={[styles.heading, { color: colors.textPrimary }]}>Featured Stories</Text>
+      <Text style={[styles.heading, { color: colors.textPrimary }]}>Women of the Bible</Text>
       <ScrollView
         ref={scrollRef}
         horizontal
