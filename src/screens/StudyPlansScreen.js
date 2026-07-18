@@ -1,14 +1,17 @@
 // src/screens/StudyPlansScreen.js
 // God's Words study plans — Firestore: studyPlans
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   FlatList,
   RefreshControl,
   StatusBar,
+  Animated,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { subscribeToGodsWords } from '../services/firebaseService';
 import useFirestoreSubscription from '../hooks/useFirestoreSubscription';
 import { STORAGE_KEYS } from '../constants';
@@ -17,9 +20,40 @@ import StudyPlanCard from '../components/library/StudyPlanCard';
 import LibraryEmptyState from '../components/library/LibraryEmptyState';
 import LibraryErrorState from '../components/library/LibraryErrorState';
 import SkeletonLoader from '../components/common/SkeletonLoader';
-import { Spacing } from '../theme/colors';
+import { Typography, Spacing, BorderRadius } from '../theme/colors';
 import BackHeader from '../components/common/BackHeader';
 import { useTheme } from '../context/ThemeContext';
+
+const ACCENT = LIBRARY_ACCENTS.study;
+
+function StudyHero({ count }) {
+  const { colors } = useTheme();
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(14)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: 0, friction: 9, tension: 60, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      <View style={styles.hero}>
+        <View style={[styles.heroIcon, { backgroundColor: ACCENT + '18', borderColor: ACCENT + '35' }]}>
+          <Ionicons name="library" size={22} color={ACCENT} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>Grow in the Word</Text>
+          <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
+            {count > 0 ? `${count} guided ${count === 1 ? 'plan' : 'plans'} to walk through` : 'Structured plans to deepen your study'}
+          </Text>
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
 
 export default function StudyPlansScreen() {
   const [expandedId, setExpandedId] = useState(null);
@@ -81,6 +115,7 @@ export default function StudyPlansScreen() {
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
+        ListHeaderComponent={items.length > 0 ? <StudyHero count={items.length} /> : null}
         renderItem={({ item, index }) => (
           <StudyPlanCard
             item={item}
@@ -127,5 +162,29 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xxxl,
     flexGrow: 1,
+  },
+  hero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+    paddingVertical: Spacing.sm,
+  },
+  heroIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTitle: {
+    fontSize: Typography.fontSize2XL,
+    fontWeight: Typography.fontWeightExtraBold,
+    letterSpacing: 0.1,
+  },
+  heroSubtitle: {
+    fontSize: Typography.fontSizeSM,
+    marginTop: 2,
   },
 });
