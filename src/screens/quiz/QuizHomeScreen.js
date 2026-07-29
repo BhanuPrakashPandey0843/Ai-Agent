@@ -76,7 +76,7 @@ export default function QuizHomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100, paddingHorizontal: 20 }}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} />
+          <RefreshControl refreshing={loading} onRefresh={() => refresh(true)} tintColor={colors.primary} />
         }
       >
         <Text style={[styles.title, { color: colors.textPrimary }]}>Faith Quiz</Text>

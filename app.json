@@ -2,7 +2,7 @@
   "expo": {
     "name": "Faith Frames",
     "slug": "faithframes",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -30,8 +30,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
       },
-      "package": "com.faithframes.app",
-      "versionCode": 1,
+      "package": "com.faithframes.official",
       "jsEngine": "hermes",
       "permissions": [
         "android.permission.INTERNET",

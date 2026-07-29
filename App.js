@@ -7,6 +7,7 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { enableScreens } from 'react-native-screens';
 
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import { AuthProvider } from './src/context/AuthContext';
@@ -16,6 +17,16 @@ import { ToastProvider } from './src/context/ToastContext';
 import { SubscriptionProvider } from './src/context/SubscriptionContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import { Colors } from './src/theme/colors';
+
+// Must run before any navigator mounts. This switches React Navigation's
+// bottom-tabs and native-stack from plain View-based screens to native,
+// GPU-composited UIViewController/Fragment screens. Without this call,
+// every tab you've ever visited keeps doing full JS-thread reconciliation
+// and stays attached to the view hierarchy even while off-screen, which is
+// the primary cause of laggy tab switching as more tabs get visited during
+// a session. With it, inactive tabs are frozen/detached natively and tab
+// switches become a native view swap instead of a React re-render.
+enableScreens(true);
 
 LogBox.ignoreLogs([
   'Non-serializable values were found in the navigation state',

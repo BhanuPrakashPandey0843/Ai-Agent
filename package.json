@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "build:android": "eas build --platform android",
     "build:ios": "eas build --platform ios",
-    "clean": "npx expo-doctor && npx expo install --fix"
+    "clean": "npx expo-doctor && npx expo install --fix",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
@@ -51,7 +52,8 @@
     "typescript": "~5.3.3"
   },
   "devDependencies": {
-    "@babel/core": "^7.24.0"
+    "@babel/core": "^7.24.0",
+    "patch-package": "^8.0.1"
   },
   "private": true
 }

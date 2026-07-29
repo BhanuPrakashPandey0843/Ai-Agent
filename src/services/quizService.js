@@ -9,6 +9,7 @@ import {
   orderBy,
   limit,
   where,
+  Timestamp,
   serverTimestamp,
   runTransaction,
 } from 'firebase/firestore';
@@ -24,9 +25,18 @@ import {
   getQuestionCache,
   saveAttemptedCache,
   getAttemptedCache,
+  getAttemptedCacheMeta,
 } from '../storage/quizStorage';
 
 const QUESTIONS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
+
+// Small backward buffer applied to the incremental attempted-questions sync
+// cursor, to absorb clock skew between the client's local clock (used to
+// stamp the cache) and the Firestore server clock (used to stamp
+// `attemptedAt`). Re-fetching a few extra minutes of docs is harmless since
+// merging into a Set is idempotent; the buffer just protects against ever
+// missing a doc because of skew.
+const ATTEMPTED_SYNC_SKEW_BUFFER_MS = 5 * 60 * 1000;
 
 const mapQuestionDocs = (docs) =>
   docs
@@ -68,13 +78,21 @@ export const getQuestionsCatalog = async (uid, { forceRefresh = false } = {}) =>
 export const fetchAttemptedQuestionIds = async (uid) => {
   if (!uid) return getAttemptedCache(null);
 
-  const local = await getAttemptedCache(uid);
+  const { ids: local, syncedAt } = await getAttemptedCacheMeta(uid);
   try {
-    const snap = await getDocs(
-      collection(db, COLLECTIONS.USERS, uid, QUIZ_COLLECTIONS.ATTEMPTED)
-    );
-    const remote = new Set(snap.docs.map((d) => d.id));
-    const merged = new Set([...local, ...remote]);
+    const attemptedRef = collection(db, COLLECTIONS.USERS, uid, QUIZ_COLLECTIONS.ATTEMPTED);
+    // Incremental sync: once we have a local cache, only fetch attempts
+    // recorded since the last sync (minus a small clock-skew buffer) instead
+    // of the user's entire history every time. This keeps load time constant
+    // as a user's total attempt history grows. The very first sync (no local
+    // cache yet - fresh install, cleared storage, new device) still does one
+    // full fetch, which then seeds the cache for every sync after that.
+    const attemptedQuery = syncedAt
+      ? query(attemptedRef, where('attemptedAt', '>', Timestamp.fromMillis(syncedAt - ATTEMPTED_SYNC_SKEW_BUFFER_MS)))
+      : query(attemptedRef);
+    const snap = await getDocs(attemptedQuery);
+    const merged = new Set(local);
+    snap.docs.forEach((d) => merged.add(d.id));
     await saveAttemptedCache(uid, merged);
     return merged;
   } catch {
@@ -213,7 +231,24 @@ export const submitQuizSession = async (uid, sessionPayload, userDisplay) => {
   const sessionRef = doc(db, COLLECTIONS.USERS, uid, QUIZ_COLLECTIONS.SESSIONS, sessionId);
   const existing = await getDoc(sessionRef);
   if (existing.exists() && existing.data()?.status === 'completed') {
-    return { duplicate: true, result: existing.data() };
+    // Return the SAME shape as a fresh submission (score/accuracy/profile at
+    // the top level, not nested under `result`) so callers like
+    // QuizResultScreen don't need special-case handling for a duplicate
+    // resubmit, and show the actual saved score instead of falling back to
+    // a client-estimated one.
+    const existingData = existing.data();
+    const profile = await getQuizProfile(uid);
+    return {
+      score: existingData.score,
+      accuracy: existingData.accuracy,
+      completionTimeMs: existingData.completionTimeMs,
+      correctCount: existingData.correctCount,
+      wrongCount: existingData.wrongCount,
+      totalQuestions: existingData.totalQuestions,
+      profile,
+      newlyUnlocked: [],
+      duplicate: true,
+    };
   }
 
   const displayName = userDisplay?.name || 'Player';
@@ -327,21 +362,15 @@ export const submitQuizSession = async (uid, sessionPayload, userDisplay) => {
     submittedAt: Date.now(),
   };
 
-  await upsertLeaderboardEntries(uid, leaderboardEntry);
-
-  try {
-    const dailyRank = await fetchUserLeaderboardRank(uid, 'daily');
-    if (dailyRank && dailyRank <= 10 && !resultProfile.reachedTop10) {
-      await setDoc(
-        doc(db, COLLECTIONS.USERS, uid),
-        { quizProfile: { ...resultProfile, reachedTop10: true } },
-        { merge: true }
-      );
-      resultProfile.reachedTop10 = true;
-    }
-  } catch {
-    /* non-blocking */
-  }
+  // Everything below this point (leaderboard upserts across 4 periods, and
+  // the top-10 rank check/flag) is NOT required for the score to be safely
+  // saved - that already happened above via the transaction and the
+  // attempted-questions batch. It runs in the background so the Result
+  // screen can render immediately after this function returns, instead of
+  // waiting on ~6 additional Firestore round trips. Errors here are
+  // swallowed intentionally: they must never surface as a failed submission
+  // to the user, matching the original code's own "non-blocking" intent.
+  syncLeaderboardInBackground(uid, leaderboardEntry, resultProfile);
 
   return {
     score,
@@ -354,6 +383,24 @@ export const submitQuizSession = async (uid, sessionPayload, userDisplay) => {
     newlyUnlocked,
     duplicate: false,
   };
+};
+
+const syncLeaderboardInBackground = (uid, leaderboardEntry, resultProfile) => {
+  upsertLeaderboardEntries(uid, leaderboardEntry)
+    .then(() => fetchUserLeaderboardRank(uid, 'daily'))
+    .then(async (dailyRank) => {
+      if (dailyRank && dailyRank <= 10 && !resultProfile.reachedTop10) {
+        await setDoc(
+          doc(db, COLLECTIONS.USERS, uid),
+          { quizProfile: { ...resultProfile, reachedTop10: true } },
+          { merge: true }
+        );
+        resultProfile.reachedTop10 = true;
+      }
+    })
+    .catch(() => {
+      /* non-blocking background sync; safe to ignore, matches previous behavior */
+    });
 };
 
 const shouldReplaceEntry = (existing, next) => {

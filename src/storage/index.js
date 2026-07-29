@@ -82,3 +82,16 @@ export const getCachedLibraryItems = async (storageKey) => {
   const items = cached?.items;
   return Array.isArray(items) ? items : [];
 };
+
+// ─── Prayer Drafts ────────────────────────────────────────────────────────────
+export const getPrayerDraft = async (storageKey) => {
+  return (await getJSON(storageKey)) || null;
+};
+
+export const savePrayerDraft = async (storageKey, draft) => {
+  await storeJSON(storageKey, { ...draft, savedAt: Date.now() });
+};
+
+export const clearPrayerDraft = async (storageKey) => {
+  await removeItem(storageKey);
+};

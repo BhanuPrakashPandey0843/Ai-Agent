@@ -36,15 +36,6 @@ export const QUIZ_TYPES = {
     questionsCount: DAILY_QUESTIONS_COUNT,
     mode: 'daily',
   },
-  bible_knowledge: {
-    id: 'bible_knowledge',
-    label: 'Bible Knowledge Quiz',
-    subtitle: 'Test your Scripture knowledge',
-    icon: 'book-cross',
-    color: '#C96A1B',
-    categories: ['bible', 'mixed'],
-    questionsCount: QUESTIONS_PER_SESSION,
-  },
   old_testament: {
     id: 'old_testament',
     label: 'Old Testament Quiz',
@@ -71,26 +62,6 @@ export const QUIZ_TYPES = {
     color: '#C9A227',
     categories: ['jesus'],
     questionsCount: QUESTIONS_PER_SESSION,
-  },
-  apostles: {
-    id: 'apostles',
-    label: 'Apostles Quiz',
-    subtitle: 'The twelve and early church',
-    icon: 'account-group',
-    color: '#7B6BA8',
-    categories: ['bible', 'new', 'mixed'],
-    questionsCount: QUESTIONS_PER_SESSION,
-    keyword: 'apostle',
-  },
-  random: {
-    id: 'random',
-    label: 'Random Challenge',
-    subtitle: 'Mixed categories, endless variety',
-    icon: 'shuffle-variant',
-    color: '#E65A2B',
-    categories: ['bible', 'jesus', 'old', 'new', 'mixed'],
-    questionsCount: QUESTIONS_PER_SESSION,
-    mode: 'random',
   },
 };
 

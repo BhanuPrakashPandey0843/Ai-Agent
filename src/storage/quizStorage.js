@@ -3,7 +3,14 @@ import { storeJSON, getJSON, removeItem } from './index';
 
 const cacheKey = (uid) => `${STORAGE_KEYS.QUIZ_QUESTION_CACHE}_${uid || 'guest'}`;
 const attemptedKey = (uid) => `${STORAGE_KEYS.QUIZ_ATTEMPTED_CACHE}_${uid || 'guest'}`;
-const sessionKey = (uid) => `${STORAGE_KEYS.QUIZ_ACTIVE_SESSION}_${uid || 'guest'}`;
+// Active session is split into two records so that resuming/crash-recovery
+// stays fully self-contained (the "shell" always carries the full question
+// payload) while the frequently-written part of the session stays small:
+// - shell: sessionId/quizTypeId/questionIds/questions/startedAt - written
+//   ONCE per session, the first time it's persisted.
+// - progress: currentIndex/answers/status - written on every answer/next tap.
+const sessionShellKey = (uid) => `${STORAGE_KEYS.QUIZ_ACTIVE_SESSION}_shell_${uid || 'guest'}`;
+const sessionProgressKey = (uid) => `${STORAGE_KEYS.QUIZ_ACTIVE_SESSION}_progress_${uid || 'guest'}`;
 
 export const saveQuestionCache = async (uid, payload) => {
   await storeJSON(cacheKey(uid), {
@@ -26,12 +33,35 @@ export const getAttemptedCache = async (uid) => {
   return new Set(data?.ids || []);
 };
 
-export const saveActiveSession = async (uid, session) => {
-  await storeJSON(sessionKey(uid), session);
+// Returns both the cached IDs and the timestamp of the last successful sync,
+// so callers can fetch only what changed since then instead of the user's
+// entire attempt history every time.
+export const getAttemptedCacheMeta = async (uid) => {
+  const data = await getJSON(attemptedKey(uid));
+  return {
+    ids: new Set(data?.ids || []),
+    syncedAt: data?.syncedAt || null,
+  };
 };
 
-export const getActiveSession = async (uid) => getJSON(sessionKey(uid));
+export const saveActiveSession = async (uid, session) => {
+  const { questions, questionIds, sessionId, quizTypeId, startedAt, ...progress } = session;
+  const existingShell = await getJSON(sessionShellKey(uid));
+  if (!existingShell || existingShell.sessionId !== sessionId) {
+    await storeJSON(sessionShellKey(uid), { sessionId, quizTypeId, questionIds, questions, startedAt });
+  }
+  await storeJSON(sessionProgressKey(uid), { sessionId, ...progress });
+};
+
+export const getActiveSession = async (uid) => {
+  const [shell, progress] = await Promise.all([
+    getJSON(sessionShellKey(uid)),
+    getJSON(sessionProgressKey(uid)),
+  ]);
+  if (!shell || !progress || shell.sessionId !== progress.sessionId) return null;
+  return { ...shell, ...progress };
+};
 
 export const clearActiveSession = async (uid) => {
-  await removeItem(sessionKey(uid));
+  await Promise.all([removeItem(sessionShellKey(uid)), removeItem(sessionProgressKey(uid))]);
 };

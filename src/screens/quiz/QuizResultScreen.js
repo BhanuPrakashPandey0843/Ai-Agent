@@ -15,7 +15,7 @@ export default function QuizResultScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
-  const { user, userProfile, refreshProfile } = useAuth();
+  const { user, userProfile, patchUserProfile } = useAuth();
   const { showToast } = useToast();
 
   const { session, quizTypeId } = route.params || {};
@@ -55,7 +55,17 @@ export default function QuizResultScreen() {
           if (res.newlyUnlocked?.length) {
             showToast(`Unlocked: ${res.newlyUnlocked[0].title}`, 'success');
           }
-          await refreshProfile?.();
+          // Local merge only - no Firestore round trip. submitQuizSession's
+          // transaction already wrote this exact quizProfile to Firestore;
+          // re-fetching the same document here would be a duplicate read
+          // that also delays the Result screen for nothing.
+          // Guarded on res.profile: the duplicate-submission path returns a
+          // different shape ({ duplicate: true, result }) with no top-level
+          // `profile`, and patching with undefined would wipe the user's
+          // real local profile instead of leaving it untouched.
+          if (res.profile) {
+            patchUserProfile?.({ quizProfile: res.profile, lastScore: res.score, lastPlayed: new Date().toISOString() });
+          }
         }
       } catch (err) {
         if (mounted) {

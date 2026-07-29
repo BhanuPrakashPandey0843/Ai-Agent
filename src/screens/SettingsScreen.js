@@ -30,8 +30,17 @@ function StatCard({ icon, label, value, colors, isDark }) {
   return (
     <View style={[styles.statCard, { backgroundColor: cardBg }]}>
       <Ionicons name={icon} size={22} color={colors.primary} />
-      <Text style={[styles.statValue, { color: textPrimary }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: textSecondary }]}>{label}</Text>
+      <Text style={[styles.statValue, { color: textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+      <Text
+        style={[styles.statLabel, { color: textSecondary }]}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
@@ -130,13 +139,13 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.statsRow}>
-          <TouchableOpacity onPress={() => navigation.navigate('FavoriteWallpapers')} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.statCardTouchable} onPress={() => navigation.navigate('FavoriteWallpapers')} activeOpacity={0.8}>
             <StatCard icon="images" label="Favorite Wallpapers" value={String(favorites.length)} colors={colors} isDark={isDark} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('FavoriteStories')} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.statCardTouchable} onPress={() => navigation.navigate('FavoriteStories')} activeOpacity={0.8}>
             <StatCard icon="bookmark" label="Favorite Stories" value={String(bookmarks.length)} colors={colors} isDark={isDark} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('SavedVideos')} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.statCardTouchable} onPress={() => navigation.navigate('SavedVideos')} activeOpacity={0.8}>
             <StatCard icon="videocam" label="Saved Videos" value={String(savedVideos.length)} colors={colors} isDark={isDark} />
           </TouchableOpacity>
         </View>
@@ -276,10 +285,16 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 32,
   },
+  statCardTouchable: {
+    flex: 1,
+    minWidth: 0,
+  },
   statCard: {
     flex: 1,
+    minWidth: 0,
     borderRadius: 20,
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
     alignItems: 'center',
   },
   statValue: {
@@ -292,6 +307,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    textAlign: 'center',
+    width: '100%',
   },
   sectionLabel: {
     fontSize: 11,

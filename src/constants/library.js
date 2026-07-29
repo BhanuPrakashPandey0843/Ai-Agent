@@ -5,6 +5,7 @@ export const LIBRARY_ACCENTS = {
   wallpaper: '#8B5CF6',
   quotes: '#FF6B00',
   study: '#22C55E',
+  faithStories: '#8A7CFD',
   witness: '#F59E0B',
   meet: '#06B6D4',
   bible: '#C96A1B',

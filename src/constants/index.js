@@ -24,6 +24,7 @@ export const COLLECTIONS = {
   PRAYERS_CAROUSEL: 'prayersCarousel',
   WORSHIP_CONTENT: 'worshipContent',
   WORSHIP_CAROUSEL: 'worshipCarousel',
+  USER_PRAYERS: 'userPrayers',
 };
 
 /** Wallpaper filters — icon names are MaterialCommunityIcons */
@@ -93,6 +94,8 @@ export const STORAGE_KEYS = {
   LIBRARY_CACHE_PRAYERS_CONTENT: 'faithframes_library_cache_prayers_content',
   LIBRARY_CACHE_WORSHIP_CAROUSEL: 'faithframes_library_cache_worship_carousel',
   LIBRARY_CACHE_WORSHIP_CONTENT: 'faithframes_library_cache_worship_content',
+  PRAYER_DRAFT: 'faithframes_prayer_draft',
+  LIBRARY_CACHE_USER_PRAYERS: 'faithframes_library_cache_user_prayers',
 };
 
 /** Quote categories — mirrors admin UploadQuotesPanel */
@@ -107,6 +110,36 @@ export const QUOTE_CATEGORIES = [
   'Grace',
   'General',
 ];
+
+export const USER_PRAYER_CATEGORIES = [
+  'Myself',
+  'Family',
+  'Friends',
+  'Marriage',
+  'Children',
+  'Parents',
+  'Health',
+  'Healing',
+  'Education',
+  'Career',
+  'Financial Needs',
+  'Thanksgiving',
+  'Guidance',
+  'Forgiveness',
+  'Protection',
+  'Church',
+  'Community',
+  'Nation',
+  'World Peace',
+  'Salvation',
+  'Other',
+];
+
+export const USER_PRAYER_STATUS = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+};
 
 export const APP_VERSION = '1.0.0';
 export const APP_NAME = 'Faith Frames';

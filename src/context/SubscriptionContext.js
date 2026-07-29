@@ -1,5 +1,5 @@
 // src/context/SubscriptionContext.js — Subscription state management
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { auth } from '../config/firebase';
 
 const SubscriptionContext = createContext(null);
@@ -33,27 +33,29 @@ export const SubscriptionProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  const refreshSubscription = async () => {
+  const refreshSubscription = useCallback(async () => {
     if (auth.currentUser) {
       // Force refresh ID token to get latest claims
       await auth.currentUser.getIdToken(true);
     }
-  };
+  }, []);
 
-  return (
-    <SubscriptionContext.Provider
-      value={{
-        subscriptionStatus,
-        isPremium,
-        subscriptionExpiry,
-        planId,
-        loading,
-        refreshSubscription,
-      }}
-    >
-      {children}
-    </SubscriptionContext.Provider>
+  // Memoized so PremiumGuard (which sits directly above every bottom-tab
+  // screen) and any other consumer only re-render when a subscription field
+  // actually changes, not on every SubscriptionProvider render.
+  const value = useMemo(
+    () => ({
+      subscriptionStatus,
+      isPremium,
+      subscriptionExpiry,
+      planId,
+      loading,
+      refreshSubscription,
+    }),
+    [subscriptionStatus, isPremium, subscriptionExpiry, planId, loading, refreshSubscription]
   );
+
+  return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;
 };
 
 export const useSubscription = () => {

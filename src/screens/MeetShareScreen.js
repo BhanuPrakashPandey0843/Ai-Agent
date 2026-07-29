@@ -1,10 +1,12 @@
 // src/screens/MeetShareScreen.js
 // "Live Worship Room" — Firestore: meetSessions (source of truth: admin panel
-// at /admin/uploads/upload-meet). Shows the single most relevant meeting
-// (live > soonest upcoming > most recently ended) with real-time updates,
-// copy-link, join-meeting, and per-user RSVP (going / not going).
+// at /admin/uploads/upload-meet). Shows EVERY currently-relevant meeting —
+// all live sessions, then all upcoming ones — not just a single featured
+// card, so every meeting link the admin schedules actually shows up here.
+// Real-time updates, copy-link, join-meeting, and per-user RSVP (going /
+// not going) work independently per meeting.
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -25,7 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
 import {
-  subscribeToLiveWorshipMeeting,
+  subscribeToLiveWorshipMeetings,
   getFirestoreErrorMessage,
   getUserRsvpResponse,
   setUserRsvpResponse,
@@ -40,11 +42,15 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Typography, Spacing, BorderRadius } from '../theme/colors';
 
+// This section's brand color, consistent with every other Library tab
+// (verse = orange, prayer = purple, study = green, meet = cyan, ...).
+// Every gradient/tint below is derived from this + the theme's own
+// `gradientMeet`, instead of unrelated hardcoded purples/ambers.
 const ACCENT = LIBRARY_ACCENTS.meet;
 
 const STATUS_META = {
   live: { label: 'LIVE', color: '#EF4444' },
-  upcoming: { label: 'UPCOMING', color: '#3B82F6' },
+  upcoming: { label: 'UPCOMING', color: ACCENT },
   ended: { label: 'ENDED', color: '#6B7280' },
 };
 
@@ -65,6 +71,228 @@ function normalizeUrl(value) {
   return /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value) ? value : `https://${value}`;
 }
 
+// ─── Single meeting card ────────────────────────────────────────────────────
+function WorshipMeetingCard({
+  meeting,
+  colors,
+  isDark,
+  extras,
+  busyKey,
+  onRsvp,
+  onJoin,
+  onCopy,
+  onImageError,
+  imageErrored,
+}) {
+  const status = STATUS_META[meeting.status] || STATUS_META.upcoming;
+  const hasVerse = Boolean(meeting.verseText);
+  const hasImage = Boolean(meeting.imageUrl) && !imageErrored;
+  const joinDisabled = meeting.status === 'ended' || !meeting.meetLink;
+  const counts = extras?.counts || { going: 0, notGoing: 0 };
+  const myResponse = extras?.myResponse ?? null;
+  const isJoining = busyKey === `${meeting.id}-join`;
+  const isCopying = busyKey === `${meeting.id}-copy`;
+  const isRsvpBusy = typeof busyKey === 'string' && busyKey.startsWith(`${meeting.id}-rsvp`);
+
+  return (
+    <LinearGradient
+      colors={colors.gradientMeet}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.cardBorder}
+    >
+      <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
+        {/* Banner image with title overlaid */}
+        <View style={styles.bannerWrap}>
+          {hasImage ? (
+            <Image
+              source={{ uri: meeting.imageUrl }}
+              style={styles.banner}
+              contentFit="cover"
+              transition={300}
+              cachePolicy="memory-disk"
+              onError={() => onImageError(meeting.id)}
+            />
+          ) : (
+            <LinearGradient
+              colors={colors.gradientMeet}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.banner}
+            >
+              <Ionicons name="videocam" size={56} color="rgba(255,255,255,0.85)" />
+            </LinearGradient>
+          )}
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.15)', 'rgba(4,4,8,0.75)', 'rgba(4,4,8,0.98)']}
+            locations={[0, 0.35, 0.7, 1]}
+            style={StyleSheet.absoluteFillObject}
+          />
+
+          <View style={styles.bannerBadgeRow}>
+            <View style={[styles.videoIconCircle, { backgroundColor: ACCENT + 'D9' }]}>
+              <Ionicons name="videocam" size={18} color="#FFFFFF" />
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: status.color }]}>
+              {meeting.status === 'live' && <View style={styles.liveDot} />}
+              <Text style={styles.statusBadgeText}>{status.label}</Text>
+            </View>
+          </View>
+
+          <View style={styles.bannerTitleWrap}>
+            <Text style={styles.overlayTitle} numberOfLines={2}>
+              {meeting.title}
+            </Text>
+            {!!meeting.subtitle && (
+              <Text style={[styles.overlaySubtitle, { color: ACCENT }]} numberOfLines={1}>
+                {meeting.subtitle}
+              </Text>
+            )}
+            <View style={styles.titleDivider} />
+          </View>
+        </View>
+
+        {/* Content */}
+        <View style={styles.content}>
+          {hasVerse && (
+            <View style={styles.verseRow}>
+              <Text style={[styles.quoteMark, { color: ACCENT }]}>&#8220;</Text>
+              <Text style={[styles.verseText, { color: colors.textSecondary }]}>
+                {meeting.verseText}
+                {!!meeting.verseReference && (
+                  <Text style={{ color: ACCENT, fontWeight: '700' }}> — {meeting.verseReference}</Text>
+                )}
+              </Text>
+            </View>
+          )}
+
+          <View style={[styles.infoBox, { backgroundColor: colors.bgCardSoft, borderColor: colors.border }]}>
+            {!!(meeting.dateLabel || meeting.timeLabel) && (
+              <View style={[styles.infoRow, { borderBottomColor: colors.border }]}>
+                <View style={[styles.infoIcon, { backgroundColor: ACCENT + '22' }]}>
+                  <Ionicons name="calendar" size={18} color={ACCENT} />
+                </View>
+                <View style={styles.infoTextWrap}>
+                  <Text style={[styles.infoLabel, { color: colors.textMuted }]}>Date &amp; Time</Text>
+                  <Text style={[styles.infoValue, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {[meeting.dateLabel, meeting.timeLabel].filter(Boolean).join('  \u2022  ')}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {!!meeting.meetLink && (
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIcon, { backgroundColor: ACCENT + '22' }]}>
+                  <Ionicons name="link" size={18} color={ACCENT} />
+                </View>
+                <View style={styles.infoTextWrap}>
+                  <Text style={[styles.infoLabel, { color: colors.textMuted }]}>
+                    {meeting.platform || 'Meeting Link'}
+                  </Text>
+                  <Text style={[styles.infoValue, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {meeting.meetLink}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => onCopy(meeting)}
+                  disabled={isCopying}
+                  style={styles.copyBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="copy-outline" size={20} color={ACCENT} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* RSVP */}
+          <View style={[styles.rsvpRow, { backgroundColor: colors.bgCardSoft, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={styles.rsvpItem}
+              onPress={() => onRsvp(meeting, 'going')}
+              disabled={isRsvpBusy}
+              activeOpacity={0.8}
+            >
+              <View
+                style={[
+                  styles.rsvpIconCircle,
+                  {
+                    backgroundColor: myResponse === 'going' ? colors.success + '30' : colors.success + '15',
+                    borderColor: myResponse === 'going' ? colors.success : 'transparent',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={myResponse === 'going' ? 'thumbs-up' : 'thumbs-up-outline'}
+                  size={18}
+                  color={colors.success}
+                />
+              </View>
+              <Text style={[styles.rsvpCount, { color: colors.textPrimary }]}>{counts.going}</Text>
+              <Text style={[styles.rsvpLabel, { color: colors.success }]}>Going</Text>
+            </TouchableOpacity>
+
+            <View style={[styles.rsvpDivider, { backgroundColor: colors.border }]} />
+
+            <TouchableOpacity
+              style={styles.rsvpItem}
+              onPress={() => onRsvp(meeting, 'not_going')}
+              disabled={isRsvpBusy}
+              activeOpacity={0.8}
+            >
+              <View
+                style={[
+                  styles.rsvpIconCircle,
+                  {
+                    backgroundColor: myResponse === 'not_going' ? colors.error + '30' : colors.error + '15',
+                    borderColor: myResponse === 'not_going' ? colors.error : 'transparent',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={myResponse === 'not_going' ? 'thumbs-down' : 'thumbs-down-outline'}
+                  size={18}
+                  color={colors.error}
+                />
+              </View>
+              <Text style={[styles.rsvpCount, { color: colors.textPrimary }]}>{counts.notGoing}</Text>
+              <Text style={[styles.rsvpLabel, { color: colors.error }]}>Not Going</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Join button */}
+          <TouchableOpacity
+            onPress={() => onJoin(meeting)}
+            disabled={joinDisabled || isJoining}
+            activeOpacity={0.88}
+            style={styles.joinWrap}
+          >
+            <LinearGradient
+              colors={joinDisabled ? ['#4B5563', '#374151'] : colors.gradientMeet}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.joinBtn}
+            >
+              {isJoining ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="enter-outline" size={20} color="#FFFFFF" />
+                  <Text style={styles.joinText}>
+                    {meeting.status === 'ended' ? 'Meeting Ended' : meeting.ctaText}
+                  </Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </LinearGradient>
+  );
+}
+
+// ─── Screen ─────────────────────────────────────────────────────────────────
 export default function MeetShareScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -72,17 +300,13 @@ export default function MeetShareScreen() {
   const { showToast } = useToast();
   const { user } = useAuth();
 
-  const [meeting, setMeeting] = useState(null);
+  const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [imageError, setImageError] = useState(false);
-
-  const [counts, setCounts] = useState({ going: 0, notGoing: 0 });
-  const [myResponse, setMyResponse] = useState(null);
-  const [rsvpBusy, setRsvpBusy] = useState(false);
-  const [joining, setJoining] = useState(false);
-  const [copyBusy, setCopyBusy] = useState(false);
+  const [imageErrorIds, setImageErrorIds] = useState({});
+  const [extrasById, setExtrasById] = useState({});
+  const [busyKey, setBusyKey] = useState(null);
 
   const mountedRef = useRef(true);
 
@@ -93,32 +317,40 @@ export default function MeetShareScreen() {
     };
   }, []);
 
-  const loadExtras = useCallback(async (meetingId) => {
-    if (!meetingId) {
-      setCounts({ going: 0, notGoing: 0 });
-      setMyResponse(null);
-      return;
-    }
-    const [countsRes, myRes] = await Promise.all([
-      fetchRsvpCounts(meetingId),
-      user?.uid ? getUserRsvpResponse(meetingId, user.uid) : Promise.resolve(null),
-    ]);
-    if (!mountedRef.current) return;
-    setCounts(countsRes);
-    setMyResponse(myRes);
-  }, [user?.uid]);
+  const loadExtrasFor = useCallback(
+    async (meetingIds) => {
+      if (!meetingIds.length) return;
+      const results = await Promise.all(
+        meetingIds.map(async (id) => {
+          const [countsRes, myRes] = await Promise.all([
+            fetchRsvpCounts(id),
+            user?.uid ? getUserRsvpResponse(id, user.uid) : Promise.resolve(null),
+          ]);
+          return [id, { counts: countsRes, myResponse: myRes }];
+        })
+      );
+      if (!mountedRef.current) return;
+      setExtrasById((prev) => {
+        const next = { ...prev };
+        results.forEach(([id, val]) => {
+          next[id] = val;
+        });
+        return next;
+      });
+    },
+    [user?.uid]
+  );
 
   useEffect(() => {
     setLoading(true);
-    const unsub = subscribeToLiveWorshipMeeting(
-      (data) => {
+    const unsub = subscribeToLiveWorshipMeetings(
+      (list) => {
         if (!mountedRef.current) return;
-        setMeeting(data);
-        setImageError(false);
+        setMeetings(list);
         setLoading(false);
         setError(null);
         setRefreshing(false);
-        loadExtras(data?.id);
+        loadExtrasFor(list.map((m) => m.id));
       },
       (err) => {
         if (!mountedRef.current) return;
@@ -133,86 +365,112 @@ export default function MeetShareScreen() {
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    loadExtras(meeting?.id).finally(() => {
+    loadExtrasFor(meetings.map((m) => m.id)).finally(() => {
       if (mountedRef.current) setRefreshing(false);
     });
-  }, [loadExtras, meeting?.id]);
+  }, [loadExtrasFor, meetings]);
 
-  const handleCopyLink = useCallback(async () => {
-    if (!meeting?.meetLink) {
-      showToast('No meeting link available yet.', 'error');
-      return;
-    }
-    try {
-      setCopyBusy(true);
-      await Clipboard.setStringAsync(meeting.meetLink);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showToast('Meeting link copied!', 'success');
-    } catch {
-      showToast('Could not copy the link. Try again.', 'error');
-    } finally {
-      setCopyBusy(false);
-    }
-  }, [meeting?.meetLink, showToast]);
+  const handleImageError = useCallback((id) => {
+    setImageErrorIds((prev) => ({ ...prev, [id]: true }));
+  }, []);
 
-  const handleJoinMeeting = useCallback(async () => {
-    const link = meeting?.meetLink;
-    if (!link || !isLikelyUrl(link)) {
-      showToast('This meeting link is unavailable right now.', 'error');
-      return;
-    }
-    const url = normalizeUrl(link);
-    try {
-      setJoining(true);
-      const canOpen = await Linking.canOpenURL(url);
-      if (!canOpen) {
-        showToast('This meeting link cannot be opened on your device.', 'error');
+  const handleCopyLink = useCallback(
+    async (meeting) => {
+      if (!meeting?.meetLink) {
+        showToast('No meeting link available yet.', 'error');
         return;
       }
-      await Linking.openURL(url);
-    } catch {
-      showToast('Failed to open the meeting link.', 'error');
-    } finally {
-      if (mountedRef.current) setJoining(false);
-    }
-  }, [meeting?.meetLink, showToast]);
+      try {
+        setBusyKey(`${meeting.id}-copy`);
+        await Clipboard.setStringAsync(meeting.meetLink);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showToast('Meeting link copied!', 'success');
+      } catch {
+        showToast('Could not copy the link. Try again.', 'error');
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [showToast]
+  );
+
+  const handleJoinMeeting = useCallback(
+    async (meeting) => {
+      const link = meeting?.meetLink;
+      if (!link || !isLikelyUrl(link)) {
+        showToast('This meeting link is unavailable right now.', 'error');
+        return;
+      }
+      const url = normalizeUrl(link);
+      try {
+        setBusyKey(`${meeting.id}-join`);
+        const canOpen = await Linking.canOpenURL(url);
+        if (!canOpen) {
+          showToast('This meeting link cannot be opened on your device.', 'error');
+          return;
+        }
+        await Linking.openURL(url);
+      } catch {
+        showToast('Failed to open the meeting link.', 'error');
+      } finally {
+        if (mountedRef.current) setBusyKey(null);
+      }
+    },
+    [showToast]
+  );
 
   const handleRsvp = useCallback(
-    async (response) => {
+    async (meeting, response) => {
       if (!meeting?.id) return;
       if (!user?.uid) {
         showToast('Sign in to let us know you\u2019re going.', 'info');
         return;
       }
-      if (rsvpBusy) return;
-      const previous = myResponse;
+      const busyToken = `${meeting.id}-rsvp-${response}`;
+      if (busyKey === busyToken) return;
+
+      const previous = extrasById[meeting.id]?.myResponse ?? null;
       const nextResponse = previous === response ? null : response;
 
-      // Optimistic UI update, then reconcile with server counts.
-      setRsvpBusy(true);
+      setBusyKey(busyToken);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setMyResponse(nextResponse ?? response);
+      setExtrasById((prev) => ({
+        ...prev,
+        [meeting.id]: { ...prev[meeting.id], myResponse: nextResponse ?? response },
+      }));
       try {
         await setUserRsvpResponse(meeting.id, user.uid, nextResponse ?? response);
         const fresh = await fetchRsvpCounts(meeting.id);
         if (!mountedRef.current) return;
-        setCounts(fresh);
-        setMyResponse(nextResponse ?? response);
+        setExtrasById((prev) => ({
+          ...prev,
+          [meeting.id]: { counts: fresh, myResponse: nextResponse ?? response },
+        }));
       } catch {
         if (!mountedRef.current) return;
-        setMyResponse(previous);
+        setExtrasById((prev) => ({
+          ...prev,
+          [meeting.id]: { ...prev[meeting.id], myResponse: previous },
+        }));
         showToast('Could not save your response. Try again.', 'error');
       } finally {
-        if (mountedRef.current) setRsvpBusy(false);
+        if (mountedRef.current) setBusyKey(null);
       }
     },
-    [meeting?.id, myResponse, rsvpBusy, showToast, user?.uid]
+    [busyKey, extrasById, showToast, user?.uid]
   );
 
   const retry = useCallback(() => {
     setError(null);
     setLoading(true);
   }, []);
+
+  const headerSubtitle = useMemo(() => {
+    if (!meetings.length) return '';
+    const liveCount = meetings.filter((m) => m.status === 'live').length;
+    if (liveCount) return `${liveCount} live now`;
+    return `${meetings.length} upcoming`;
+  }, [meetings]);
 
   // ── Header (shared across all states) ───────────────────────────────────
   const Header = (
@@ -226,9 +484,14 @@ export default function MeetShareScreen() {
           <Ionicons name="chevron-back" size={22} color={ACCENT} />
         </TouchableOpacity>
 
-        <View style={styles.headerTitleRow}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Live Worship</Text>
-          <Ionicons name="heart" size={20} color={ACCENT} style={{ marginLeft: 8 }} />
+        <View style={{ alignItems: 'center' }}>
+          <View style={styles.headerTitleRow}>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Live Worship</Text>
+            <Ionicons name="heart" size={20} color={ACCENT} style={{ marginLeft: 8 }} />
+          </View>
+          {headerSubtitle ? (
+            <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>{headerSubtitle}</Text>
+          ) : null}
         </View>
 
         <View style={styles.backBtn} />
@@ -262,7 +525,7 @@ export default function MeetShareScreen() {
     );
   }
 
-  if (!meeting) {
+  if (!meetings.length) {
     return (
       <View style={[styles.container, { backgroundColor: colors.bg }]}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
@@ -277,11 +540,6 @@ export default function MeetShareScreen() {
     );
   }
 
-  const status = STATUS_META[meeting.status] || STATUS_META.upcoming;
-  const hasVerse = Boolean(meeting.verseText);
-  const hasImage = Boolean(meeting.imageUrl) && !imageError;
-  const joinDisabled = meeting.status === 'ended' || !meeting.meetLink;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
@@ -294,197 +552,21 @@ export default function MeetShareScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={ACCENT} colors={[ACCENT]} />
         }
       >
-        {/* Gradient-bordered card */}
-        <LinearGradient
-          colors={isDark ? ['#8B5CF6', ACCENT, '#F59E0B'] : [ACCENT, '#F59E0B', '#8B5CF6']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.cardBorder}
-        >
-          <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
-            {/* Banner image with title overlaid, matching the live-worship reference design */}
-            <View style={styles.bannerWrap}>
-              {hasImage ? (
-                <Image
-                  source={{ uri: meeting.imageUrl }}
-                  style={styles.banner}
-                  contentFit="cover"
-                  transition={300}
-                  cachePolicy="memory-disk"
-                  onError={() => setImageError(true)}
-                />
-              ) : (
-                <LinearGradient
-                  colors={colors.gradientMeet}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.banner}
-                >
-                  <Ionicons name="add" size={64} color="rgba(255,255,255,0.85)" style={{ transform: [{ rotate: '0deg' }] }} />
-                </LinearGradient>
-              )}
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.15)', 'rgba(4,4,8,0.75)', 'rgba(4,4,8,0.98)']}
-                locations={[0, 0.35, 0.7, 1]}
-                style={StyleSheet.absoluteFillObject}
-              />
-
-              <View style={styles.bannerBadgeRow}>
-                <View style={styles.videoIconCircle}>
-                  <Ionicons name="videocam" size={18} color="#FFFFFF" />
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: status.color }]}>
-                  {meeting.status === 'live' && <View style={styles.liveDot} />}
-                  <Text style={styles.statusBadgeText}>{status.label}</Text>
-                </View>
-              </View>
-
-              <View style={styles.bannerTitleWrap}>
-                <Text style={styles.overlayTitle}>{meeting.title}</Text>
-                {!!meeting.subtitle && (
-                  <Text style={[styles.overlaySubtitle, { color: ACCENT }]}>{meeting.subtitle}</Text>
-                )}
-                <View style={styles.titleDivider} />
-              </View>
-            </View>
-
-            {/* Content */}
-            <View style={styles.content}>
-              {hasVerse && (
-                <View style={styles.verseRow}>
-                  <Text style={[styles.quoteMark, { color: ACCENT }]}>&#8220;</Text>
-                  <Text style={[styles.verseText, { color: colors.textSecondary }]}>
-                    {meeting.verseText}
-                    {!!meeting.verseReference && (
-                      <Text style={{ color: ACCENT, fontWeight: '700' }}> — {meeting.verseReference}</Text>
-                    )}
-                  </Text>
-                </View>
-              )}
-
-              <View style={[styles.infoBox, { backgroundColor: colors.bgCardSoft, borderColor: colors.border }]}>
-                {!!(meeting.dateLabel || meeting.timeLabel) && (
-                  <View style={[styles.infoRow, { borderBottomColor: colors.border }]}>
-                    <View style={[styles.infoIcon, { backgroundColor: '#7C3AED22' }]}>
-                      <Ionicons name="calendar" size={18} color="#7C3AED" />
-                    </View>
-                    <View style={styles.infoTextWrap}>
-                      <Text style={[styles.infoLabel, { color: colors.textMuted }]}>Date &amp; Time</Text>
-                      <Text style={[styles.infoValue, { color: colors.textPrimary }]} numberOfLines={1}>
-                        {[meeting.dateLabel, meeting.timeLabel].filter(Boolean).join('  \u2022  ')}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {!!meeting.meetLink && (
-                  <View style={styles.infoRow}>
-                    <View style={[styles.infoIcon, { backgroundColor: '#4F46E522' }]}>
-                      <Ionicons name="link" size={18} color="#6366F1" />
-                    </View>
-                    <View style={styles.infoTextWrap}>
-                      <Text style={[styles.infoLabel, { color: colors.textMuted }]}>
-                        {meeting.platform || 'Meeting Link'}
-                      </Text>
-                      <Text style={[styles.infoValue, { color: colors.textPrimary }]} numberOfLines={1}>
-                        {meeting.meetLink}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={handleCopyLink}
-                      disabled={copyBusy}
-                      style={styles.copyBtn}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="copy-outline" size={20} color={ACCENT} />
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-
-              {/* RSVP */}
-              <View style={[styles.rsvpRow, { backgroundColor: colors.bgCardSoft, borderColor: colors.border }]}>
-                <TouchableOpacity
-                  style={styles.rsvpItem}
-                  onPress={() => handleRsvp('going')}
-                  disabled={rsvpBusy}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.rsvpIconCircle,
-                      {
-                        backgroundColor: myResponse === 'going' ? colors.success + '30' : colors.success + '15',
-                        borderColor: myResponse === 'going' ? colors.success : 'transparent',
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={myResponse === 'going' ? 'thumbs-up' : 'thumbs-up-outline'}
-                      size={18}
-                      color={colors.success}
-                    />
-                  </View>
-                  <Text style={[styles.rsvpCount, { color: colors.textPrimary }]}>{counts.going}</Text>
-                  <Text style={[styles.rsvpLabel, { color: colors.success }]}>Going</Text>
-                </TouchableOpacity>
-
-                <View style={[styles.rsvpDivider, { backgroundColor: colors.border }]} />
-
-                <TouchableOpacity
-                  style={styles.rsvpItem}
-                  onPress={() => handleRsvp('not_going')}
-                  disabled={rsvpBusy}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.rsvpIconCircle,
-                      {
-                        backgroundColor: myResponse === 'not_going' ? colors.error + '30' : colors.error + '15',
-                        borderColor: myResponse === 'not_going' ? colors.error : 'transparent',
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={myResponse === 'not_going' ? 'thumbs-down' : 'thumbs-down-outline'}
-                      size={18}
-                      color={colors.error}
-                    />
-                  </View>
-                  <Text style={[styles.rsvpCount, { color: colors.textPrimary }]}>{counts.notGoing}</Text>
-                  <Text style={[styles.rsvpLabel, { color: colors.error }]}>Not Going</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Join button */}
-              <TouchableOpacity
-                onPress={handleJoinMeeting}
-                disabled={joinDisabled || joining}
-                activeOpacity={0.88}
-                style={styles.joinWrap}
-              >
-                <LinearGradient
-                  colors={joinDisabled ? ['#4B5563', '#374151'] : ['#22D3EE', '#6366F1', '#8B5CF6']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.joinBtn}
-                >
-                  {joining ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="enter-outline" size={20} color="#FFFFFF" />
-                      <Text style={styles.joinText}>
-                        {meeting.status === 'ended' ? 'Meeting Ended' : meeting.ctaText}
-                      </Text>
-                    </>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </LinearGradient>
+        {meetings.map((meeting) => (
+          <WorshipMeetingCard
+            key={meeting.id}
+            meeting={meeting}
+            colors={colors}
+            isDark={isDark}
+            extras={extrasById[meeting.id]}
+            busyKey={busyKey}
+            onRsvp={handleRsvp}
+            onJoin={handleJoinMeeting}
+            onCopy={handleCopyLink}
+            onImageError={handleImageError}
+            imageErrored={!!imageErrorIds[meeting.id]}
+          />
+        ))}
 
         <View style={styles.footerRow}>
           <Ionicons name="people" size={16} color={ACCENT} />
@@ -517,6 +599,7 @@ const styles = StyleSheet.create({
   },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center' },
   headerTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+  headerSubtitle: { fontSize: 12, fontWeight: '700', marginTop: 2 },
   headerUnderline: { width: 44, height: 4, borderRadius: 999, marginTop: 10 },
 
   loadingArea: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm },
@@ -550,9 +633,9 @@ const styles = StyleSheet.create({
     bottom: Spacing.lg,
   },
   overlayTitle: {
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: '800',
-    lineHeight: 38,
+    lineHeight: 34,
     color: '#FFFFFF',
     letterSpacing: -0.6,
     textShadowColor: 'rgba(0,0,0,0.4)',
@@ -560,9 +643,9 @@ const styles = StyleSheet.create({
     textShadowRadius: 6,
   },
   overlaySubtitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
-    lineHeight: 26,
+    lineHeight: 24,
     marginTop: 2,
     letterSpacing: -0.4,
   },
@@ -575,7 +658,6 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(20,184,166,0.85)',
     alignItems: 'center',
     justifyContent: 'center',
   },

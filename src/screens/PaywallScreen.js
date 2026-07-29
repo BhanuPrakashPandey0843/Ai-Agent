@@ -8,19 +8,11 @@ import { useAuth } from '../context/AuthContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import { useTheme } from '../context/ThemeContext';
 import { Colors, getColors } from '../theme/colors';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getApps, initializeApp } from 'firebase/app';
-import firebaseConfig from '../config/firebase';
 
-// Initialize Firebase
-let app;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0];
-}
-const functions = getFunctions(app, 'us-central1'); // Replace with your region
-const createPaymentOrder = httpsCallable(functions, 'createPaymentOrder');
+// NOTE: Payments are temporarily disabled (see handlePurchase below) until the
+// Razorpay/Stripe gateway keys are configured for a later release. Firebase is
+// already initialized once, centrally, in ../config/firebase — this screen no
+// longer creates its own second app instance.
 
 const features = [
   {
@@ -60,35 +52,21 @@ export default function PaywallScreen() {
     }
   }, [isPremium]);
 
-  const handlePurchase = async () => {
+  // Payments are temporarily disabled: the Razorpay/Stripe gateway keys are not
+  // yet configured (see functions/.env), so createPaymentOrder would always
+  // fail server-side. Rather than let the user hit a thrown error, tell them
+  // plainly that purchases aren't open yet. Nothing else on this screen
+  // (features list, restore, navigation) is affected, and the Cloud Function
+  // itself is left untouched for the later release.
+  const handlePurchase = () => {
     if (!user) {
       Alert.alert('Please sign in to continue');
       return;
     }
-
-    try {
-      setLoading(true);
-      const result = await createPaymentOrder({
-        planId: country === 'IN' ? 'yearly_india' : 'yearly_international',
-        country: country,
-      });
-
-      const data = result.data;
-      if (data.success) {
-        // Navigate to subscription screen to handle payment
-        navigation.navigate('Subscription', {
-          paymentId: data.paymentId,
-          orderId: data.orderId,
-          gateway: data.gateway,
-          gatewayParams: data.gatewayParams,
-        });
-      }
-    } catch (err) {
-      console.error('Error creating payment order:', err);
-      Alert.alert('Error', err.message || 'Something went wrong');
-    } finally {
-      setLoading(false);
-    }
+    Alert.alert(
+      'Coming Soon',
+      'Premium purchases are not available yet. Please check back soon!'
+    );
   };
 
   return (

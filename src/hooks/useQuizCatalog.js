@@ -10,7 +10,7 @@ export default function useQuizCatalog() {
   const [questionCount, setQuestionCount] = useState(0);
   const [attemptedCount, setAttemptedCount] = useState(0);
 
-  const refresh = useCallback(async (forceRefresh = true) => {
+  const refresh = useCallback(async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     try {

@@ -1,4 +1,4 @@
-package com.faithframes.app
+package com.faithframes.official
 
 import android.app.Application
 import android.content.res.Configuration

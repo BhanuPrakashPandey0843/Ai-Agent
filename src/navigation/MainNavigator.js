@@ -27,6 +27,7 @@ import DailyPrayerScreen from '../screens/DailyPrayerScreen';
 import WitnessScreen from '../screens/WitnessScreen';
 import VideoPlayerScreen from '../screens/VideoPlayerScreen';
 import StudyPlansScreen from '../screens/StudyPlansScreen';
+import AllFaithStoriesScreen from '../screens/AllFaithStoriesScreen';
 import MeetShareScreen from '../screens/MeetShareScreen';
 import QuotesScreen from '../screens/QuotesScreen';
 import PaywallScreen from '../screens/PaywallScreen';
@@ -45,6 +46,7 @@ import JesusContentScreen from '../screens/JesusScreen';
 import PrayersContentScreen from '../screens/PrayersScreen';
 import WorshipContentScreen from '../screens/WorshipScreen';
 import ContentDetailScreen from '../screens/ContentDetailScreen';
+import WritePrayerScreen from '../screens/WritePrayerScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -148,7 +150,7 @@ function HomeTabs() {
 
 export default function MainNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right', freezeOnBlur: true }}>
       <Stack.Screen name="Tabs" component={HomeTabs} />
       <Stack.Screen name="Wallpapers" component={WallpapersScreen} />
       <Stack.Screen
@@ -174,6 +176,7 @@ export default function MainNavigator() {
       />
       <Stack.Screen name="ProphetStoryDetails" component={ProphetStoryDetailsScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="StudyPlans" component={StudyPlansScreen} />
+      <Stack.Screen name="AllFaithStories" component={AllFaithStoriesScreen} />
       <Stack.Screen name="MeetShare" component={MeetShareScreen} />
       <Stack.Screen name="Quotes" component={QuotesScreen} />
       <Stack.Screen name="Paywall" component={PaywallScreen} />
@@ -195,6 +198,11 @@ export default function MainNavigator() {
         name="ContentDetail"
         component={ContentDetailScreen}
         options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="WritePrayer"
+        component={WritePrayerScreen}
+        options={{ animation: 'slide_from_bottom', freezeOnBlur: true }}
       />
     </Stack.Navigator>
   );

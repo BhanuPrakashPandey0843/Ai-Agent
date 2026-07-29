@@ -264,12 +264,15 @@ export const searchStories = async (searchText) => {
     getStories(),
     getFeaturedStories(),
   ]);
-  const allStories = [...stories, ...featuredStories].map(s => ({ ...s, type: 'story' }));
+  const allStories = [...stories, ...featuredStories]
+    .filter((s) => s.published)
+    .map(s => ({ ...s, type: 'story' }));
   return allStories.filter(
     (s) =>
       s.title?.toLowerCase().includes(lower) ||
       s.description?.toLowerCase().includes(lower) ||
-      s.shortdescription?.toLowerCase().includes(lower)
+      s.shortdescription?.toLowerCase().includes(lower) ||
+      s.prophetName?.toLowerCase().includes(lower)
   );
 };
 
@@ -692,6 +695,49 @@ export const subscribeToLiveWorshipMeeting = (onData, onError) => {
         .map((d) => normalizeLiveWorship(d.id, d))
         .filter((m) => m.published);
       onData(pickActiveMeeting(normalized));
+    },
+    onError
+  );
+};
+
+/**
+ * Every meeting worth showing right now: all `live` sessions (newest first),
+ * then all `upcoming` sessions (soonest first). Only if there are none of
+ * those does it fall back to the single most recently `ended` session, so
+ * the room never renders completely empty right after a meeting wraps up.
+ * This is what fixes "I scheduled 3 meetings but only 1 shows up" — the
+ * single-meeting picker (`pickActiveMeeting` above) was always meant to
+ * pick one *featured* meeting, not hide the rest.
+ */
+const sortRelevantMeetings = (list) => {
+  const live = [...list]
+    .filter((m) => m.status === 'live')
+    .sort((a, b) => (b.startMs || 0) - (a.startMs || 0));
+  const upcoming = [...list]
+    .filter((m) => m.status === 'upcoming')
+    .sort((a, b) => (a.startMs ?? Infinity) - (b.startMs ?? Infinity));
+  if (live.length || upcoming.length) return [...live, ...upcoming];
+
+  const ended = [...list]
+    .filter((m) => m.status === 'ended')
+    .sort((a, b) => (b.startMs || 0) - (a.startMs || 0));
+  return ended.slice(0, 1);
+};
+
+/** Real-time listener returning EVERY currently-relevant Live Worship meeting. */
+export const subscribeToLiveWorshipMeetings = (onData, onError) => {
+  const q = query(
+    collection(db, COLLECTIONS.MEET_SHARE),
+    orderBy('createdAt', 'desc'),
+    limit(20)
+  );
+  return safeOnSnapshot(
+    q,
+    (items) => {
+      const normalized = items
+        .map((d) => normalizeLiveWorship(d.id, d))
+        .filter((m) => m.published);
+      onData(sortRelevantMeetings(normalized));
     },
     onError
   );
@@ -1607,4 +1653,51 @@ export const toggleSaveWorshipContent = async (uid, content) => {
     savedAt: serverTimestamp(),
   });
   return true;
+};
+
+// ─── User-Submitted Prayers ─────────────────────────────────────────────────
+// Users create prayers; admins approve/reject. Status defaults to PENDING.
+// Firestore rules enforce userId matching, status on create, and admin-only updates.
+
+/** Real-time listener for prayers submitted by this user */
+export const subscribeToMyUserPrayers = (uid, onData, onError) => {
+  if (!uid) {
+    onData([]);
+    return () => {};
+  }
+  const q = query(
+    collection(db, COLLECTIONS.USER_PRAYERS),
+    where('userId', '==', uid),
+    orderBy('createdAt', 'desc')
+  );
+  return safeOnSnapshot(q, onData, onError);
+};
+
+/** Submit a new user prayer. Returns the new doc with id. */
+export const createUserPrayer = async (payload) => {
+  if (!payload?.userId) throw new Error('Missing user id');
+  if (!payload?.title?.trim()) throw new Error('Prayer title is required');
+  if (!payload?.content?.trim()) throw new Error('Prayer content is required');
+  if (!payload?.category) throw new Error('Please select a category');
+
+  const docRef = await addDoc(collection(db, COLLECTIONS.USER_PRAYERS), {
+    title: String(payload.title).trim(),
+    description: String(payload.description || '').trim(),
+    category: String(payload.category),
+    content: String(payload.content).trim(),
+    anonymous: payload.anonymous === true,
+    status: 'pending',
+    userId: String(payload.userId),
+    username: String(payload.username || '').trim(),
+    createdAt: serverTimestamp(),
+    deviceTimestamp: Date.now(),
+  });
+  const snap = await getDoc(docRef);
+  return { id: docRef.id, ...snap.data() };
+};
+
+/** Delete one of my own prayers (owner-only on the server via rules). */
+export const deleteMyUserPrayer = async (id, uid) => {
+  if (!id || !uid) throw new Error('Missing prayer or user id');
+  await deleteDoc(doc(db, COLLECTIONS.USER_PRAYERS, id));
 };

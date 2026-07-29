@@ -33,7 +33,7 @@ function formatCount(n) {
   return String(num);
 }
 
-export default function WitnessVideoCard({ item, index = 0, accent, onPress }) {
+function WitnessVideoCard({ item, index = 0, accent, onPress }) {
   const { colors } = useTheme();
   const [imageError, setImageError] = useState(false);
   const { liked, disliked, saved, likeCount, dislikeCount, like, dislike, toggleSave } =
@@ -257,3 +257,5 @@ const styles = StyleSheet.create({
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   actionText: { fontSize: Typography.fontSizeSM, fontWeight: Typography.fontWeightSemiBold },
 });
+
+export default React.memo(WitnessVideoCard);

@@ -1,4 +1,4 @@
-package com.faithframes.app
+package com.faithframes.official
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

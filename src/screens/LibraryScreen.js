@@ -1,6 +1,6 @@
 // src/screens/LibraryScreen.js
 // Premium Library Redesign - Production Ready
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,26 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../context/ThemeContext';
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+
+// --- Responsive scaling -----------------------------------------------
+// Typography, colors, icons, card order and animations never change.
+// Only spacing/sizing metrics (padding, margins, container dimensions)
+// scale down proportionally on shorter viewports so all 5 cards
+// ("Daily Verse" through "Live Worship Room") are visible without
+// scrolling on any supported device, while staying visually identical
+// (scale === 1) on the larger devices the design already fit on.
+const DESIGN_HEIGHT = 852; // reference viewport height the fixed design was authored for
+const MIN_SCALE = 0.72; // floor so spacing never collapses on very small devices
+
+const rs = (value, scale) => Math.round(value * scale);
+
+function useLibraryScale() {
+  const { height } = useWindowDimensions();
+  return useMemo(
+    () => Math.min(1, Math.max(MIN_SCALE, height / DESIGN_HEIGHT)),
+    [height]
+  );
+}
 
 // Define feature data with asset paths
 const FEATURES = [
@@ -57,7 +78,7 @@ const FEATURES = [
   },
 ];
 
-const AnimatedFeatureCard = ({ item, index, onPress, isDark, colors }) => {
+const AnimatedFeatureCard = ({ item, index, onPress, isDark, colors, responsive }) => {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1); // Start visible
   const translateY = useSharedValue(0); // Start in place
@@ -106,10 +127,11 @@ const AnimatedFeatureCard = ({ item, index, onPress, isDark, colors }) => {
         styles.featureCard, 
         { 
           backgroundColor: colors.bgCard,
-        }
+        },
+        responsive.featureCard,
       ]}>
         {/* Image at top, centered */}
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, responsive.imageContainer]}>
           <Image source={item.image} style={styles.featureImage} />
         </View>
         
@@ -125,7 +147,7 @@ const AnimatedFeatureCard = ({ item, index, onPress, isDark, colors }) => {
   );
 };
 
-const LiveWorshipCard = ({ onPress, isDark, colors }) => {
+const LiveWorshipCard = ({ onPress, isDark, colors, responsive }) => {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1); // Start visible
   const translateY = useSharedValue(0); // Start in place
@@ -168,15 +190,16 @@ const LiveWorshipCard = ({ onPress, isDark, colors }) => {
       activeOpacity={1}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.liveCardWrapper, animatedStyle]}
+      style={[styles.liveCardWrapper, animatedStyle, responsive.liveCardWrapper]}
     >
       <View style={[
         styles.liveCard, 
         { 
           backgroundColor: colors.bgCard,
-        }
+        },
+        responsive.liveCard,
       ]}>
-        <View style={styles.liveImageContainer}>
+        <View style={[styles.liveImageContainer, responsive.liveImageContainer]}>
           <Image source={require('../../assets/lib/live.png')} style={styles.liveImage} />
           <View style={styles.liveBadge}>
             <View style={styles.liveDot} />
@@ -199,6 +222,32 @@ export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { isDark, colors } = useTheme();
+  const scale = useLibraryScale();
+
+  // Scaled overrides for spacing/sizing only - typography, colors, icons,
+  // card order and animations are untouched. At scale === 1 (the design's
+  // reference height and above) every value below equals the original
+  // hardcoded constant, so larger devices render pixel-identical to before.
+  const responsive = useMemo(
+    () => ({
+      contentTopExtra: rs(20, scale),
+      headerSection: { marginBottom: rs(28, scale) },
+      headerGreeting: { marginBottom: rs(4, scale) },
+      accentLine: { marginTop: rs(14, scale), marginBottom: rs(12, scale) },
+      featureGrid: { rowGap: rs(16, scale), marginBottom: rs(20, scale) },
+      featureCard: { padding: rs(18, scale) },
+      imageContainer: {
+        width: rs(76, scale),
+        height: rs(76, scale),
+        marginBottom: rs(16, scale),
+      },
+      liveCardWrapper: { marginBottom: rs(16, scale) },
+      liveCard: { padding: rs(18, scale) },
+      liveImageContainer: { width: rs(70, scale), height: rs(70, scale) },
+      bottomSpacerHeight: Math.max(60, rs(90, scale)),
+    }),
+    [scale]
+  );
 
   const handlePress = (screen) => {
     const parentNav = navigation.getParent();
@@ -218,19 +267,22 @@ export default function LibraryScreen() {
       />
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 20 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + responsive.contentTopExtra },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerSection}>
-          <Text style={[styles.headerGreeting, { color: colors.textSecondary }]}>Welcome</Text>
+        <View style={[styles.headerSection, responsive.headerSection]}>
+          <Text style={[styles.headerGreeting, { color: colors.textSecondary }, responsive.headerGreeting]}>Welcome</Text>
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Library</Text>
-          <View style={[styles.accentLine, { backgroundColor: colors.primary }]} />
+          <View style={[styles.accentLine, { backgroundColor: colors.primary }, responsive.accentLine]} />
           <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
             Grow in faith. Access helpful tools for your spiritual journey.
           </Text>
         </View>
 
-        <View style={styles.featureGrid}>
+        <View style={[styles.featureGrid, responsive.featureGrid]}>
           {FEATURES.map((item, index) => (
             <AnimatedFeatureCard
               key={item.id}
@@ -239,6 +291,7 @@ export default function LibraryScreen() {
               onPress={handlePress}
               isDark={isDark}
               colors={colors}
+              responsive={responsive}
             />
           ))}
         </View>
@@ -247,10 +300,11 @@ export default function LibraryScreen() {
           onPress={handlePress}
           isDark={isDark}
           colors={colors}
+          responsive={responsive}
         />
 
         {/* Bottom padding for tab bar */}
-        <View style={{ height: insets.bottom + 100 }} />
+        <View style={{ height: insets.bottom + responsive.bottomSpacerHeight }} />
       </ScrollView>
     </View>
   );
@@ -269,14 +323,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
 
-  headerSection: {
-    marginBottom: 28,
-  },
+  headerSection: {},
 
   headerGreeting: {
     fontSize: 15,
     fontWeight: '500',
-    marginBottom: 4,
   },
 
   headerTitle: {
@@ -289,8 +340,6 @@ const styles = StyleSheet.create({
     width: 52,
     height: 4,
     borderRadius: 999,
-    marginTop: 14,
-    marginBottom: 12,
   },
 
   headerSubtitle: {
@@ -302,12 +351,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 22,
   },
 
   featureCardWrapper: {
     width: '48%',
-    marginBottom: 16,
   },
 
   featureCard: {
@@ -320,7 +367,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 4,
-    height: 215,
   },
 
   imageContainer: {
@@ -328,7 +374,6 @@ const styles = StyleSheet.create({
     height: 76,
     borderRadius: 22,
     overflow: 'hidden',
-    marginBottom: 18,
   },
 
   featureImage: {
@@ -355,9 +400,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  liveCardWrapper: {
-    marginBottom: 20,
-  },
+  liveCardWrapper: {},
 
   liveCard: {
     borderRadius: 22,

@@ -11,7 +11,7 @@ const Stack = createNativeStackNavigator();
 
 export default function QuizNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right', freezeOnBlur: true }}>
       <Stack.Screen name="QuizHome" component={QuizHomeScreen} />
       <Stack.Screen name="QuizSession" component={QuizSessionScreen} />
       <Stack.Screen
