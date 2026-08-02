@@ -26,7 +26,7 @@ export const HomeTheme = {
 export const STORY_CATEGORIES = [
   {
     id: 'bible',
-    label: 'Bible',
+    label: 'Gospel',
     icon: 'book-cross',
     iconColor: '#C96A1B',
     bowl: '#FFF4EB',
@@ -35,7 +35,7 @@ export const STORY_CATEGORIES = [
   },
   {
     id: 'jesus',
-    label: 'Jesus',
+    label: 'Heroes',
     icon: 'cross',
     iconColor: '#C9A227',
     bowl: '#FFF8E7',
@@ -44,7 +44,7 @@ export const STORY_CATEGORIES = [
   },
   {
     id: 'prayer',
-    label: 'Prayer',
+    label: 'Prophets',
     icon: 'hands-pray',
     iconColor: '#6B8F71',
     bowl: '#E8F5E9',
@@ -53,7 +53,7 @@ export const STORY_CATEGORIES = [
   },
   {
     id: 'worship',
-    label: 'Worship',
+    label: 'Kings',
     icon: 'church',
     iconColor: '#7B6BA8',
     bowl: '#EDE8F5',

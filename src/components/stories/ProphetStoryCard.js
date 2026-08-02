@@ -80,7 +80,7 @@ export const ProphetStoryCard = React.memo(function ProphetStoryCard({
         onPress={handlePress}
         accessibilityRole="button"
         accessibilityLabel={`Open story ${story?.title || 'faith story'}`}
-        accessibilityHint={`Read the story of ${story?.prophetName || story?.category || 'this faith story'}`}
+        accessibilityHint={`Read the story of ${story?.category || 'this faith story'}`}
       >
         <View
           style={[

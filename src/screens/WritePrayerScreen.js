@@ -198,7 +198,7 @@ export default function WritePrayerScreen() {
       } catch {
         // ignore
       }
-      showToast('Prayer sent successfully! Waiting for approval.', 'success', 3200);
+      showToast('Your prayer request has been submitted successfully and is awaiting approval.', 'success', 3800);
       setTitle('');
       setDescription('');
       setCategory(null);

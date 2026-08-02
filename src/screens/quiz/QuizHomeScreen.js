@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,11 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { QUIZ_TYPE_LIST } from '../../constants/quiz';
-import { prepareQuizSession } from '../../services/quizService';
+import { prepareQuizSession, flushPendingQuizSubmission } from '../../services/quizService';
 import { getActiveSession } from '../../storage/quizStorage';
 import useQuizCatalog from '../../hooks/useQuizCatalog';
 import useQuizProfile from '../../hooks/useQuizProfile';
@@ -27,7 +27,7 @@ export default function QuizHomeScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { user } = useAuth();
+  const { user, patchUserProfile } = useAuth();
   const { showToast } = useToast();
   const { loading, error, questionCount, attemptedCount, refresh } = useQuizCatalog();
   const { profile } = useQuizProfile();
@@ -37,12 +37,41 @@ export default function QuizHomeScreen() {
 
   const [savedSession, setSavedSession] = React.useState(null);
 
-  React.useEffect(() => {
-    getActiveSession(user?.uid).then((s) => {
-      if (s?.status === 'active' && s.questions?.length) setSavedSession(s);
-      else setSavedSession(null);
-    });
-  }, [user?.uid]);
+  // useFocusEffect (not a plain mount-only useEffect) so this re-checks
+  // every time Quiz Home regains focus — after quitting a quiz via the
+  // hardware back button (which skips QuizSessionScreen's own cleanup),
+  // after finishing a quiz, or after switching tabs and back. A mount-only
+  // effect would leave this screen's "Resume quiz" card stale (showing a
+  // session that no longer exists, or missing one that was just left
+  // in-progress) for as long as this screen instance stays mounted in the
+  // stack, which for a tab-root screen can be the whole app session.
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      getActiveSession(user?.uid).then((s) => {
+        if (!mounted) return;
+        if (s?.status === 'active' && s.questions?.length) setSavedSession(s);
+        else setSavedSession(null);
+      });
+
+      // Opportunistically finish any quiz result that failed to save last
+      // time (dropped connection, app killed on the Result screen, etc.).
+      // submitQuizSession's own duplicate guard makes this a safe no-op if
+      // it turns out the result actually did save.
+      if (user?.uid) {
+        flushPendingQuizSubmission(user.uid).then((res) => {
+          if (mounted && res?.profile) {
+            patchUserProfile?.({ quizProfile: res.profile, lastScore: res.score });
+            showToast('Saved a quiz result that didn\u2019t finish uploading earlier', 'success');
+          }
+        });
+      }
+
+      return () => {
+        mounted = false;
+      };
+    }, [user?.uid, patchUserProfile, showToast])
+  );
 
   const startQuiz = async (quizTypeId) => {
     if (!user?.uid) {
@@ -79,8 +108,10 @@ export default function QuizHomeScreen() {
           <RefreshControl refreshing={loading} onRefresh={() => refresh(true)} tintColor={colors.primary} />
         }
       >
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Faith Quiz</Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>Christ-centered challenges from your question bank</Text>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Quiz</Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>Test your Bible knowledge and grow your streak</Text>
+        </View>
 
         {savedSession ? (
           <TouchableOpacity
@@ -185,8 +216,9 @@ export default function QuizHomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  title: { fontSize: 28, fontWeight: '800', marginTop: 8 },
-  subtitle: { fontSize: 14, marginTop: 6, marginBottom: 20, lineHeight: 20 },
+  header: { marginTop: 8, marginBottom: 20 },
+  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, marginBottom: 6 },
+  subtitle: { fontSize: 14, fontWeight: '500', lineHeight: 20 },
   statsCard: {
     flexDirection: 'row',
     borderRadius: 18,
@@ -214,7 +246,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  quickText: { fontSize: 11, fontWeight: '700' },
+  quickText: { fontSize: 12, fontWeight: '700' },
   catalogMeta: { fontSize: 12, marginBottom: 12 },
   resumeCard: {
     flexDirection: 'row',

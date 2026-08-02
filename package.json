@@ -1,6 +1,6 @@
 {
   "name": "faithframes-mobile",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "main": "index.js",
   "scripts": {
     "start": "set NODE_OPTIONS=--max-old-space-size=4096 && expo start --clear",

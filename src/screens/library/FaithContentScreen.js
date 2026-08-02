@@ -10,6 +10,7 @@ import useFirestoreSubscription from '../../hooks/useFirestoreSubscription';
 import { getContentKindConfig } from '../../constants/contentKinds';
 import WitnessCarousel from '../../components/library/WitnessCarousel';
 import FaithContentCard from '../../components/library/FaithContentCard';
+import FaithGalleryCard from '../../components/library/FaithGalleryCard';
 import LibraryEmptyState from '../../components/library/LibraryEmptyState';
 import LibraryErrorState from '../../components/library/LibraryErrorState';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
@@ -22,6 +23,10 @@ export default function FaithContentScreen({ kind }) {
   const navigation = useNavigation();
   const { isDark, colors } = useTheme();
   const insets = useSafeAreaInsets();
+
+  const numColumns = config.gridColumns || 1;
+  const isGrid = numColumns > 1;
+  const CardComponent = config.cardVariant === 'gallery' ? FaithGalleryCard : FaithContentCard;
 
   const { items: banners, loading: bannersLoading } = useFirestoreSubscription(
     config.subscribeCarousel,
@@ -46,11 +51,11 @@ export default function FaithContentScreen({ kind }) {
 
   const renderItem = useCallback(
     ({ item, index }) => (
-      <View style={{ paddingHorizontal: Spacing.xl }}>
-        <FaithContentCard kind={kind} item={item} index={index} accent={config.accent} onPress={openContent} />
+      <View style={isGrid ? styles.gridItem : styles.listItem}>
+        <CardComponent kind={kind} item={item} index={index} accent={config.accent} onPress={openContent} />
       </View>
     ),
-    [kind, config.accent, openContent]
+    [kind, config.accent, openContent, isGrid, CardComponent]
   );
 
   const keyExtractor = useCallback((item) => item.id, []);
@@ -63,9 +68,17 @@ export default function FaithContentScreen({ kind }) {
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
         <View style={{ paddingTop: insets.top + Spacing.xl, paddingHorizontal: Spacing.xl }}>
           <SkeletonLoader height={220} borderRadius={24} style={{ marginBottom: Spacing.xxl }} />
-          {[0, 1, 2].map((i) => (
-            <SkeletonLoader key={i} height={300} borderRadius={20} style={{ marginBottom: Spacing.xl }} />
-          ))}
+          {isGrid ? (
+            <View style={styles.skeletonGrid}>
+              {[0, 1, 2, 3].map((i) => (
+                <SkeletonLoader key={i} height={230} borderRadius={20} style={styles.skeletonGridItem} />
+              ))}
+            </View>
+          ) : (
+            [0, 1, 2].map((i) => (
+              <SkeletonLoader key={i} height={300} borderRadius={20} style={{ marginBottom: Spacing.xl }} />
+            ))
+          )}
         </View>
       </View>
     );
@@ -84,17 +97,21 @@ export default function FaithContentScreen({ kind }) {
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <FlatList
+        key={`faith-content-cols-${numColumns}`}
         data={content}
         keyExtractor={keyExtractor}
+        numColumns={numColumns}
+        columnWrapperStyle={isGrid ? styles.columnWrapper : undefined}
         contentContainerStyle={[
           styles.listContent,
+          isGrid && styles.gridContent,
           { paddingTop: insets.top + Spacing.lg, paddingBottom: insets.bottom + Spacing.huge },
         ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={config.accent} colors={[config.accent]} />
         }
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
+        initialNumToRender={isGrid ? 8 : 6}
+        maxToRenderPerBatch={isGrid ? 8 : 6}
         windowSize={7}
         removeClippedSubviews
         ListHeaderComponent={
@@ -121,6 +138,12 @@ export default function FaithContentScreen({ kind }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   listContent: { flexGrow: 1 },
+  listItem: { paddingHorizontal: Spacing.xl },
+  gridContent: { paddingHorizontal: Spacing.lg },
+  gridItem: { flex: 1 },
+  columnWrapper: { gap: Spacing.md, marginBottom: Spacing.md },
+  skeletonGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  skeletonGridItem: { width: '48%', marginBottom: Spacing.md },
   header: {
     fontSize: Typography.fontSize4XL,
     fontWeight: Typography.fontWeightExtraBold,

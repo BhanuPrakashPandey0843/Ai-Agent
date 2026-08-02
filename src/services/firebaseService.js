@@ -43,14 +43,11 @@ const sortWallpapersNewest = (items) =>
 
 const normalizeStoryFields = (id, data = {}) => ({
   id,
-  title: data.title || data.name || '',
-  prophetName: data.prophetName || data.name || '',
-  name: data.name || data.prophetName || '',
+  title: data.title || '',
   shortdescription: data.shortdescription || data.description || '',
   description: data.shortdescription || data.description || '',
   fullstory: data.fullstory || data.content || '',
   content: data.fullstory || data.content || '',
-  readingtime: data.readingtime || data.readingTime || '',
   coverimage: data.coverimage || data.image || data.bgurl || '',
   image: data.coverimage || data.image || data.bgurl || '',
   featured: data.featured === true,
@@ -1689,6 +1686,8 @@ export const createUserPrayer = async (payload) => {
     status: 'pending',
     userId: String(payload.userId),
     username: String(payload.username || '').trim(),
+    prayCount: 0,
+    commentCount: 0,
     createdAt: serverTimestamp(),
     deviceTimestamp: Date.now(),
   });
@@ -1700,4 +1699,90 @@ export const createUserPrayer = async (payload) => {
 export const deleteMyUserPrayer = async (id, uid) => {
   if (!id || !uid) throw new Error('Missing prayer or user id');
   await deleteDoc(doc(db, COLLECTIONS.USER_PRAYERS, id));
+};
+
+// ─── Community Prayer Requests (Prayer Room → approved userPrayers) ────────
+// Same `userPrayers` collection as "Write a Prayer" above — once an admin
+// approves a submission (status: 'approved'), it becomes readable by every
+// authenticated user and appears in the Prayer Room's Community section.
+// "I'm Praying" + comments reuse the exact same transaction + subcollection
+// pattern as toggleVideoLike/registerVideoView above, just scoped to this
+// doc instead of a witnessVideos doc.
+
+/** Real-time listener for every approved community prayer request. */
+export const subscribeToApprovedUserPrayers = (onData, onError) => {
+  const q = query(
+    collection(db, COLLECTIONS.USER_PRAYERS),
+    where('status', '==', 'approved'),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+  return safeOnSnapshot(q, onData, onError);
+};
+
+/** Whether the given user has already tapped "I'm Praying" for this request. */
+export const getMyPrayingState = async (prayerId, uid) => {
+  if (!prayerId || !uid) return false;
+  const snap = await getDoc(doc(db, COLLECTIONS.USER_PRAYERS, prayerId, 'prayingUsers', uid));
+  return snap.exists() && snap.data()?.praying === true;
+};
+
+/**
+ * Toggle "I'm Praying" for a request (mirrors toggleVideoLike: a per-user
+ * subcollection doc records this user's state, and the parent doc's
+ * `prayCount` is nudged by exactly ±1 in the same transaction so the
+ * count and the button state can never drift apart). Returns the new state.
+ */
+export const togglePrayingForRequest = async (prayerId, uid) => {
+  if (!prayerId || !uid) throw new Error('Missing prayer or user id');
+  const prayerRef = doc(db, COLLECTIONS.USER_PRAYERS, prayerId);
+  const prayingRef = doc(db, COLLECTIONS.USER_PRAYERS, prayerId, 'prayingUsers', uid);
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(prayingRef);
+    const current = snap.exists() && snap.data()?.praying === true;
+    const next = !current;
+    tx.set(prayingRef, { praying: next, updatedAt: serverTimestamp() }, { merge: true });
+    tx.update(prayerRef, {
+      prayCount: increment(next ? 1 : -1),
+      updatedAt: serverTimestamp(),
+    });
+    return next;
+  });
+};
+
+/** Real-time listener for a request's encouraging comments, oldest first. */
+export const subscribeToPrayerComments = (prayerId, onData, onError) => {
+  if (!prayerId) {
+    onData([]);
+    return () => {};
+  }
+  const q = query(
+    collection(db, COLLECTIONS.USER_PRAYERS, prayerId, 'comments'),
+    orderBy('createdAt', 'asc'),
+    limit(200)
+  );
+  return safeOnSnapshot(q, onData, onError);
+};
+
+/** Post an encouraging comment on a community prayer request. */
+export const addPrayerComment = async (prayerId, { userId, username, text } = {}) => {
+  if (!prayerId || !userId) throw new Error('Missing prayer or user id');
+  const trimmed = String(text || '').trim();
+  if (!trimmed) throw new Error('Please write a comment');
+  if (trimmed.length > 500) throw new Error('Comment must be 500 characters or fewer');
+
+  const prayerRef = doc(db, COLLECTIONS.USER_PRAYERS, prayerId);
+  const commentRef = doc(collection(db, COLLECTIONS.USER_PRAYERS, prayerId, 'comments'));
+  await runTransaction(db, async (tx) => {
+    tx.set(commentRef, {
+      userId: String(userId),
+      username: String(username || 'Believer').trim(),
+      text: trimmed,
+      createdAt: serverTimestamp(),
+    });
+    tx.update(prayerRef, {
+      commentCount: increment(1),
+      updatedAt: serverTimestamp(),
+    });
+  });
 };

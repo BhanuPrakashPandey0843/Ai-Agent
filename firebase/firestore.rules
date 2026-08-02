@@ -167,7 +167,10 @@ service cloud.firestore {
     // User-Submitted Prayers
     // ------------------------------
     match /userPrayers/{docId} {
-      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin(request.auth.uid));
+      // Owner can always read their own; ANY authenticated user can read it
+      // once approved (Community Prayer Requests in the Prayer Room).
+      allow read: if request.auth != null
+        && (request.auth.uid == resource.data.userId || resource.data.status == 'approved' || isAdmin(request.auth.uid));
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.title is string
@@ -182,15 +185,46 @@ service cloud.firestore {
         && request.resource.data.anonymous is bool
         && request.resource.data.status == "pending"
         && request.resource.data.username is string
-        && request.resource.data.keys().hasAny([
+        && request.resource.data.keys().hasOnly([
           'title', 'description', 'category', 'content',
           'anonymous', 'status', 'userId', 'username',
-          'createdAt', 'deviceTimestamp'
+          'createdAt', 'deviceTimestamp', 'prayCount', 'commentCount'
         ]);
+      // Admin approve/reject (any field set), OR any authenticated user
+      // nudging prayCount/commentCount by at most 1 on an approved doc.
       allow update: if request.auth != null && isAdmin(request.auth.uid)
-        && request.resource.data.keys().hasAny(['status', 'updatedAt']);
+        && request.resource.data.keys().hasAny(['status', 'updatedAt'])
+        || (
+          request.auth != null
+          && resource.data.status == 'approved'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['prayCount', 'commentCount', 'updatedAt'])
+          && request.resource.data.prayCount is number
+          && request.resource.data.commentCount is number
+          && (request.resource.data.prayCount - (('prayCount' in resource.data) ? resource.data.prayCount : 0)) in [-1, 0, 1]
+          && (request.resource.data.commentCount - (('commentCount' in resource.data) ? resource.data.commentCount : 0)) in [0, 1]
+        );
       allow delete: if request.auth != null
         && (isAdmin(request.auth.uid) || request.auth.uid == resource.data.userId);
+
+      match /prayingUsers/{uid} {
+        allow read: if request.auth != null;
+        allow create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['praying', 'updatedAt'])
+          && request.resource.data.praying is bool;
+        allow delete: if false;
+      }
+
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.username is string
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.keys().hasOnly(['userId', 'username', 'text', 'createdAt']);
+        allow update, delete: if false;
+      }
     }
 
     // ------------------------------

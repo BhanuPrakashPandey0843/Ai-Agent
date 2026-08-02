@@ -16,7 +16,7 @@ export default function AchievementsScreen() {
   const items = achievementProgress(profile || {}) || [];
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <BackHeader title="Achievements" transparent />
 
       {loading ? (

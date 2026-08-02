@@ -103,83 +103,6 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
-// Release signing is loaded from android/keystore.properties, which is
-// git-ignored and must be created locally / in CI (see keystore.properties.example).
-// This intentionally does NOT fall back to the debug keystore for release
-// builds — a missing keystore.properties fails the release build loudly
-// instead of silently shipping a debug-signed AAB.
-//
-// EXCEPTION: on EAS Build, credentials are never provided via keystore.properties
-// at all. EAS injects its own remote-managed keystore into signingConfigs.release
-// via a separate build step (it writes and applies android/app/eas-build.gradle
-// after this file is evaluated). `EAS_BUILD=true` is Expo's own documented,
-// stable environment variable for detecting this — see
-// https://docs.expo.dev/eas/environment-variables/usage/#built-in-environment-variables
-// — rather than matching on working-directory paths or build output, which would
-// break silently if EAS's infra details ever change.
-def isEasBuild = System.getenv('EAS_BUILD') == 'true'
-
-def keystorePropertiesFile = rootProject.file('keystore.properties')
-def keystoreProperties = new Properties()
-def hasReleaseKeystore = keystorePropertiesFile.exists()
-def requiredKeystoreProps = ['RELEASE_STORE_FILE', 'RELEASE_STORE_PASSWORD', 'RELEASE_KEY_ALIAS', 'RELEASE_KEY_PASSWORD']
-if (!isEasBuild && hasReleaseKeystore) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-
-    // Fail at configuration time, with a specific message, if keystore.properties
-    // exists but is missing/blank values. Without this check, a null storeFile/
-    // storePassword/keyAlias/keyPassword flows silently into signingConfigs.release
-    // below, compiles and bundles fine, and only fails deep inside bundletool during
-    // `:app:signReleaseBundle` with an opaque `java.lang.NullPointerException` that
-    // gives no indication of which property was actually missing.
-    def missingProps = requiredKeystoreProps.findAll { !keystoreProperties[it] }
-    if (!missingProps.isEmpty()) {
-        throw new GradleException(
-            "android/keystore.properties is missing or has blank values for: ${missingProps.join(', ')}.\n" +
-            "See android/keystore.properties.example for the required format."
-        )
-    }
-
-    def releaseStoreFile = rootProject.file(keystoreProperties['RELEASE_STORE_FILE'])
-    if (!releaseStoreFile.exists()) {
-        throw new GradleException(
-            "android/keystore.properties sets RELEASE_STORE_FILE=${keystoreProperties['RELEASE_STORE_FILE']}, " +
-            "but no file exists at '${releaseStoreFile.absolutePath}'. RELEASE_STORE_FILE is resolved relative " +
-            "to android/ (not android/app/) — place the .keystore/.jks file there or fix the path."
-        )
-    }
-} else if (isEasBuild && hasReleaseKeystore) {
-    // A keystore.properties happens to exist AND we're on EAS — harmless, but load
-    // it anyway so a stray local file doesn't leave signingConfigs.release partially
-    // populated from a mix of local + EAS-injected values. EAS's own injection step
-    // runs after this file and will set the real values regardless.
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-}
-
-// If a release task (assembleRelease, bundleRelease, signReleaseBundle, ...) is
-// actually requested locally (never on EAS) without android/keystore.properties
-// existing at all, fail immediately and descriptively instead of letting AGP wire
-// an all-null signingConfigs.release through to bundletool, which previously
-// surfaced only as an opaque NullPointerException in `:app:signReleaseBundle`.
-if (!isEasBuild) {
-    gradle.taskGraph.whenReady { taskGraph ->
-        def buildingRelease = taskGraph.allTasks.any { task ->
-            def n = task.name
-            n.contains('Release') && (n.startsWith('bundle') || n.startsWith('assemble') || n.startsWith('sign') || n.startsWith('package'))
-        }
-        if (buildingRelease && !hasReleaseKeystore) {
-            throw new GradleException(
-                "A release build was requested, but android/keystore.properties does not exist, " +
-                "so signingConfigs.release has no storeFile/storePassword/keyAlias/keyPassword.\n" +
-                "Copy android/keystore.properties.example to android/keystore.properties and fill in " +
-                "your release keystore details before building a release variant.\n" +
-                "(If this IS an EAS Build, EAS_BUILD should have been 'true' and this check should " +
-                "have been skipped — something is misconfigured in the build environment.)"
-            )
-        }
-    }
-}
-
 android {
     ndkVersion rootProject.ext.ndkVersion
 
@@ -191,8 +114,8 @@ android {
         applicationId 'com.faithframes.official'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.0.1"
+        versionCode 14
+        versionName "1.0.2"
     }
     signingConfigs {
         debug {
@@ -201,28 +124,15 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-        release {
-            // Populated from android/keystore.properties (git-ignored, created locally
-            // or in CI). If that file is missing, these fields are left unset, which
-            // makes Gradle fail loudly on `assembleRelease`/`bundleRelease` instead of
-            // silently signing a release artifact with the debug key.
-            if (hasReleaseKeystore) {
-                storeFile rootProject.file(keystoreProperties['RELEASE_STORE_FILE'])
-                storePassword keystoreProperties['RELEASE_STORE_PASSWORD']
-                keyAlias keystoreProperties['RELEASE_KEY_ALIAS']
-                keyPassword keystoreProperties['RELEASE_KEY_PASSWORD']
-            }
-        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Release builds are signed with signingConfigs.release (from
-            // keystore.properties), never with the debug keystore. See
-            // android/keystore.properties.example for the required fields.
-            signingConfig signingConfigs.release
+            // Caution! In production, you need to generate your own keystore file.
+            // see https://reactnative.dev/docs/signed-apk-android.
+            signingConfig signingConfigs.debug
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"

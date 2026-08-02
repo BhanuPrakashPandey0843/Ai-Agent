@@ -17,17 +17,25 @@ import {
   RefreshControl,
   ScrollView,
   Share,
+  TouchableOpacity,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { subscribeToDailyPrayers } from '../services/firebaseService';
+import {
+  subscribeToDailyPrayers,
+  subscribeToApprovedUserPrayers,
+  subscribeToMyUserPrayers,
+  togglePrayingForRequest,
+  getMyPrayingState,
+} from '../services/firebaseService';
 import useFirestoreSubscription from '../hooks/useFirestoreSubscription';
 import { STORAGE_KEYS } from '../constants';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { getBookmarkIds, toggleBookmarkId } from '../storage';
 
 import SkeletonLoader from '../components/common/SkeletonLoader';
@@ -37,6 +45,8 @@ import PrayerDateTimeline, { buildDateRange, groupPrayersByDateKey } from '../co
 import PrayerSearchBar from '../components/prayer/PrayerSearchBar';
 import PrayerCategoryChips from '../components/prayer/PrayerCategoryChips';
 import PrayerCard, { PRAYER_CARD_W } from '../components/prayer/PrayerCard';
+import CommunityPrayerCard from '../components/prayer/CommunityPrayerCard';
+import MyPrayerStatusCard from '../components/prayer/MyPrayerStatusCard';
 import BackHeader from '../components/common/BackHeader';
 
 const CARD_STEP = PRAYER_CARD_W + 20;
@@ -51,6 +61,7 @@ export default function DailyPrayerScreen() {
   const insets = useSafeAreaInsets();
   const { isDark, colors } = useTheme();
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   const { items, loading, error, fromCache, refreshing, refresh, retry } = useFirestoreSubscription(
     subscribeToDailyPrayers,
@@ -60,6 +71,72 @@ export default function DailyPrayerScreen() {
   const handleAddPrayer = useCallback(() => {
     navigation.navigate('WritePrayer');
   }, [navigation]);
+
+  // ─── Community Prayer Requests (approved userPrayers) ────────────────────
+  const [activeTab, setActiveTab] = useState('daily'); // 'daily' | 'community'
+
+  const community = useFirestoreSubscription(
+    subscribeToApprovedUserPrayers,
+    STORAGE_KEYS.LIBRARY_CACHE_COMMUNITY_PRAYERS
+  );
+
+  const subscribeMine = useCallback(
+    (onData, onError) => subscribeToMyUserPrayers(user?.uid, onData, onError),
+    [user?.uid]
+  );
+  const { items: myPrayers } = useFirestoreSubscription(subscribeMine, null);
+  // Only pending/rejected need surfacing here — approved ones already show
+  // up as regular cards in the community feed below.
+  const myPendingOrRejected = useMemo(
+    () => myPrayers.filter((p) => p.status === 'pending' || p.status === 'rejected'),
+    [myPrayers]
+  );
+
+  const [prayingMap, setPrayingMap] = useState({});
+  const [prayBusyId, setPrayBusyId] = useState(null);
+
+  useEffect(() => {
+    if (activeTab !== 'community' || !user?.uid || !community.items.length) return;
+    let cancelled = false;
+    Promise.all(
+      community.items.map((it) => getMyPrayingState(it.id, user.uid).then((val) => [it.id, val]))
+    ).then((entries) => {
+      if (cancelled) return;
+      setPrayingMap((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user?.uid, community.items]);
+
+  const handleTogglePray = useCallback(
+    async (item) => {
+      if (!user?.uid) {
+        showToast('Please sign in to pray for this request.', 'error');
+        return;
+      }
+      if (prayBusyId) return;
+      setPrayBusyId(item.id);
+      const prevPraying = !!prayingMap[item.id];
+      setPrayingMap((prev) => ({ ...prev, [item.id]: !prevPraying }));
+      try {
+        const next = await togglePrayingForRequest(item.id, user.uid);
+        setPrayingMap((prev) => ({ ...prev, [item.id]: next }));
+      } catch (err) {
+        setPrayingMap((prev) => ({ ...prev, [item.id]: prevPraying }));
+        showToast(err?.message || 'Could not update right now.', 'error');
+      } finally {
+        setPrayBusyId(null);
+      }
+    },
+    [user?.uid, prayingMap, prayBusyId, showToast]
+  );
+
+  const openCommunityDetail = useCallback(
+    (item) => navigation.navigate('CommunityPrayerDetail', { item }),
+    [navigation]
+  );
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -281,6 +358,81 @@ export default function DailyPrayerScreen() {
     );
   }
 
+  let communityBody;
+  if (community.loading) {
+    communityBody = (
+      <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+        <SkeletonLoader height={140} borderRadius={22} style={{ marginBottom: 16 }} />
+        <SkeletonLoader height={140} borderRadius={22} />
+      </View>
+    );
+  } else if (community.error) {
+    communityBody = <LibraryErrorState message={community.error} onRetry={community.retry} accent={accent} />;
+  } else {
+    communityBody = (
+      <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
+        {community.fromCache ? (
+          <View style={[styles.cacheBanner, { borderColor: accent + '40', backgroundColor: colors.bgCard, alignSelf: 'center' }]}>
+            <Ionicons name="cloud-offline-outline" size={13} color={accent} />
+            <Text style={[styles.cacheText, { color: accent }]}>Showing saved content</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.communityHeaderRow}>
+          <Text style={[styles.dayHeading, { color: colors.textPrimary }]}>Community Prayer Requests</Text>
+          <TouchableOpacity
+            style={[styles.shareBtn, { backgroundColor: accent }]}
+            onPress={handleAddPrayer}
+            activeOpacity={0.85}
+            accessibilityLabel="Share a prayer request"
+          >
+            <Ionicons name="add" size={16} color="#fff" />
+            <Text style={styles.shareBtnText}>Share</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={[styles.communitySubtitle, { color: colors.textMuted }]}>
+          Requests approved by our team. Tap to read, pray, and leave encouragement.
+        </Text>
+
+        {myPendingOrRejected.length ? (
+          <View style={{ marginTop: 18, marginBottom: 4 }}>
+            <Text style={[styles.myRequestsHeading, { color: colors.textMuted }]}>YOUR SUBMISSIONS</Text>
+            {myPendingOrRejected.map((p) => (
+              <MyPrayerStatusCard key={p.id} item={p} colors={colors} />
+            ))}
+          </View>
+        ) : null}
+
+        <View style={{ marginTop: 16 }}>
+          {community.items.length ? (
+            community.items.map((it) => (
+              <CommunityPrayerCard
+                key={it.id}
+                item={it}
+                colors={colors}
+                accent={accent}
+                isPraying={!!prayingMap[it.id]}
+                prayBusy={prayBusyId === it.id}
+                onPress={() => openCommunityDetail(it)}
+                onPray={() => handleTogglePray(it)}
+              />
+            ))
+          ) : (
+            <LibraryEmptyState
+              accent={accent}
+              icon="people-outline"
+              title="No Community Requests Yet"
+              message="Approved prayer requests from the community will appear here."
+            />
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  const onRefreshActive = activeTab === 'daily' ? refresh : community.refresh;
+  const isRefreshingActive = activeTab === 'daily' ? refreshing : community.refreshing;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
@@ -290,12 +442,45 @@ export default function DailyPrayerScreen() {
       <View pointerEvents="none" style={[styles.glow, { backgroundColor: accent, bottom: 40, left: -80 }]} />
 
       <BackHeader title="Prayer Room" />
+
+      <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={[
+            styles.tabBtn,
+            { backgroundColor: colors.bgCard, borderColor: colors.border },
+            activeTab === 'daily' && { backgroundColor: accent, borderColor: accent },
+          ]}
+          onPress={() => setActiveTab('daily')}
+          activeOpacity={0.85}
+          accessibilityLabel="Daily Prayers tab"
+          accessibilityState={{ selected: activeTab === 'daily' }}
+        >
+          <Text style={[styles.tabBtnText, { color: activeTab === 'daily' ? '#fff' : colors.textSecondary }]}>Daily</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tabBtn,
+            { backgroundColor: colors.bgCard, borderColor: colors.border },
+            activeTab === 'community' && { backgroundColor: accent, borderColor: accent },
+          ]}
+          onPress={() => setActiveTab('community')}
+          activeOpacity={0.85}
+          accessibilityLabel="Community Prayer Requests tab"
+          accessibilityState={{ selected: activeTab === 'community' }}
+        >
+          <Text style={[styles.tabBtnText, { color: activeTab === 'community' ? '#fff' : colors.textSecondary }]}>Community</Text>
+          {myPendingOrRejected.some((p) => p.status === 'rejected') ? (
+            <View style={[styles.tabDot, { backgroundColor: activeTab === 'community' ? '#fff' : '#EF4444' }]} />
+          ) : null}
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         contentContainerStyle={{ paddingTop: 16, paddingBottom: insets.bottom + 32 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={accent} colors={[accent]} />}
+        refreshControl={<RefreshControl refreshing={isRefreshingActive} onRefresh={onRefreshActive} tintColor={accent} colors={[accent]} />}
         showsVerticalScrollIndicator={false}
       >
-        {body}
+        {activeTab === 'daily' ? body : communityBody}
       </ScrollView>
     </View>
   );
@@ -323,6 +508,54 @@ const styles = StyleSheet.create({
   },
   cacheText: { fontSize: 11, fontWeight: '600' },
   dayHeading: { fontSize: 16, fontWeight: '800' },
+  tabRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    marginTop: 18,
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  tabBtnText: { fontSize: 14, fontWeight: '700' },
+  tabDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  communityHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  communitySubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 6,
+    lineHeight: 19,
+  },
+  myRequestsHeading: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    marginBottom: 10,
+  },
+  shareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  shareBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   pageChip: {
     alignSelf: 'center',
     borderRadius: 999,

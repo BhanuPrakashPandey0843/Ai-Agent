@@ -42,5 +42,5 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 40,
     alignItems: 'center',
   },
-  label: { fontSize: 13, fontWeight: '700' },
+  label: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
 });

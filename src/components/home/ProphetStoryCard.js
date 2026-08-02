@@ -74,7 +74,7 @@ const ProphetStoryCard = React.memo(function ProphetStoryCard({
         onPress={handlePress}
         accessibilityRole="button"
         accessibilityLabel={`Open story ${story.title || 'prophet story'}`}
-        accessibilityHint={`Read the story of ${story.prophetName || story.category || 'a prophet'}`}
+        accessibilityHint={`Read the story of ${story.category || 'a prophet'}`}
       >
         <View
           style={[
@@ -124,14 +124,6 @@ const ProphetStoryCard = React.memo(function ProphetStoryCard({
             >
               {story.title || 'Story'}
             </Text>
-            {story.prophetName ? (
-              <Text
-                style={[styles.storySubtitle, { color: colors.textSecondary }]}
-                numberOfLines={1}
-              >
-                {story.prophetName}
-              </Text>
-            ) : null}
             {story.description ? (
               <Text
                 style={[styles.storyDescription, { color: colors.textMuted }]}
@@ -139,12 +131,6 @@ const ProphetStoryCard = React.memo(function ProphetStoryCard({
               >
                 {story.description}
               </Text>
-            ) : null}
-            {story.readingtime ? (
-              <View style={styles.metaRow}>
-                <Ionicons name="time-outline" size={12} color={colors.textMuted} />
-                <Text style={[styles.metaText, { color: colors.textMuted }]}>{story.readingtime}</Text>
-              </View>
             ) : null}
           </View>
         </View>

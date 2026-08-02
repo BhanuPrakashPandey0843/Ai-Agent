@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { LEADERBOARD_PERIODS } from '../../constants/quiz';
@@ -10,6 +10,7 @@ import useLeaderboard from '../../hooks/useLeaderboard';
 import PodiumLeaderboard from '../../components/quiz/PodiumLeaderboard';
 import LeaderboardRow from '../../components/quiz/LeaderboardRow';
 import BackHeader from '../../components/common/BackHeader';
+import EmptyState from '../../components/common/EmptyState';
 
 const PERIODS = Object.values(LEADERBOARD_PERIODS);
 
@@ -20,11 +21,36 @@ export default function LeaderboardScreen() {
   const [period, setPeriod] = useState('daily');
   const { entries, loading, error, refresh } = useLeaderboard(period);
 
+  // useLeaderboard already fetches on mount and whenever `period` changes,
+  // so the first focus of this screen instance is always covered. This ref
+  // just skips THAT first, already-covered focus so re-entering the screen
+  // later (e.g. Achievements -> back) triggers exactly one extra fetch
+  // instead of a duplicate one stacked on top of the hook's own mount fetch.
+  const skippedFirstFocus = useRef(false);
+
+  // Standings can change any time another player finishes a quiz, so a
+  // one-time fetch on mount goes stale the moment the user leaves and comes
+  // back (e.g. checked Achievements, then tapped back into Leaderboard —
+  // this screen instance never unmounted, so its data would otherwise sit
+  // frozen at whatever it was on the first visit). Re-fetching on focus is
+  // the "automatic refresh" a leaderboard needs without the cost of a
+  // permanent Firestore realtime listener per period.
+  useFocusEffect(
+    useCallback(() => {
+      if (!skippedFirstFocus.current) {
+        skippedFirstFocus.current = true;
+        return;
+      }
+      refresh();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [period])
+  );
+
   const top3 = entries.filter((e) => e.rank <= 3);
   const rest = entries.filter((e) => e.rank > 3);
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <BackHeader title="Leaderboard" transparent />
 
       <View style={styles.tabs}>
@@ -42,9 +68,19 @@ export default function LeaderboardScreen() {
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
       ) : error ? (
-        <Text style={[styles.error, { color: colors.textMuted }]}>{error}</Text>
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="Couldn't load leaderboard"
+          message={error}
+          actionLabel="Retry"
+          onAction={refresh}
+        />
       ) : entries.length === 0 ? (
-        <Text style={[styles.empty, { color: colors.textMuted }]}>No scores yet. Be the first to play!</Text>
+        <EmptyState
+          icon="trophy-outline"
+          title="No scores yet"
+          message="Be the first to play and claim the top spot!"
+        />
       ) : (
         <View style={styles.listWrap}>
           <PodiumLeaderboard entries={top3} />
@@ -79,7 +115,5 @@ const styles = StyleSheet.create({
   },
   tabText: { fontSize: 12, fontWeight: '700' },
   tabTextOn: { color: '#FFF' },
-  error: { textAlign: 'center', marginTop: 24 },
-  empty: { textAlign: 'center', marginTop: 40, paddingHorizontal: 24 },
   listWrap: { flex: 1 },
 });

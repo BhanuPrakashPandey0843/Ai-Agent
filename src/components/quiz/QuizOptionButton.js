@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { Typography, Spacing, BorderRadius } from '../../theme/colors';
 
 export default function QuizOptionButton({
   label,
@@ -22,7 +23,7 @@ export default function QuizOptionButton({
     }
   }, [state, scale]);
 
-  const containerStyle = [styles.option, { backgroundColor: colors.bg, borderColor: isDark ? '#2A2A44' : '#EDE8DC' }];
+  const containerStyle = [styles.option, { backgroundColor: colors.bgCard, borderColor: isDark ? '#2A2A44' : '#EDE8DC' }];
   if (state === 'correct') containerStyle.push({ borderColor: colors.success, backgroundColor: isDark ? '#1B3B1F' : '#E8F5E9' });
   if (state === 'wrong') containerStyle.push({ borderColor: colors.error, backgroundColor: isDark ? '#3B1B1B' : '#FFEBEE' });
   if (state === 'selected') containerStyle.push({ borderColor: colors.primary, backgroundColor: isDark ? '#2A2A44' : '#E8EFFF' });
@@ -47,21 +48,27 @@ const styles = StyleSheet.create({
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
     borderWidth: 1,
-    gap: 12,
+    gap: Spacing.md,
   },
   letter: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: BorderRadius.round,
     color: '#FFF',
     textAlign: 'center',
-    lineHeight: 28,
-    fontWeight: '700',
-    fontSize: 14,
+    lineHeight: 30,
+    fontWeight: Typography.fontWeightBold,
+    fontSize: Typography.fontSizeSM,
+    overflow: 'hidden',
   },
-  label: { flex: 1, fontSize: 15, fontWeight: '500' },
+  label: {
+    flex: 1,
+    fontSize: Typography.fontSizeLG,
+    fontWeight: Typography.fontWeightMedium,
+    lineHeight: Typography.lineHeightMD,
+  },
 });

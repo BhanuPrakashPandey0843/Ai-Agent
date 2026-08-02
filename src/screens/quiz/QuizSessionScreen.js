@@ -11,7 +11,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { QUIZ_TYPES, SECONDS_PER_QUESTION } from '../../constants/quiz';
+import { Typography, Spacing, BorderRadius, Shadows } from '../../theme/colors';
+import { QUIZ_TYPES, SECONDS_PER_QUESTION, TIMER_URGENT_THRESHOLD_SECONDS } from '../../constants/quiz';
 import { pointsForQuestion } from '../../utils/quizScoring';
 import QuizProgressBar from '../../components/quiz/QuizProgressBar';
 import QuizOptionButton from '../../components/quiz/QuizOptionButton';
@@ -21,7 +22,7 @@ import { saveActiveSession, clearActiveSession } from '../../storage/quizStorage
 import { useAuth } from '../../context/AuthContext';
 
 export default function QuizSessionScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
@@ -43,6 +44,7 @@ export default function QuizSessionScreen() {
   const current = questions[index];
   const quizType = session ? QUIZ_TYPES[session.quizTypeId] : null;
   const progress = questions.length ? (index + (revealed ? 1 : 0)) / questions.length : 0;
+  const isUrgent = secondsLeft <= TIMER_URGENT_THRESHOLD_SECONDS;
 
   const persistSession = useCallback(
     async (next) => {
@@ -162,30 +164,54 @@ export default function QuizSessionScreen() {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 8, backgroundColor: colors.bg, paddingHorizontal: 20 }]}>
+    <View style={[styles.root, { paddingTop: insets.top + Spacing.sm, backgroundColor: colors.bg }]}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={quit} hitSlop={12}>
-          <Ionicons name="close" size={28} color={colors.textPrimary} />
+        <TouchableOpacity
+          onPress={quit}
+          hitSlop={10}
+          style={[styles.closeBtn, { backgroundColor: colors.bgCard }]}
+        >
+          <Ionicons name="close" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.typeLabel, { color: colors.textPrimary }]}>{quizType?.label}</Text>
-        <View style={styles.timer}>
-          <Ionicons name="time-outline" size={16} color={secondsLeft <= 10 ? '#C62828' : colors.textMuted} />
-          <Text style={[styles.timerText, { color: colors.textMuted }, secondsLeft <= 10 && styles.timerUrgent]}>
+
+        <Text style={[styles.typeLabel, { color: colors.textPrimary }]} numberOfLines={1}>
+          {quizType?.label}
+        </Text>
+
+        <View
+          style={[
+            styles.timerPill,
+            { backgroundColor: isUrgent ? (isDark ? '#3B1B1B' : '#FFEBEE') : colors.bgCard },
+          ]}
+        >
+          <Ionicons
+            name="time-outline"
+            size={14}
+            color={isUrgent ? colors.error : colors.textMuted}
+          />
+          <Text
+            style={[
+              styles.timerText,
+              { color: isUrgent ? colors.error : colors.textMuted },
+            ]}
+          >
             {secondsLeft}s
           </Text>
         </View>
       </View>
 
-      <QuizProgressBar progress={progress} />
-      <Text style={[styles.counter, { color: colors.textMuted }]}>
-        Question {index + 1} of {questions.length}
-      </Text>
+      <View style={styles.progressWrap}>
+        <QuizProgressBar progress={progress} />
+        <Text style={[styles.counter, { color: colors.textMuted }]}>
+          Question {index + 1} of {questions.length}
+        </Text>
+      </View>
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
+        <View style={[styles.card, { backgroundColor: colors.bgCard }, Shadows.card(isDark)]}>
           <Text style={[styles.question, { color: colors.textPrimary }]}>{current.question}</Text>
           {current.reference ? (
             <Text style={[styles.reference, { color: colors.primary }]}>{current.reference}</Text>
@@ -223,7 +249,7 @@ export default function QuizSessionScreen() {
           <GradientButton
             title={index >= questions.length - 1 ? 'See Results' : 'Next Question'}
             onPress={goNext}
-            style={{ marginTop: 8 }}
+            style={{ marginTop: Spacing.sm }}
           />
         ) : null}
       </ScrollView>
@@ -232,44 +258,63 @@ export default function QuizSessionScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, paddingHorizontal: Spacing.xl },
   centered: { alignItems: 'center', justifyContent: 'center' },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    gap: Spacing.sm,
   },
-  typeLabel: { fontSize: 14, fontWeight: '700' },
-  timer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  timerText: { fontSize: 14, fontWeight: '700' },
-  timerUrgent: { color: '#C62828' },
-  counter: { fontSize: 13, marginTop: 8, marginBottom: 16 },
-  scroll: { paddingTop: 4 },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: Typography.fontSizeMD,
+    fontWeight: Typography.fontWeightBold,
+    marginHorizontal: Spacing.sm,
+  },
+  timerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 40,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.round,
+  },
+  timerText: { fontSize: Typography.fontSizeSM, fontWeight: Typography.fontWeightBold },
+  progressWrap: { marginTop: Spacing.lg },
+  counter: {
+    fontSize: Typography.fontSizeSM,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  scroll: { paddingTop: Spacing.xs },
   card: {
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 8,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
   },
   question: {
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 26,
-    marginBottom: 8,
+    fontSize: Typography.fontSizeXL,
+    fontWeight: Typography.fontWeightBold,
+    lineHeight: Typography.lineHeightLG,
+    marginBottom: Spacing.sm,
   },
   reference: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 16,
+    fontSize: Typography.fontSizeSM,
+    fontWeight: Typography.fontWeightSemiBold,
+    marginBottom: Spacing.lg,
   },
   explanation: {
-    marginTop: 12,
-    fontSize: 13,
-    lineHeight: 20,
+    marginTop: Spacing.md,
+    fontSize: Typography.fontSizeSM,
+    lineHeight: Typography.lineHeightMD,
     fontStyle: 'italic',
   },
   muted: {},

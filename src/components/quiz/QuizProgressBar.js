@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { BorderRadius } from '../../theme/colors';
 
 export default function QuizProgressBar({ progress }) {
   const { colors, isDark } = useTheme();
@@ -15,11 +16,11 @@ export default function QuizProgressBar({ progress }) {
 const styles = StyleSheet.create({
   track: {
     height: 8,
-    borderRadius: 4,
+    borderRadius: BorderRadius.sm,
     overflow: 'hidden',
   },
   fill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: BorderRadius.sm,
   },
 });

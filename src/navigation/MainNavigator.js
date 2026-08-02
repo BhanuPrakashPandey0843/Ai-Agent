@@ -47,6 +47,7 @@ import PrayersContentScreen from '../screens/PrayersScreen';
 import WorshipContentScreen from '../screens/WorshipScreen';
 import ContentDetailScreen from '../screens/ContentDetailScreen';
 import WritePrayerScreen from '../screens/WritePrayerScreen';
+import CommunityPrayerDetailScreen from '../screens/CommunityPrayerDetailScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -203,6 +204,11 @@ export default function MainNavigator() {
         name="WritePrayer"
         component={WritePrayerScreen}
         options={{ animation: 'slide_from_bottom', freezeOnBlur: true }}
+      />
+      <Stack.Screen
+        name="CommunityPrayerDetail"
+        component={CommunityPrayerDetailScreen}
+        options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>
   );

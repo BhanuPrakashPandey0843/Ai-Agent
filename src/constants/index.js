@@ -71,6 +71,7 @@ export const STORAGE_KEYS = {
   QUIZ_QUESTION_CACHE: 'faithframes_quiz_question_cache',
   QUIZ_ATTEMPTED_CACHE: 'faithframes_quiz_attempted_cache',
   QUIZ_ACTIVE_SESSION: 'faithframes_quiz_active_session',
+  QUIZ_PENDING_SUBMISSION: 'faithframes_quiz_pending_submission',
   VERSE_BOOKMARKS: 'faithframes_verse_bookmarks',
   PRAYER_BOOKMARKS: 'faithframes_prayer_bookmarks',
   STORY_BOOKMARKS: 'faithframes_story_bookmarks',
@@ -96,6 +97,7 @@ export const STORAGE_KEYS = {
   LIBRARY_CACHE_WORSHIP_CONTENT: 'faithframes_library_cache_worship_content',
   PRAYER_DRAFT: 'faithframes_prayer_draft',
   LIBRARY_CACHE_USER_PRAYERS: 'faithframes_library_cache_user_prayers',
+  LIBRARY_CACHE_COMMUNITY_PRAYERS: 'faithframes_library_cache_community_prayers',
 };
 
 /** Quote categories — mirrors admin UploadQuotesPanel */

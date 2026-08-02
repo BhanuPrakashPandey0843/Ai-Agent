@@ -11,6 +11,14 @@ const attemptedKey = (uid) => `${STORAGE_KEYS.QUIZ_ATTEMPTED_CACHE}_${uid || 'gu
 // - progress: currentIndex/answers/status - written on every answer/next tap.
 const sessionShellKey = (uid) => `${STORAGE_KEYS.QUIZ_ACTIVE_SESSION}_shell_${uid || 'guest'}`;
 const sessionProgressKey = (uid) => `${STORAGE_KEYS.QUIZ_ACTIVE_SESSION}_progress_${uid || 'guest'}`;
+// A completed-but-not-yet-confirmed-saved submission. Written the instant
+// the Result screen starts trying to save (before the network call), and
+// only cleared once submitQuizSession has actually resolved successfully.
+// This is what lets a failed upload (no signal, app killed mid-request,
+// backgrounded and OS-killed, etc.) be retried later instead of the score
+// silently vanishing — the whole point of "quiz submissions should always
+// save successfully" even when the network doesn't cooperate.
+const pendingSubmissionKey = (uid) => `${STORAGE_KEYS.QUIZ_PENDING_SUBMISSION}_${uid || 'guest'}`;
 
 export const saveQuestionCache = async (uid, payload) => {
   await storeJSON(cacheKey(uid), {
@@ -64,4 +72,16 @@ export const getActiveSession = async (uid) => {
 
 export const clearActiveSession = async (uid) => {
   await Promise.all([removeItem(sessionShellKey(uid)), removeItem(sessionProgressKey(uid))]);
+};
+
+// ─── Pending quiz submission (crash/offline durability) ────────────────────
+
+export const savePendingSubmission = async (uid, payload) => {
+  await storeJSON(pendingSubmissionKey(uid), { ...payload, savedAt: Date.now() });
+};
+
+export const getPendingSubmission = async (uid) => getJSON(pendingSubmissionKey(uid));
+
+export const clearPendingSubmission = async (uid) => {
+  await removeItem(pendingSubmissionKey(uid));
 };

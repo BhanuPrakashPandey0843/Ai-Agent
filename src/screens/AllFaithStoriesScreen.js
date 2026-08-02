@@ -80,7 +80,7 @@ function SearchBar({ value, onChangeText, colors, isDark }) {
       <Ionicons name="search" size={18} color={colors.textMuted} />
       <TextInput
         style={[styles.searchInput, { color: colors.textPrimary }]}
-        placeholder="Search stories or prophets"
+        placeholder="Search stories"
         placeholderTextColor={colors.textMuted}
         value={value}
         onChangeText={onChangeText}
@@ -112,7 +112,7 @@ function StoriesEmptyState({ colors, hasQuery, onClearQuery, onRefresh }) {
       </Text>
       <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
         {hasQuery
-          ? 'Try a different title or prophet name.'
+          ? 'Try a different title.'
           : 'New stories uploaded from the admin panel will appear here automatically.'}
       </Text>
       <TouchableOpacity
@@ -152,7 +152,7 @@ export default function AllFaithStoriesScreen() {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return sortedStories;
     return sortedStories.filter((s) => {
-      const haystack = [s.title, s.prophetName, s.description].filter(Boolean).join(' ').toLowerCase();
+      const haystack = [s.title, s.description].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(q);
     });
   }, [sortedStories, searchQuery]);

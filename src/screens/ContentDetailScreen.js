@@ -1,10 +1,11 @@
 // src/screens/ContentDetailScreen.js
 // Shared detail screen for the four "Explore Faith" content catalogues
-// (Bible / Jesus / Prayers / Worship). Renders an inline video player for
+// (Gospel / Heroes / Kings / Prophets). Renders an inline video player for
 // contentTypeId === 'video', and a premium reading view (hero image +
 // script passage + description) for story/message/image content — with
-// like/dislike/save/share, a related-content rail, and view counting,
-// all routed through the correct collection for `kind` via contentKinds.js.
+// a related-content rail and view counting, all routed through the correct
+// collection for `kind` via contentKinds.js. Like/dislike/save/share actions
+// have been intentionally removed from this screen.
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -13,7 +14,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Share,
   StatusBar,
   Dimensions,
 } from 'react-native';
@@ -26,7 +26,6 @@ import { Typography, Spacing, BorderRadius } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { getContentKindConfig } from '../constants/contentKinds';
-import useContentInteraction from '../hooks/useContentInteraction';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const VIDEO_H = Math.round((SCREEN_W * 9) / 16);
@@ -59,9 +58,6 @@ export default function ContentDetailScreen() {
 
   const videoRef = useRef(null);
   const hasCountedView = useRef(false);
-
-  const { liked, disliked, saved, likeCount, dislikeCount, like, dislike, toggleSave } =
-    useContentInteraction(kind, item);
 
   const contentId = route.params?.contentId || item?.id;
 
@@ -133,19 +129,6 @@ export default function ContentDetailScreen() {
     },
     [registerViewOnce]
   );
-
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message:
-          item?.contentTypeId === 'video' && item?.videoUrl
-            ? `${item.title} — Faith Frames\n${item.videoUrl}`
-            : `${item?.title} — Faith Frames`,
-      });
-    } catch {
-      // cancelled — no-op
-    }
-  };
 
   const openRelated = (related_item) => {
     hasCountedView.current = false;
@@ -248,41 +231,6 @@ export default function ContentDetailScreen() {
             ) : null}
           </View>
 
-          <View style={[styles.actionsRow, { borderColor: colors.border }]}>
-            <TouchableOpacity style={styles.actionBtn} onPress={like} hitSlop={hit}>
-              <Ionicons
-                name={liked ? 'thumbs-up' : 'thumbs-up-outline'}
-                size={20}
-                color={liked ? accent : colors.textSecondary}
-              />
-              <Text style={[styles.actionText, { color: liked ? accent : colors.textSecondary }]}>
-                {formatCount(likeCount)}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={dislike} hitSlop={hit}>
-              <Ionicons
-                name={disliked ? 'thumbs-down' : 'thumbs-down-outline'}
-                size={20}
-                color={disliked ? colors.error : colors.textSecondary}
-              />
-              <Text style={[styles.actionText, { color: disliked ? colors.error : colors.textSecondary }]}>
-                {formatCount(dislikeCount)}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={toggleSave} hitSlop={hit}>
-              <Ionicons
-                name={saved ? 'bookmark' : 'bookmark-outline'}
-                size={20}
-                color={saved ? accent : colors.textSecondary}
-              />
-              <Text style={[styles.actionText, { color: saved ? accent : colors.textSecondary }]}>Save</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={handleShare} hitSlop={hit}>
-              <Ionicons name="share-social-outline" size={20} color={colors.textSecondary} />
-              <Text style={[styles.actionText, { color: colors.textSecondary }]}>Share</Text>
-            </TouchableOpacity>
-          </View>
-
           {item.description ? (
             <View style={[styles.descCard, { backgroundColor: colors.bgCard }]}>
               <Text style={[styles.descText, { color: colors.textSecondary }]}>{item.description}</Text>
@@ -373,20 +321,9 @@ const styles = StyleSheet.create({
   details: { padding: Spacing.xl },
   title: { fontSize: Typography.fontSizeXL, fontWeight: Typography.fontWeightBold, lineHeight: 26, marginBottom: Spacing.sm },
   scriptPassage: { fontSize: Typography.fontSizeMD, fontWeight: Typography.fontWeightBold, marginBottom: Spacing.sm },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.lg },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.xl },
   metaText: { fontSize: Typography.fontSizeSM, fontWeight: Typography.fontWeightMedium },
   metaDot: { width: 3, height: 3, borderRadius: 1.5 },
-
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.xl,
-  },
-  actionBtn: { alignItems: 'center', gap: 4 },
-  actionText: { fontSize: Typography.fontSizeXS, fontWeight: Typography.fontWeightSemiBold },
 
   descCard: { borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.xxl },
   descText: { fontSize: Typography.fontSizeMD, lineHeight: 22 },

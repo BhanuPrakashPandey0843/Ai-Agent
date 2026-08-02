@@ -12,7 +12,11 @@ export const QUIZ_COLLECTIONS = {
 
 export const QUESTIONS_PER_SESSION = 10;
 export const DAILY_QUESTIONS_COUNT = 10;
-export const SECONDS_PER_QUESTION = 45;
+export const SECONDS_PER_QUESTION = 10;
+// Timer color/urgency switches to red once this many seconds remain.
+// Kept proportional to SECONDS_PER_QUESTION so a short timer doesn't spend
+// its entire duration looking "urgent".
+export const TIMER_URGENT_THRESHOLD_SECONDS = 3;
 
 /** Difficulty point multipliers */
 export const DIFFICULTY_POINTS = {

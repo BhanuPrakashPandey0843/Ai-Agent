@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { submitQuizSession } from '../../services/quizService';
+import { Typography, Spacing, BorderRadius, Shadows } from '../../theme/colors';
+import { submitQuizSessionDurable } from '../../services/quizService';
 import { computeSessionScore, computeAccuracy } from '../../utils/quizScoring';
 import { useAuth } from '../../context/AuthContext';
 import GradientButton from '../../components/common/GradientButton';
@@ -29,86 +30,91 @@ export default function QuizResultScreen() {
   const localAccuracy = computeAccuracy(correctCount, answers.length);
 
   const [submitting, setSubmitting] = useState(!!user?.uid);
+  const [submitFailed, setSubmitFailed] = useState(false);
   const [result, setResult] = useState(null);
 
+  const attemptSubmit = useCallback(async () => {
+    if (!user?.uid) {
+      setSubmitting(false);
+      return;
+    }
+    setSubmitting(true);
+    setSubmitFailed(false);
+    try {
+      const payload = {
+        sessionId: session.sessionId,
+        quizTypeId: quizTypeId || session.quizTypeId,
+        answers,
+        completionTimeMs,
+        questions,
+      };
+      // submitQuizSessionDurable persists this payload to disk first, so a
+      // dropped connection or a killed app doesn't lose the result — it's
+      // retried automatically next time Quiz Home mounts, or immediately via
+      // the Retry button below.
+      const res = await submitQuizSessionDurable(user.uid, payload, {
+        name: userProfile?.name || user.displayName,
+        photoURL: userProfile?.photoURL || user.photoURL,
+      });
+      setResult(res);
+      if (res.newlyUnlocked?.length) {
+        showToast(`Unlocked: ${res.newlyUnlocked[0].title}`, 'success');
+      }
+      // Local merge only - no Firestore round trip. submitQuizSession's
+      // transaction already wrote this exact quizProfile to Firestore;
+      // re-fetching the same document here would be a duplicate read
+      // that also delays the Result screen for nothing.
+      // Guarded on res.profile: the duplicate-submission path returns a
+      // different shape ({ duplicate: true, result }) with no top-level
+      // `profile`, and patching with undefined would wipe the user's
+      // real local profile instead of leaving it untouched.
+      if (res.profile) {
+        patchUserProfile?.({ quizProfile: res.profile, lastScore: res.score, lastPlayed: new Date().toISOString() });
+      }
+    } catch (err) {
+      setSubmitFailed(true);
+      showToast(err?.message || 'Could not save results — you can retry below', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [user?.uid, session, quizTypeId, answers, completionTimeMs, questions, userProfile, patchUserProfile, showToast]);
+
   useEffect(() => {
-    let mounted = true;
-    const run = async () => {
-      if (!user?.uid) {
-        setSubmitting(false);
-        return;
-      }
-      try {
-        const payload = {
-          sessionId: session.sessionId,
-          quizTypeId: quizTypeId || session.quizTypeId,
-          answers,
-          completionTimeMs,
-          questions,
-        };
-        const res = await submitQuizSession(user.uid, payload, {
-          name: userProfile?.name || user.displayName,
-          photoURL: userProfile?.photoURL || user.photoURL,
-        });
-        if (mounted) {
-          setResult(res);
-          if (res.newlyUnlocked?.length) {
-            showToast(`Unlocked: ${res.newlyUnlocked[0].title}`, 'success');
-          }
-          // Local merge only - no Firestore round trip. submitQuizSession's
-          // transaction already wrote this exact quizProfile to Firestore;
-          // re-fetching the same document here would be a duplicate read
-          // that also delays the Result screen for nothing.
-          // Guarded on res.profile: the duplicate-submission path returns a
-          // different shape ({ duplicate: true, result }) with no top-level
-          // `profile`, and patching with undefined would wipe the user's
-          // real local profile instead of leaving it untouched.
-          if (res.profile) {
-            patchUserProfile?.({ quizProfile: res.profile, lastScore: res.score, lastPlayed: new Date().toISOString() });
-          }
-        }
-      } catch (err) {
-        if (mounted) {
-          showToast(err?.message || 'Could not save results', 'error');
-        }
-      } finally {
-        if (mounted) setSubmitting(false);
-      }
-    };
-    run();
-    return () => {
-      mounted = false;
-    };
+    attemptSubmit();
+    // Intentionally run once per screen instance (mirrors the original
+    // mount-only submit); retries are user- or Quiz-Home-triggered, not
+    // re-triggered by this effect re-running.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid]);
 
   const score = result?.score ?? localScore;
   const accuracy = result?.accuracy ?? localAccuracy;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 100, backgroundColor: colors.bg }]}>
+    <View style={[styles.root, { paddingTop: insets.top + Spacing.xxl, paddingBottom: insets.bottom + 100, backgroundColor: colors.bg }]}>
       {submitting ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: 24 }} />
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: Spacing.xxl }} />
       ) : (
         <MaterialCommunityIcons
           name={accuracy >= 80 ? 'trophy' : 'star-circle'}
-          size={72}
+          size={56}
           color={colors.primary}
         />
       )}
       <Text style={[styles.title, { color: colors.textPrimary }]}>Quiz Complete</Text>
       <Text style={[styles.score, { color: colors.primary }]}>{score} pts</Text>
       <View style={styles.row}>
-        <View style={[styles.stat, { backgroundColor: colors.bgCard }]}>
+        <View style={[styles.stat, { backgroundColor: colors.bgCard }, Shadows.card(isDark)]}>
           <Text style={[styles.statVal, { color: colors.textPrimary }]}>{accuracy}%</Text>
           <Text style={[styles.statLbl, { color: colors.textMuted }]}>Accuracy</Text>
         </View>
-        <View style={[styles.stat, { backgroundColor: colors.bgCard }]}>
+        <View style={[styles.stat, { backgroundColor: colors.bgCard }, Shadows.card(isDark)]}>
           <Text style={[styles.statVal, { color: colors.textPrimary }]}>
             {correctCount}/{answers.length}
           </Text>
           <Text style={[styles.statLbl, { color: colors.textMuted }]}>Correct</Text>
         </View>
-        <View style={[styles.stat, { backgroundColor: colors.bgCard }]}>
+        <View style={[styles.stat, { backgroundColor: colors.bgCard }, Shadows.card(isDark)]}>
           <Text style={[styles.statVal, { color: colors.textPrimary }]}>{Math.round(completionTimeMs / 1000)}s</Text>
           <Text style={[styles.statLbl, { color: colors.textMuted }]}>Time</Text>
         </View>
@@ -118,9 +124,27 @@ export default function QuizResultScreen() {
         <Text style={[styles.hint, { color: colors.textMuted }]}>Sign in to save progress and appear on leaderboards.</Text>
       ) : null}
 
+      {submitFailed ? (
+        <TouchableOpacity
+          style={[styles.retryBox, { backgroundColor: isDark ? '#3B1B1B' : '#FFEBEE', borderColor: colors.error }]}
+          onPress={attemptSubmit}
+          activeOpacity={0.85}
+        >
+          <MaterialCommunityIcons name="cloud-alert" size={20} color={colors.error} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.retryTitle, { color: colors.textPrimary }]}>Couldn't save this result</Text>
+            <Text style={[styles.retrySub, { color: colors.textMuted }]}>
+              Your score is safe on this device. Tap to retry saving it.
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="refresh" size={20} color={colors.error} />
+        </TouchableOpacity>
+      ) : null}
+
       <GradientButton
         title="Leaderboard"
         onPress={() => navigation.navigate('Leaderboard')}
+        disabled={submitting}
         style={styles.btn}
       />
       <GradientButton
@@ -138,29 +162,44 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.xxl,
   },
-  title: { fontSize: 26, fontWeight: '800', marginTop: 16 },
-  score: { fontSize: 42, fontWeight: '800', marginVertical: 12 },
-  row: { flexDirection: 'row', gap: 12, marginVertical: 20, width: '100%' },
+  title: {
+    fontSize: Typography.fontSize2XL,
+    fontWeight: Typography.fontWeightExtraBold,
+    marginTop: Spacing.lg,
+  },
+  score: {
+    fontSize: Typography.fontSize3XL,
+    fontWeight: Typography.fontWeightExtraBold,
+    marginVertical: Spacing.md,
+  },
+  row: { flexDirection: 'row', gap: Spacing.md, marginVertical: Spacing.xl, width: '100%' },
   stat: {
     flex: 1,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 8,
   },
-  statVal: { fontSize: 18, fontWeight: '800' },
-  statLbl: { fontSize: 12, marginTop: 4 },
+  statVal: { fontSize: Typography.fontSizeXL, fontWeight: Typography.fontWeightExtraBold },
+  statLbl: { fontSize: Typography.fontSizeXS, marginTop: Spacing.xs },
   hint: {
-    fontSize: 13,
+    fontSize: Typography.fontSizeSM,
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 18,
+    marginBottom: Spacing.lg,
+    lineHeight: Typography.lineHeightSM,
   },
-  btn: { width: '100%', marginTop: 8 },
+  retryBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    width: '100%',
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  retryTitle: { fontSize: Typography.fontSizeSM, fontWeight: Typography.fontWeightBold },
+  retrySub: { fontSize: Typography.fontSizeXS, marginTop: 2, lineHeight: Typography.lineHeightSM },
+  btn: { width: '100%', marginTop: Spacing.sm },
 });

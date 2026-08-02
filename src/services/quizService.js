@@ -26,6 +26,9 @@ import {
   saveAttemptedCache,
   getAttemptedCache,
   getAttemptedCacheMeta,
+  savePendingSubmission,
+  getPendingSubmission,
+  clearPendingSubmission,
 } from '../storage/quizStorage';
 
 const QUESTIONS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
@@ -229,36 +232,31 @@ export const submitQuizSession = async (uid, sessionPayload, userDisplay) => {
   const todayKey = toDateKey();
 
   const sessionRef = doc(db, COLLECTIONS.USERS, uid, QUIZ_COLLECTIONS.SESSIONS, sessionId);
-  const existing = await getDoc(sessionRef);
-  if (existing.exists() && existing.data()?.status === 'completed') {
-    // Return the SAME shape as a fresh submission (score/accuracy/profile at
-    // the top level, not nested under `result`) so callers like
-    // QuizResultScreen don't need special-case handling for a duplicate
-    // resubmit, and show the actual saved score instead of falling back to
-    // a client-estimated one.
-    const existingData = existing.data();
-    const profile = await getQuizProfile(uid);
-    return {
-      score: existingData.score,
-      accuracy: existingData.accuracy,
-      completionTimeMs: existingData.completionTimeMs,
-      correctCount: existingData.correctCount,
-      wrongCount: existingData.wrongCount,
-      totalQuestions: existingData.totalQuestions,
-      profile,
-      newlyUnlocked: [],
-      duplicate: true,
-    };
-  }
-
   const displayName = userDisplay?.name || 'Player';
   const photoURL = userDisplay?.photoURL || '';
 
   let resultProfile;
   let newlyUnlocked = [];
   let rankContext = { reachedTop10: false };
+  // Set inside the transaction if this exact sessionId was already marked
+  // completed — by an earlier successful call, OR by a concurrent call that
+  // committed first. The read of sessionRef and the write to it both happen
+  // inside this single transaction, so two near-simultaneous submits of the
+  // same session (double-tap, a retried failed request that actually landed,
+  // a background pending-submission flush racing a live one) can no longer
+  // both observe "not completed yet" and both award XP/streak/leaderboard
+  // credit. Firestore serializes conflicting transactions: whichever commits
+  // second re-runs and sees the first one's write, landing in this branch
+  // instead of double-crediting the user.
+  let alreadyCompletedData = null;
 
   await runTransaction(db, async (tx) => {
+    const sessionSnap = await tx.get(sessionRef);
+    if (sessionSnap.exists() && sessionSnap.data()?.status === 'completed') {
+      alreadyCompletedData = sessionSnap.data();
+      return;
+    }
+
     const userRef = doc(db, COLLECTIONS.USERS, uid);
     const userSnap = await tx.get(userRef);
     const userData = userSnap.exists() ? userSnap.data() : {};
@@ -326,6 +324,26 @@ export const submitQuizSession = async (uid, sessionPayload, userDisplay) => {
     resultProfile = nextProfile;
   });
 
+  if (alreadyCompletedData) {
+    // Return the SAME shape as a fresh submission (score/accuracy/profile at
+    // the top level, not nested under `result`) so callers like
+    // QuizResultScreen don't need special-case handling for a duplicate
+    // resubmit, and show the actual saved score instead of falling back to
+    // a client-estimated one.
+    const profile = await getQuizProfile(uid);
+    return {
+      score: alreadyCompletedData.score,
+      accuracy: alreadyCompletedData.accuracy,
+      completionTimeMs: alreadyCompletedData.completionTimeMs,
+      correctCount: alreadyCompletedData.correctCount,
+      wrongCount: alreadyCompletedData.wrongCount,
+      totalQuestions: alreadyCompletedData.totalQuestions,
+      profile,
+      newlyUnlocked: [],
+      duplicate: true,
+    };
+  }
+
   const batch = writeBatch(db);
   answers.forEach((a) => {
     const ref = doc(db, COLLECTIONS.USERS, uid, QUIZ_COLLECTIONS.ATTEMPTED, a.questionId);
@@ -362,15 +380,32 @@ export const submitQuizSession = async (uid, sessionPayload, userDisplay) => {
     submittedAt: Date.now(),
   };
 
-  // Everything below this point (leaderboard upserts across 4 periods, and
-  // the top-10 rank check/flag) is NOT required for the score to be safely
-  // saved - that already happened above via the transaction and the
-  // attempted-questions batch. It runs in the background so the Result
-  // screen can render immediately after this function returns, instead of
-  // waiting on ~6 additional Firestore round trips. Errors here are
-  // swallowed intentionally: they must never surface as a failed submission
-  // to the user, matching the original code's own "non-blocking" intent.
-  syncLeaderboardInBackground(uid, leaderboardEntry, resultProfile);
+  // The leaderboard upsert (across all 4 periods) IS awaited here, unlike
+  // the rest of this function's Firestore writes: it's the one write that
+  // directly determines what the Leaderboard screen shows, so the screen
+  // the user lands on next (or the Leaderboard they tap into from the
+  // Result screen) must never race ahead of it. A failure here is still
+  // swallowed rather than surfaced as a failed quiz submission — the score
+  // itself is already safely saved above — but we no longer return before
+  // the write we know the very next screen depends on has settled, and the
+  // failure is now LOGGED (not silently dropped) so a permission or index
+  // problem is visible in device/Metro logs instead of just "leaderboard
+  // looks wrong" with no trace of why.
+  try {
+    await upsertLeaderboardEntries(uid, leaderboardEntry);
+  } catch (err) {
+    console.error(
+      '❌ [Leaderboard] upsertLeaderboardEntries failed — this quiz result will NOT appear on the leaderboard. code:',
+      err?.code,
+      'message:',
+      err?.message
+    );
+  }
+
+  // The top-10 "reachedTop10" achievement flag is a secondary side effect —
+  // it doesn't affect what the leaderboard itself displays, so it's safe to
+  // resolve in the background without delaying the Result screen further.
+  syncTop10AchievementInBackground(uid, resultProfile);
 
   return {
     score,
@@ -385,9 +420,57 @@ export const submitQuizSession = async (uid, sessionPayload, userDisplay) => {
   };
 };
 
-const syncLeaderboardInBackground = (uid, leaderboardEntry, resultProfile) => {
-  upsertLeaderboardEntries(uid, leaderboardEntry)
-    .then(() => fetchUserLeaderboardRank(uid, 'daily'))
+// ─── Durable submission (survives lost network / killed app) ───────────────
+//
+// submitQuizSession() above is the pure "talk to Firestore" operation. These
+// two wrappers add local-storage bookkeeping around it so a completed quiz's
+// result is never silently lost:
+//
+// 1. submitQuizSessionDurable — what the Result screen calls. Persists the
+//    full submission payload to disk BEFORE attempting the network call, and
+//    only erases that local record once submitQuizSession has actually
+//    resolved. If the app is killed, backgrounded past its network budget,
+//    or the request just fails, the payload is still sitting on disk.
+// 2. flushPendingQuizSubmission — a best-effort "finish what we started"
+//    call. Looks for a leftover payload from a previous attempt and retries
+//    it. Safe to call opportunistically (e.g. on Quiz Home mount) since the
+//    duplicate guard inside submitQuizSession makes a repeat submit of an
+//    already-completed session a cheap no-op rather than a double credit.
+export const submitQuizSessionDurable = async (uid, sessionPayload, userDisplay) => {
+  if (uid) {
+    await savePendingSubmission(uid, { sessionPayload, userDisplay });
+  }
+  const result = await submitQuizSession(uid, sessionPayload, userDisplay);
+  if (uid) {
+    await clearPendingSubmission(uid);
+  }
+  return result;
+};
+
+export const flushPendingQuizSubmission = async (uid) => {
+  if (!uid) return null;
+  const pending = await getPendingSubmission(uid);
+  if (!pending?.sessionPayload) return null;
+  try {
+    const result = await submitQuizSession(uid, pending.sessionPayload, pending.userDisplay);
+    await clearPendingSubmission(uid);
+    return result;
+  } catch (err) {
+    // Still no luck (still offline, etc.) — leave the pending record in
+    // place so the next opportunity (app reopen, Quiz Home revisit, manual
+    // retry from the Result screen) can try again.
+    console.warn(
+      '\u26a0\ufe0f [Quiz] flushPendingQuizSubmission failed, will retry later. code:',
+      err?.code,
+      'message:',
+      err?.message
+    );
+    return null;
+  }
+};
+
+const syncTop10AchievementInBackground = (uid, resultProfile) => {
+  fetchUserLeaderboardRank(uid, 'daily')
     .then(async (dailyRank) => {
       if (dailyRank && dailyRank <= 10 && !resultProfile.reachedTop10) {
         await setDoc(
@@ -410,7 +493,7 @@ const shouldReplaceEntry = (existing, next) => {
 
 export const upsertLeaderboardEntries = async (uid, entry) => {
   const periods = ['daily', 'weekly', 'monthly', 'alltime'];
-  await Promise.all(
+  const results = await Promise.allSettled(
     periods.map(async (period) => {
       const periodKey = getLeaderboardPeriodKey(period);
       const ref = doc(
@@ -435,24 +518,102 @@ export const upsertLeaderboardEntries = async (uid, entry) => {
       );
     })
   );
+  // Promise.all would reject on the first failing period and abort silently
+  // for the rest; Promise.allSettled lets every period attempt independently
+  // (a 'daily' failure shouldn't stop 'alltime' from writing) while still
+  // logging exactly which period(s) failed and why, instead of one opaque
+  // rejection with no indication of which of the 4 writes was the problem.
+  results.forEach((result, i) => {
+    if (result.status === 'rejected') {
+      const err = result.reason;
+      console.error(
+        `\u274c [Leaderboard] upsert failed for period "${periods[i]}". code:`,
+        err?.code,
+        'message:',
+        err?.message
+      );
+    }
+  });
+  if (results.every((r) => r.status === 'rejected')) {
+    // Every period failed the same way (e.g. all permission-denied) —
+    // surface one representative error so the caller's catch block (and
+    // its own logging) still fires.
+    throw results[0].reason;
+  }
+};
+
+// How many docs the single-field fallback pulls before ranking client-side.
+// Needs to comfortably exceed any realistic limitCount so tie-breaking
+// (accuracy, then time) never gets truncated away from the real top scorers.
+const LEADERBOARD_FALLBACK_SAMPLE_SIZE = 500;
+
+const rankEntries = (docs, limitCount) => {
+  const entries = docs.map((d) => ({ id: d.id, ...d.data() }));
+  entries.sort(compareLeaderboardEntries);
+  return entries.slice(0, limitCount).map((e, i) => ({ ...e, rank: i + 1 }));
 };
 
 export const fetchLeaderboard = async (period = 'daily', limitCount = 50) => {
   const periodKey = getLeaderboardPeriodKey(period);
   const boardId = `${period}_${periodKey}`;
   const ref = collection(db, QUIZ_COLLECTIONS.LEADERBOARDS, boardId, 'entries');
+
+  // Preferred path: fully server-ordered by score then accuracy. Requires a
+  // composite index on (score desc, accuracy desc) for the `entries`
+  // collection group — see firestore.indexes.json.
   try {
     const snap = await getDocs(
       query(ref, orderBy('score', 'desc'), orderBy('accuracy', 'desc'), limit(limitCount))
     );
-    let entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    entries.sort(compareLeaderboardEntries);
-    return entries.map((e, i) => ({ ...e, rank: i + 1 }));
-  } catch {
-    const snap = await getDocs(query(ref, limit(limitCount)));
-    let entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    entries.sort(compareLeaderboardEntries);
-    return entries.map((e, i) => ({ ...e, rank: i + 1 }));
+    return rankEntries(snap.docs, limitCount);
+  } catch (err) {
+    console.warn(
+      `\u26a0\ufe0f [Leaderboard] indexed query failed for board "${boardId}", falling back. code:`,
+      err?.code,
+      'message:',
+      err?.message
+    );
+  }
+
+  // Fallback: order by 'score' alone (single-field indexes are automatic in
+  // Firestore, no composite index required), over a wide-enough sample that
+  // the true top scorers are never excluded, then finish the tie-break
+  // (accuracy, then completion time) client-side.
+  try {
+    const snap = await getDocs(
+      query(ref, orderBy('score', 'desc'), limit(LEADERBOARD_FALLBACK_SAMPLE_SIZE))
+    );
+    return rankEntries(snap.docs, limitCount);
+  } catch (err) {
+    console.warn(
+      `\u26a0\ufe0f [Leaderboard] single-field fallback failed for board "${boardId}", falling back further. code:`,
+      err?.code,
+      'message:',
+      err?.message
+    );
+  }
+
+  // Last resort: unordered fetch. Only reliable when the period has fewer
+  // entries than the sample size, but better than surfacing a hard error.
+  try {
+    const snap = await getDocs(query(ref, limit(LEADERBOARD_FALLBACK_SAMPLE_SIZE)));
+    return rankEntries(snap.docs, limitCount);
+  } catch (err) {
+    // If even a plain, unordered, un-filtered read of the collection fails,
+    // this is almost certainly NOT a missing-index problem (that only
+    // affects orderBy queries) — it's a rules/auth/connectivity problem.
+    // Re-throw with the code intact so useLeaderboard can show something
+    // more useful than a generic "failed to load".
+    console.error(
+      `\u274c [Leaderboard] ALL fetch strategies failed for board "${boardId}". code:`,
+      err?.code,
+      'message:',
+      err?.message,
+      err?.code === 'permission-denied'
+        ? '\u2014 check that firestore.rules has been DEPLOYED (not just committed) to the live Firebase project.'
+        : ''
+    );
+    throw err;
   }
 };
 

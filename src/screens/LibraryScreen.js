@@ -1,5 +1,5 @@
 // src/screens/LibraryScreen.js
-// Premium Library Redesign - Production Ready
+// Premium Library Redesign v2 - Production Ready
 import React, { useEffect, useMemo } from 'react';
 import {
   View,
@@ -14,11 +14,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
+  withRepeat,
+  withSequence,
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -46,47 +49,58 @@ function useLibraryScale() {
   );
 }
 
-// Define feature data with asset paths
+// Define feature data with asset paths.
+// `hero` = full-bleed photo used at the top of the card.
+// `icon` = the existing badge artwork (unchanged), overlaid on the hero photo.
+// `accent` = per-card accent used only for the small chevron affordance / glow.
 const FEATURES = [
   {
     id: 'dailyVerse',
     title: 'Daily Verse',
     description: 'A verse to strengthen your faith daily.',
-    image: require('../../assets/lib/book.png'),
+    icon: require('../../assets/lib/book.png'),
+    hero: require('../../assets/carosel/dailyverce.jpg'),
+    accent: '#E08A3D',
     screen: 'DailyVerse',
   },
   {
     id: 'dailyPrayer',
     title: 'Prayer Room',
     description: 'Start your day with powerful prayer.',
-    image: require('../../assets/lib/hand.png'),
+    icon: require('../../assets/lib/hand.png'),
+    hero: require('../../assets/carosel/prayerroom.jpg'),
+    accent: '#8B5CF6',
     screen: 'DailyPrayer',
   },
   {
     id: 'wallpaper',
     title: 'Wallpaper',
     description: 'Faith-filled wallpapers for you.',
-    image: require('../../assets/lib/mountain.png'),
+    icon: require('../../assets/lib/mountain.png'),
+    hero: require('../../assets/carosel/wallpapaerlib.jpeg'),
+    accent: '#22C55E',
     screen: 'Wallpapers',
   },
   {
     id: 'witness',
     title: 'Scripture Videos',
     description: 'Share your faith and inspire others.',
-    image: require('../../assets/lib/bird.png'),
+    icon: require('../../assets/lib/bird.png'),
+    hero: require('../../assets/carosel/video.jpg'),
+    accent: '#3B82F6',
     screen: 'Witness',
   },
 ];
 
 const AnimatedFeatureCard = ({ item, index, onPress, isDark, colors, responsive }) => {
   const scale = useSharedValue(1);
-  const opacity = useSharedValue(1); // Start visible
-  const translateY = useSharedValue(0); // Start in place
+  const opacity = useSharedValue(1);
+  const translateY = useSharedValue(0);
+  const pressed = useSharedValue(0);
   const hasAnimated = useSharedValue(false);
 
   useEffect(() => {
     if (!hasAnimated.value) {
-      // Only run animation on first mount
       hasAnimated.value = true;
       opacity.value = withTiming(1, {
         duration: 600,
@@ -101,18 +115,29 @@ const AnimatedFeatureCard = ({ item, index, onPress, isDark, colors, responsive 
     }
   }, []);
 
+  const baseShadowOpacity = isDark ? 0.55 : 0.12;
+  const baseElevation = isDark ? 10 : 5;
+
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }, { translateY: translateY.value }],
+    transform: [
+      { scale: scale.value },
+      { translateY: translateY.value + pressed.value * 2 },
+    ],
     opacity: opacity.value,
+    shadowOpacity: baseShadowOpacity - pressed.value * baseShadowOpacity * 0.55,
+    shadowRadius: 16 - pressed.value * 6,
+    elevation: baseElevation - pressed.value * 4,
   }));
 
   const handlePressIn = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     scale.value = withSpring(0.97, { damping: 28, stiffness: 400, mass: 0.4 });
+    pressed.value = withTiming(1, { duration: 150 });
   };
 
   const handlePressOut = () => {
     scale.value = withSpring(1, { damping: 28, stiffness: 400, mass: 0.4 });
+    pressed.value = withTiming(0, { duration: 220 });
     onPress(item.screen);
   };
 
@@ -121,26 +146,108 @@ const AnimatedFeatureCard = ({ item, index, onPress, isDark, colors, responsive 
       activeOpacity={1}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.featureCardWrapper, animatedStyle]}
-    >
-      <View style={[
-        styles.featureCard, 
-        { 
+      style={[
+        styles.featureCardWrapper,
+        {
           backgroundColor: colors.bgCard,
+          borderRadius: responsive.cardRadius,
+          shadowColor: isDark ? '#000000' : '#1A1A2E',
         },
-        responsive.featureCard,
-      ]}>
-        {/* Image at top, centered */}
-        <View style={[styles.imageContainer, responsive.imageContainer]}>
-          <Image source={item.image} style={styles.featureImage} />
+        animatedStyle,
+      ]}
+    >
+      <View
+        style={[
+          styles.featureCardInner,
+          {
+            borderRadius: responsive.cardRadius,
+            backgroundColor: colors.bgCardSoft,
+            borderWidth: 1,
+            borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.045)',
+          },
+        ]}
+      >
+        {/* Hero photo */}
+        <View style={[styles.heroWrap, { height: responsive.heroHeight }]}>
+          <Image source={item.hero} style={styles.heroImage} resizeMode="cover" />
+
+          {/* Soft top scrim for badge contrast */}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.30)', 'rgba(0,0,0,0.08)', 'transparent']}
+            locations={[0, 0.32, 0.62]}
+            style={styles.heroTopScrim}
+            pointerEvents="none"
+          />
+
+          {/* Bottom blend into card body */}
+          <LinearGradient
+            colors={['transparent', `${colors.bgCardSoft}CC`, colors.bgCardSoft]}
+            locations={[0.2, 0.7, 1]}
+            style={styles.heroBottomFade}
+            pointerEvents="none"
+          />
         </View>
-        
+
+        {/* Floating badge, overlapping the hero/body seam */}
+        <View
+          style={[
+            styles.badgeRing,
+            {
+              width: responsive.badgeSize,
+              height: responsive.badgeSize,
+              borderRadius: responsive.badgeSize * 0.32,
+              top: responsive.heroHeight - responsive.badgeSize * 0.62,
+              left: responsive.cardBodyPadH,
+              backgroundColor: colors.bgCardSoft,
+              borderColor: colors.bgCardSoft,
+              shadowColor: isDark ? colors.primary : item.accent,
+              shadowOpacity: isDark ? 0.4 : 0.22,
+            },
+          ]}
+        >
+          <Image source={item.icon} style={styles.badgeImage} resizeMode="cover" />
+        </View>
+
         {/* Text content */}
-        <View style={styles.cardTextContainer}>
+        <View
+          style={[
+            styles.cardTextContainer,
+            {
+              paddingHorizontal: responsive.cardBodyPadH,
+              paddingTop: responsive.badgeSize * 0.55,
+              paddingBottom: responsive.cardBodyPadB,
+            },
+          ]}
+        >
+          {isDark ? (
+            <LinearGradient
+              colors={['rgba(255,255,255,0.045)', 'transparent']}
+              style={styles.cardTextSheen}
+              pointerEvents="none"
+            />
+          ) : null}
           <Text style={[styles.featureTitle, { color: colors.textPrimary }]}>{item.title}</Text>
           <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>
             {item.description}
           </Text>
+
+          <View style={styles.cardFooterRow}>
+            <View
+              style={[
+                styles.chevronCircle,
+                {
+                  width: responsive.chevronSize,
+                  height: responsive.chevronSize,
+                  borderRadius: responsive.chevronSize / 2,
+                  backgroundColor: isDark ? `${item.accent}33` : `${item.accent}1F`,
+                  borderWidth: 1,
+                  borderColor: isDark ? `${item.accent}40` : `${item.accent}2A`,
+                },
+              ]}
+            >
+              <Ionicons name="chevron-forward" size={responsive.chevronSize * 0.55} color={item.accent} />
+            </View>
+          </View>
         </View>
       </View>
     </AnimatedTouchableOpacity>
@@ -149,13 +256,14 @@ const AnimatedFeatureCard = ({ item, index, onPress, isDark, colors, responsive 
 
 const LiveWorshipCard = ({ onPress, isDark, colors, responsive }) => {
   const scale = useSharedValue(1);
-  const opacity = useSharedValue(1); // Start visible
-  const translateY = useSharedValue(0); // Start in place
+  const opacity = useSharedValue(1);
+  const translateY = useSharedValue(0);
+  const pressed = useSharedValue(0);
   const hasAnimated = useSharedValue(false);
+  const dotPulse = useSharedValue(1);
 
   useEffect(() => {
     if (!hasAnimated.value) {
-      // Only run animation on first mount
       hasAnimated.value = true;
       opacity.value = withTiming(1, {
         duration: 600,
@@ -168,52 +276,127 @@ const LiveWorshipCard = ({ onPress, isDark, colors, responsive }) => {
         easing: Easing.out(Easing.ease),
       });
     }
+    dotPulse.value = withRepeat(
+      withSequence(
+        withTiming(0.35, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
   }, []);
+
+  const baseShadowOpacity = isDark ? 0.5 : 0.16;
+  const baseElevation = isDark ? 12 : 6;
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }, { translateY: translateY.value }],
     opacity: opacity.value,
+    shadowOpacity: baseShadowOpacity - pressed.value * baseShadowOpacity * 0.5,
+    shadowRadius: 20 - pressed.value * 6,
+    elevation: baseElevation - pressed.value * 4,
   }));
+
+  const dotStyle = useAnimatedStyle(() => ({ opacity: dotPulse.value }));
 
   const handlePressIn = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     scale.value = withSpring(0.97, { damping: 28, stiffness: 400, mass: 0.4 });
+    pressed.value = withTiming(1, { duration: 150 });
   };
 
   const handlePressOut = () => {
     scale.value = withSpring(1, { damping: 28, stiffness: 400, mass: 0.4 });
+    pressed.value = withTiming(0, { duration: 220 });
     onPress('MeetShare');
   };
+
+  const liveGradient = isDark
+    ? ['#2A1B0C', '#1C1207', '#140C05']
+    : ['#FFF3E6', '#FFE7CC', '#FFDDB8'];
 
   return (
     <AnimatedTouchableOpacity
       activeOpacity={1}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.liveCardWrapper, animatedStyle, responsive.liveCardWrapper]}
-    >
-      <View style={[
-        styles.liveCard, 
-        { 
-          backgroundColor: colors.bgCard,
+      style={[
+        styles.liveCardWrapper,
+        responsive.liveCardWrapper,
+        {
+          borderRadius: responsive.cardRadius,
+          shadowColor: isDark ? '#E18A3A' : '#C96A1B',
         },
-        responsive.liveCard,
-      ]}>
-        <View style={[styles.liveImageContainer, responsive.liveImageContainer]}>
-          <Image source={require('../../assets/lib/live.png')} style={styles.liveImage} />
-          <View style={styles.liveBadge}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveBadgeText}>LIVE</Text>
+        animatedStyle,
+      ]}
+    >
+      <LinearGradient
+        colors={liveGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[
+          styles.liveCard,
+          {
+            borderRadius: responsive.cardRadius,
+            height: responsive.liveCardHeight,
+            borderWidth: 1,
+            borderColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.6)',
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={isDark ? ['rgba(255,255,255,0.05)', 'transparent'] : ['rgba(255,255,255,0.55)', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 0.5 }}
+          style={StyleSheet.absoluteFillObject}
+          pointerEvents="none"
+        />
+
+        <View style={[styles.liveLeftCol, { paddingLeft: responsive.cardBodyPadH }]}>
+          <View style={[styles.liveIconOuter, { width: responsive.liveIconSize, height: responsive.liveIconSize }]}>
+            <View
+              style={[
+                styles.liveIconRing,
+                {
+                  width: responsive.liveIconSize,
+                  height: responsive.liveIconSize,
+                  borderRadius: responsive.liveIconSize * 0.32,
+                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.7)',
+                },
+              ]}
+            >
+              <Image source={require('../../assets/lib/live.png')} style={styles.liveIconImage} resizeMode="cover" />
+            </View>
+            <View style={styles.liveBadge}>
+              <Animated.View style={[styles.liveDot, dotStyle]} />
+              <Text style={styles.liveBadgeText}>LIVE</Text>
+            </View>
+          </View>
+
+          <View style={styles.liveTextContainer}>
+            <Text style={[styles.liveTitle, { color: colors.textPrimary }]}>Live Worship Room</Text>
+            <Text style={[styles.liveDescription, { color: colors.textSecondary }]} numberOfLines={2}>
+              Join live worship and connect with believers around the world.
+            </Text>
+
+            <View style={[styles.joinPill, { backgroundColor: colors.primary }]}>
+              <Text style={styles.joinPillText}>Join Now</Text>
+              <Ionicons name="chevron-forward" size={13} color="#FFFFFF" />
+            </View>
           </View>
         </View>
 
-        <View style={styles.liveTextContainer}>
-          <Text style={[styles.liveTitle, { color: colors.textPrimary }]}>Live Worship Room</Text>
-          <Text style={[styles.liveDescription, { color: colors.textSecondary }]}>
-            Join live worship and connect with believers around the world.
-          </Text>
+        <View style={[styles.liveImageCol, { width: responsive.liveImageWidth, height: responsive.liveCardHeight }]}>
+          <Image source={require('../../assets/carosel/live.jpg')} style={styles.liveHeroImage} resizeMode="cover" />
+          <LinearGradient
+            colors={[liveGradient[0], 'transparent']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.liveHeroFade}
+            pointerEvents="none"
+          />
         </View>
-      </View>
+      </LinearGradient>
     </AnimatedTouchableOpacity>
   );
 };
@@ -232,18 +415,18 @@ export default function LibraryScreen() {
     () => ({
       contentTopExtra: rs(20, scale),
       headerSection: { marginBottom: rs(28, scale) },
-      headerGreeting: { marginBottom: rs(4, scale) },
       accentLine: { marginTop: rs(14, scale), marginBottom: rs(12, scale) },
       featureGrid: { rowGap: rs(16, scale), marginBottom: rs(20, scale) },
-      featureCard: { padding: rs(18, scale) },
-      imageContainer: {
-        width: rs(76, scale),
-        height: rs(76, scale),
-        marginBottom: rs(16, scale),
-      },
+      cardRadius: rs(26, scale),
+      heroHeight: rs(118, scale),
+      badgeSize: rs(56, scale),
+      cardBodyPadH: rs(16, scale),
+      cardBodyPadB: rs(14, scale),
+      chevronSize: rs(30, scale),
       liveCardWrapper: { marginBottom: rs(16, scale) },
-      liveCard: { padding: rs(18, scale) },
-      liveImageContainer: { width: rs(70, scale), height: rs(70, scale) },
+      liveCardHeight: rs(196, scale),
+      liveIconSize: rs(48, scale),
+      liveImageWidth: rs(122, scale),
       bottomSpacerHeight: Math.max(60, rs(90, scale)),
     }),
     [scale]
@@ -274,12 +457,7 @@ export default function LibraryScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.headerSection, responsive.headerSection]}>
-          <Text style={[styles.headerGreeting, { color: colors.textSecondary }, responsive.headerGreeting]}>Welcome</Text>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Library</Text>
           <View style={[styles.accentLine, { backgroundColor: colors.primary }, responsive.accentLine]} />
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-            Grow in faith. Access helpful tools for your spiritual journey.
-          </Text>
         </View>
 
         <View style={[styles.featureGrid, responsive.featureGrid]}>
@@ -325,26 +503,10 @@ const styles = StyleSheet.create({
 
   headerSection: {},
 
-  headerGreeting: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-
-  headerTitle: {
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: -1.2,
-  },
-
   accentLine: {
     width: 52,
     height: 4,
     borderRadius: 999,
-  },
-
-  headerSubtitle: {
-    fontSize: 16,
-    lineHeight: 26,
   },
 
   featureGrid: {
@@ -355,35 +517,65 @@ const styles = StyleSheet.create({
 
   featureCardWrapper: {
     width: '48%',
+    shadowOffset: { width: 0, height: 8 },
   },
 
-  featureCard: {
-    borderRadius: 22,
-    padding: 18,
-    flexDirection: 'column',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-
-  imageContainer: {
-    width: 76,
-    height: 76,
-    borderRadius: 22,
+  featureCardInner: {
     overflow: 'hidden',
   },
 
-  featureImage: {
+  heroWrap: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+
+  heroImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+  },
+
+  heroTopScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '55%',
+  },
+
+  heroBottomFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '65%',
+  },
+
+  badgeRing: {
+    position: 'absolute',
+    overflow: 'hidden',
+    borderWidth: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+
+  badgeImage: {
+    width: '100%',
+    height: '100%',
   },
 
   cardTextContainer: {
     width: '100%',
+    position: 'relative',
+  },
+
+  cardTextSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 34,
   },
 
   featureTitle: {
@@ -391,74 +583,85 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 6,
     letterSpacing: -0.3,
-    textAlign: 'center',
   },
 
   featureDescription: {
     fontSize: 14,
     lineHeight: 20,
-    textAlign: 'center',
   },
 
-  liveCardWrapper: {},
+  cardFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+  },
+
+  chevronCircle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  liveCardWrapper: {
+    shadowOffset: { width: 0, height: 10 },
+  },
 
   liveCard: {
-    borderRadius: 22,
-    padding: 18,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-
-  liveImageContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 20,
+    alignItems: 'stretch',
     overflow: 'hidden',
-    position: 'relative',
-    flexShrink: 0,
   },
 
-  liveImage: {
+  liveLeftCol: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    paddingVertical: 14,
+    justifyContent: 'center',
+  },
+
+  liveIconOuter: {
+    marginBottom: 10,
+  },
+
+  liveIconRing: {
+    overflow: 'hidden',
+    borderWidth: 2,
+  },
+
+  liveIconImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
-  },
-
-  liveTextContainer: {
-    flex: 1,
   },
 
   liveBadge: {
     position: 'absolute',
-    bottom: 6,
-    left: 6,
+    bottom: -6,
+    left: -4,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FF6B35',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderRadius: 999,
     gap: 4,
   },
 
   liveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#FFFFFF',
   },
 
   liveBadgeText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.3,
+  },
+
+  liveTextContainer: {
+    maxWidth: '92%',
   },
 
   liveTitle: {
@@ -471,5 +674,48 @@ const styles = StyleSheet.create({
   liveDescription: {
     fontSize: 14,
     lineHeight: 20,
+  },
+
+  joinPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+
+  joinPillText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  liveImageCol: {
+    position: 'relative',
+    overflow: 'hidden',
+    flexShrink: 0,
+    flexGrow: 0,
+    alignSelf: 'stretch',
+  },
+
+  liveHeroImage: {
+    width: '100%',
+    height: '100%',
+  },
+
+  liveHeroFade: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: '55%',
   },
 });

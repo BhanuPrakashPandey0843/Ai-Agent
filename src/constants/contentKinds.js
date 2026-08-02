@@ -58,9 +58,17 @@ export const CONTENT_KINDS = {
   bible: {
     key: 'bible',
     label: 'Bible',
-    headerTitle: 'Bible',
-    headerSubtitle: 'Explore the Word of God',
+    // Home screen's "Explore Faith" row already calls this section "Gospel"
+    // (see theme/homeTheme.js STORY_CATEGORIES) — the in-screen heading now
+    // matches so the label doesn't change between tapping in and arriving.
+    headerTitle: 'Gospel',
+    headerSubtitle: 'Life of Jesus',
     accent: LIBRARY_ACCENTS.bible,
+    // Pure visual gallery: cover image only, no title/description/actions
+    // on the listing itself — see components/library/FaithGalleryCard.js.
+    // Tapping a tile opens the full reading experience on ContentDetail.
+    cardVariant: 'gallery',
+    gridColumns: 2,
     emptyIcon: 'book-outline',
     emptyTitle: 'No content yet',
     emptyMessage: 'Check back soon for new Bible content.',
@@ -81,9 +89,12 @@ export const CONTENT_KINDS = {
   jesus: {
     key: 'jesus',
     label: 'Jesus',
-    headerTitle: 'Jesus',
-    headerSubtitle: 'Walk with the Savior',
+    // Home row calls this section "Heroes".
+    headerTitle: 'Heroes',
+    headerSubtitle: 'Faithful Champions',
     accent: LIBRARY_ACCENTS.jesus,
+    cardVariant: 'gallery',
+    gridColumns: 2,
     emptyIcon: 'heart-outline',
     emptyTitle: 'No content yet',
     emptyMessage: 'Check back soon for new content about Jesus.',
@@ -104,9 +115,12 @@ export const CONTENT_KINDS = {
   prayers: {
     key: 'prayers',
     label: 'Prayer',
-    headerTitle: 'Prayers',
-    headerSubtitle: 'Connect with God through prayer',
+    // Home row calls this section "Prophets".
+    headerTitle: 'Prophets',
+    headerSubtitle: "God's Messengers",
     accent: LIBRARY_ACCENTS.prayers,
+    cardVariant: 'gallery',
+    gridColumns: 2,
     emptyIcon: 'hand-left-outline',
     emptyTitle: 'No content yet',
     emptyMessage: 'Check back soon for new prayer content.',
@@ -127,9 +141,16 @@ export const CONTENT_KINDS = {
   worship: {
     key: 'worship',
     label: 'Worship',
-    headerTitle: 'Worship',
-    headerSubtitle: 'Lift your voice in praise',
+    // Home row calls this section "Kings". No exact subtitle copy was given
+    // for this one (the request specified Gospel/Heroes/Prophets only) —
+    // "Anointed Rulers" is a placeholder in the same short-epithet style as
+    // the other three. Easy one-line change in this file if different copy
+    // is wanted.
+    headerTitle: 'Kings',
+    headerSubtitle: 'Anointed Rulers',
     accent: LIBRARY_ACCENTS.worship,
+    cardVariant: 'gallery',
+    gridColumns: 2,
     emptyIcon: 'musical-notes-outline',
     emptyTitle: 'No content yet',
     emptyMessage: 'Check back soon for new worship content.',

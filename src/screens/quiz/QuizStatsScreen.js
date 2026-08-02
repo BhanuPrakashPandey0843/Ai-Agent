@@ -45,7 +45,7 @@ export default function QuizStatsScreen() {
     .sort((a, b) => b.rate - a.rate);
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <BackHeader title="Quiz Statistics" transparent />
 
       {loading ? (

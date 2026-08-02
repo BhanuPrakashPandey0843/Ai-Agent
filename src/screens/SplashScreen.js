@@ -99,7 +99,7 @@ export default function SplashScreen({ navigation }) {
 
         <Text style={styles.title}>Faith Frames</Text>
         <Animated.Text style={[styles.tagline, { opacity: taglineOpacity }]}>
-          Premium Faith Wallpapers
+         Sacred Pathways Begin Here
         </Animated.Text>
         <Animated.View style={[styles.divider, { opacity: taglineOpacity }]}>
           <View style={styles.dividerLine} />
