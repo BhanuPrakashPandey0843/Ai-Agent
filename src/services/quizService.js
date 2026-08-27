@@ -17,7 +17,13 @@ import { db } from '../config/firebase';
 import { COLLECTIONS } from '../constants';
 import { QUIZ_COLLECTIONS, QUIZ_TYPES, XP_PER_CORRECT, XP_PER_QUIZ_COMPLETE } from '../constants/quiz';
 import { isValidQuizQuestion, normalizeQuestion, selectQuestionsForSession } from './quizEngine';
-import { computeAccuracy, computeSessionScore, compareLeaderboardEntries } from '../utils/quizScoring';
+import {
+  computeAccuracy,
+  computeSessionScore,
+  compareLeaderboardEntries,
+  dedupeAnswers,
+  levelFromXp,
+} from '../utils/quizScoring';
 import { evaluateAchievements } from '../utils/achievements';
 import { getLeaderboardPeriodKey, toDateKey } from '../utils/quizDates';
 import {
@@ -33,6 +39,20 @@ import {
 
 const QUESTIONS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 
+// In-memory catalogs so Quiz Home → Start quiz doesn't re-read AsyncStorage
+// or hit Firestore again within the same app session.
+const memQuestions = new Map();
+const memAttempted = new Map();
+
+const uniqueQuestions = (questions) => {
+  const seen = new Set();
+  return (questions || []).filter((q) => {
+    if (!q?.id || seen.has(q.id)) return false;
+    seen.add(q.id);
+    return true;
+  });
+};
+
 // Small backward buffer applied to the incremental attempted-questions sync
 // cursor, to absorb clock skew between the client's local clock (used to
 // stamp the cache) and the Firestore server clock (used to stamp
@@ -42,9 +62,11 @@ const QUESTIONS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 const ATTEMPTED_SYNC_SKEW_BUFFER_MS = 5 * 60 * 1000;
 
 const mapQuestionDocs = (docs) =>
-  docs
-    .map((d) => normalizeQuestion({ id: d.id, ...d.data() }))
-    .filter(isValidQuizQuestion);
+  uniqueQuestions(
+    docs
+      .map((d) => normalizeQuestion({ id: d.id, ...d.data() }))
+      .filter(isValidQuizQuestion)
+  );
 
 export const fetchAllQuestionsFromFirestore = async () => {
   const ref = collection(db, COLLECTIONS.QUESTIONS);
@@ -66,22 +88,34 @@ export const fetchAllQuestionsFromFirestore = async () => {
 };
 
 export const getQuestionsCatalog = async (uid, { forceRefresh = false } = {}) => {
+  const cacheUid = uid || 'guest';
   if (!forceRefresh) {
+    const mem = memQuestions.get(cacheUid);
+    if (mem?.questions?.length && Date.now() - mem.cachedAt < QUESTIONS_CACHE_TTL_MS) {
+      return mem.questions;
+    }
     const cached = await getQuestionCache(uid);
     if (cached?.questions?.length && Date.now() - cached.cachedAt < QUESTIONS_CACHE_TTL_MS) {
-      return cached.questions.filter(isValidQuizQuestion);
+      const valid = uniqueQuestions(cached.questions.filter(isValidQuizQuestion));
+      memQuestions.set(cacheUid, { questions: valid, cachedAt: cached.cachedAt });
+      return valid;
     }
   }
 
-  const questions = await fetchAllQuestionsFromFirestore();
-  await saveQuestionCache(uid, { questions, cachedAt: Date.now() });
+  const questions = uniqueQuestions(await fetchAllQuestionsFromFirestore());
+  const payload = { questions, cachedAt: Date.now() };
+  memQuestions.set(cacheUid, payload);
+  await saveQuestionCache(uid, payload);
   return questions;
 };
 
 export const fetchAttemptedQuestionIds = async (uid) => {
   if (!uid) return getAttemptedCache(null);
 
-  const { ids: local, syncedAt } = await getAttemptedCacheMeta(uid);
+  const mem = memAttempted.get(uid);
+  const { ids: local, syncedAt } = mem
+    ? { ids: mem.ids, syncedAt: mem.syncedAt }
+    : await getAttemptedCacheMeta(uid);
   try {
     const attemptedRef = collection(db, COLLECTIONS.USERS, uid, QUIZ_COLLECTIONS.ATTEMPTED);
     // Incremental sync: once we have a local cache, only fetch attempts
@@ -96,9 +130,12 @@ export const fetchAttemptedQuestionIds = async (uid) => {
     const snap = await getDocs(attemptedQuery);
     const merged = new Set(local);
     snap.docs.forEach((d) => merged.add(d.id));
+    const nextMeta = { ids: merged, syncedAt: Date.now() };
+    memAttempted.set(uid, nextMeta);
     await saveAttemptedCache(uid, merged);
     return merged;
   } catch {
+    memAttempted.set(uid, { ids: local, syncedAt: syncedAt || Date.now() });
     return local;
   }
 };

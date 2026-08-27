@@ -5,7 +5,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   StatusBar,
   Image,
@@ -32,21 +31,42 @@ const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpaci
 // --- Responsive scaling -----------------------------------------------
 // Typography, colors, icons, card order and animations never change.
 // Only spacing/sizing metrics (padding, margins, container dimensions)
-// scale down proportionally on shorter viewports so all 5 cards
-// ("Daily Verse" through "Live Worship Room") are visible without
-// scrolling on any supported device, while staying visually identical
-// (scale === 1) on the larger devices the design already fit on.
-const DESIGN_HEIGHT = 852; // reference viewport height the fixed design was authored for
+// scale down proportionally so all 5 cards ("Daily Verse" through "Live
+// Worship Room") always fit above the bottom tab bar with zero scrolling -
+// the screen is a plain flex column (no ScrollView) and the scale factor
+// below is what guarantees the content's natural height never exceeds the
+// actual space available on the device.
+//
+// TAB_BAR_HEIGHT / TAB_BAR_MIN_BOTTOM_PAD mirror the bottom tab bar's own
+// layout in ../navigation/MainNavigator.js (styles.navBar.height = 72, and
+// bottomPad = Math.max(insets.bottom, 10)) - the tab bar renders as an
+// absolutely-positioned overlay, so this screen has to reserve exactly that
+// much space itself or the tab bar would cover the bottom card.
+const TAB_BAR_HEIGHT = 72;
+const TAB_BAR_MIN_BOTTOM_PAD = 10;
+const BOTTOM_SAFETY_GAP = 8; // small breathing room between the last card and the tab bar
+
+// Natural (scale === 1) total height of everything rendered below, summed
+// from the exact style constants further down this file: content top
+// padding (20) + header block (accentLine 14+4+12=30, headerSection
+// marginBottom 28 => 58) + feature grid (2 rows x ~272 card height, made up
+// of heroHeight 118 + text block ~154.8, + rowGap 16 + marginBottom 20 =>
+// 580) + live card (196 + marginBottom 16 => 212) = 870. A ~3.5% buffer is
+// added on top so small inaccuracies in text line-height estimation always
+// resolve in favor of *more* shrinkage rather than risking overflow/scroll.
+const NATURAL_CONTENT_HEIGHT = 900;
 const MIN_SCALE = 0.72; // floor so spacing never collapses on very small devices
 
 const rs = (value, scale) => Math.round(value * scale);
 
 function useLibraryScale() {
   const { height } = useWindowDimensions();
-  return useMemo(
-    () => Math.min(1, Math.max(MIN_SCALE, height / DESIGN_HEIGHT)),
-    [height]
-  );
+  const insets = useSafeAreaInsets();
+  return useMemo(() => {
+    const tabBarHeight = TAB_BAR_HEIGHT + Math.max(insets.bottom, TAB_BAR_MIN_BOTTOM_PAD);
+    const availableHeight = height - insets.top - tabBarHeight - BOTTOM_SAFETY_GAP;
+    return Math.min(1, Math.max(MIN_SCALE, availableHeight / NATURAL_CONTENT_HEIGHT));
+  }, [height, insets.top, insets.bottom]);
 }
 
 // Define feature data with asset paths.
@@ -427,10 +447,16 @@ export default function LibraryScreen() {
       liveCardHeight: rs(196, scale),
       liveIconSize: rs(48, scale),
       liveImageWidth: rs(122, scale),
-      bottomSpacerHeight: Math.max(60, rs(90, scale)),
     }),
     [scale]
   );
+
+  // Reserve exactly the space the absolutely-positioned bottom tab bar
+  // occupies (see MainNavigator.js) so the last card never sits underneath
+  // it, plus a small fixed safety gap - this is what replaces the old
+  // scroll-content bottom spacer now that the screen no longer scrolls.
+  const bottomReservedSpace =
+    TAB_BAR_HEIGHT + Math.max(insets.bottom, TAB_BAR_MIN_BOTTOM_PAD) + BOTTOM_SAFETY_GAP;
 
   const handlePress = (screen) => {
     const parentNav = navigation.getParent();
@@ -448,13 +474,21 @@ export default function LibraryScreen() {
         backgroundColor={colors.bg}
         translucent
       />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: insets.top + responsive.contentTopExtra },
+      {/*
+        Plain flex column, no ScrollView - the useLibraryScale() factor
+        above already guarantees the natural height of everything below
+        fits within (window height - insets.top - bottomReservedSpace), so
+        all 5 cards are always fully visible with no scrolling on any
+        supported device.
+      */}
+      <View
+        style={[
+          styles.content,
+          {
+            paddingTop: insets.top + responsive.contentTopExtra,
+            paddingBottom: bottomReservedSpace,
+          },
         ]}
-        showsVerticalScrollIndicator={false}
       >
         <View style={[styles.headerSection, responsive.headerSection]}>
           <View style={[styles.accentLine, { backgroundColor: colors.primary }, responsive.accentLine]} />
@@ -480,10 +514,7 @@ export default function LibraryScreen() {
           colors={colors}
           responsive={responsive}
         />
-
-        {/* Bottom padding for tab bar */}
-        <View style={{ height: insets.bottom + responsive.bottomSpacerHeight }} />
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -493,11 +524,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  scrollView: {
+  content: {
     flex: 1,
-  },
-
-  scrollContent: {
     paddingHorizontal: 20,
   },
 

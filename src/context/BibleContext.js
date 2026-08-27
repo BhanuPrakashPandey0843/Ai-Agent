@@ -18,6 +18,8 @@ import {
   updatePlanProgress,
   getHighlights,
   saveHighlight,
+  getReadChapters,
+  markChapterRead,
 } from '../storage/bibleStorage';
 import { fetchChapter } from '../services/bibleService';
 import { getDailyVerse, READING_THEMES } from '../constants/bible';
@@ -30,6 +32,7 @@ export function BibleProvider({ children }) {
   const [bookmarks, setBookmarks] = useState([]);
   const [notes, setNotes] = useState([]);
   const [highlights, setHighlights] = useState({});
+  const [readChapters, setReadChapters] = useState({});
   const [streak, setStreak] = useState(null);
   const [planProgress, setPlanProgress] = useState({});
   const [loading, setLoading] = useState(true);
@@ -46,12 +49,13 @@ export function BibleProvider({ children }) {
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, cr, bm, nt, hl, st, plans] = await Promise.all([
+      const [s, cr, bm, nt, hl, rc, st, plans] = await Promise.all([
         getBibleSettings(),
         getContinueReading(),
         getBookmarks(),
         getNotes(),
         getHighlights(),
+        getReadChapters(),
         getStreak(),
         getPlanProgress(),
       ]);
@@ -60,6 +64,7 @@ export function BibleProvider({ children }) {
       setBookmarks(bm);
       setNotes(nt);
       setHighlights(hl);
+      setReadChapters(rc);
       setStreak(st);
       setPlanProgress(plans);
     } finally {
@@ -95,6 +100,8 @@ export function BibleProvider({ children }) {
     await saveContinueReading(payload);
     const nextStreak = await recordReadingActivity();
     setStreak(nextStreak);
+    const rc = await markChapterRead(bookId, chapter);
+    setReadChapters(rc);
   }, []);
 
   const toggleBookmark = useCallback(async (bookmark) => {
@@ -204,6 +211,7 @@ export function BibleProvider({ children }) {
       bookmarks,
       notes,
       highlights,
+      readChapters,
       streak,
       planProgress,
       dailyVerse,
@@ -232,6 +240,7 @@ export function BibleProvider({ children }) {
       bookmarks,
       notes,
       highlights,
+      readChapters,
       streak,
       planProgress,
       dailyVerse,

@@ -32,7 +32,15 @@ export default function QuizSessionScreen() {
   const exhaustedMessage = route.params?.message;
 
   const [session, setSession] = useState(route.params?.session || null);
-  const [index, setIndex] = useState(session?.currentIndex || 0);
+  // Clamp the restored index into a valid question slot. Combined with the
+  // "advance past the answered question" persistence fix in handleSelect
+  // below, a resumed session's stored currentIndex always already points at
+  // the next UNANSWERED question - so this never re-lands on a question
+  // that already has an answer recorded for it (see handleSelect).
+  const initialQuestions = session?.questions || [];
+  const [index, setIndex] = useState(() =>
+    Math.min(session?.currentIndex || 0, Math.max(initialQuestions.length - 1, 0))
+  );
   const [selected, setSelected] = useState(null);
   const [revealed, setRevealed] = useState(false);
   const [answers, setAnswers] = useState(session?.answers || []);
@@ -53,6 +61,32 @@ export default function QuizSessionScreen() {
     },
     [user?.uid]
   );
+
+  const finishQuiz = useCallback(
+    async (finalAnswers) => {
+      await clearActiveSession(user?.uid);
+      navigation.replace('QuizResult', {
+        session: { ...session, answers: finalAnswers },
+        quizTypeId: session.quizTypeId,
+      });
+    },
+    [session, user?.uid, navigation]
+  );
+
+  // Guards the resume edge case where the app was closed/killed AFTER the
+  // last question was answered but BEFORE "See Results" was tapped: every
+  // question already has a recorded answer, so there's nothing left to show
+  // - jump straight to the Result screen instead of re-rendering a question
+  // (which, pre-fix, could re-show the already-answered last question and
+  // let it be answered a second time).
+  useEffect(() => {
+    if (!exhausted && session && questions.length > 0 && answers.length >= questions.length) {
+      finishQuiz(answers);
+    }
+    // Only needs to run once, right after mount/resume - subsequent answers
+    // are handled by goNext's own completion branch, not this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (exhausted || !current || revealed) return undefined;
@@ -106,9 +140,19 @@ export default function QuizSessionScreen() {
     const nextAnswers = [...answers, answer];
     setAnswers(nextAnswers);
 
+    // Persist currentIndex ADVANCED PAST this question (clamped to the last
+    // valid index), not the index just answered. This is the fix for the
+    // critical "duplicate answer on resume" bug: previously this saved
+    // currentIndex: index (the question just answered), so quitting/losing
+    // the app in the window between answering and tapping "Next" would, on
+    // resume, re-show that exact same question unrevealed - answering it
+    // again appended a SECOND answer entry for the same questionId, which
+    // silently inflated correctCount/score/XP on submit. Advancing the
+    // persisted checkpoint here means a resumed session always lands on the
+    // next genuinely-unanswered question instead.
     const nextSession = {
       ...session,
-      currentIndex: index,
+      currentIndex: Math.min(index + 1, questions.length - 1),
       answers: nextAnswers,
     };
     await persistSession(nextSession);
@@ -116,11 +160,7 @@ export default function QuizSessionScreen() {
 
   const goNext = async () => {
     if (index >= questions.length - 1) {
-      await clearActiveSession(user?.uid);
-      navigation.replace('QuizResult', {
-        session: { ...session, answers },
-        quizTypeId: session.quizTypeId,
-      });
+      await finishQuiz(answers);
       return;
     }
     const nextIndex = index + 1;

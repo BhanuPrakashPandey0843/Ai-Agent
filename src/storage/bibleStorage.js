@@ -11,6 +11,7 @@ const KEYS = {
   CHAPTER_CACHE: 'faithframes_bible_chapter_cache',
   RECENT_SEARCHES: 'faithframes_bible_recent_searches',
   PRAYERS: 'faithframes_bible_prayers',
+  READ_CHAPTERS: 'faithframes_bible_read_chapters',
 };
 
 const defaultSettings = () => ({
@@ -186,6 +187,21 @@ export const savePrayer = async (prayer) => {
   prayers.unshift({ ...prayer, id: prayer.id || `${Date.now()}`, createdAt: Date.now() });
   await storeJSON(KEYS.PRAYERS, prayers);
   return prayers;
+};
+
+// ─── Read-chapter tracking ────────────────────────────────────────────────
+// Powers the New/Old Testament reading-progress card (X of Y chapters read,
+// per-chapter pill color). Stored as { [bookId]: [chapterNumbers] }.
+export const getReadChapters = async () => (await getJSON(KEYS.READ_CHAPTERS)) || {};
+
+export const markChapterRead = async (bookId, chapter) => {
+  const map = await getReadChapters();
+  const chapters = map[bookId] || [];
+  if (!chapters.includes(chapter)) {
+    map[bookId] = [...chapters, chapter].sort((a, b) => a - b);
+    await storeJSON(KEYS.READ_CHAPTERS, map);
+  }
+  return map;
 };
 
 export const clearBibleCache = async () => removeItem(KEYS.CHAPTER_CACHE);

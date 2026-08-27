@@ -8,6 +8,7 @@ import BibleSearchScreen from '../screens/bible/BibleSearchScreen';
 import BibleBookmarksScreen from '../screens/bible/BibleBookmarksScreen';
 import BibleNotesScreen from '../screens/bible/BibleNotesScreen';
 import BiblePlansScreen from '../screens/bible/BiblePlansScreen';
+import ReadingPlanDetailScreen from '../screens/bible/ReadingPlanDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -22,6 +23,7 @@ export default function BibleNavigator() {
       <Stack.Screen name="BibleBookmarks" component={BibleBookmarksScreen} />
       <Stack.Screen name="BibleNotes" component={BibleNotesScreen} />
       <Stack.Screen name="BiblePlans" component={BiblePlansScreen} />
+      <Stack.Screen name="ReadingPlanDetail" component={ReadingPlanDetailScreen} options={{ animation: 'slide_from_right' }} />
     </Stack.Navigator>
   );
 }

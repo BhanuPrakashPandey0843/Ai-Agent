@@ -60,7 +60,7 @@ export default function BibleHomeScreen() {
           const done = progress?.completedDays?.length || 0;
           const pct = Math.round((done / plan.days) * 100);
           return (
-            <TouchableOpacity key={plan.id} style={styles.planCard} onPress={() => navigation.navigate('BiblePlans', { planId: plan.id })} activeOpacity={0.9}>
+            <TouchableOpacity key={plan.id} style={styles.planCard} onPress={() => navigation.navigate('ReadingPlanDetail', { planId: plan.id })} activeOpacity={0.9}>
               <View style={[styles.planDot, { backgroundColor: plan.color }]} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.planTitle}>{plan.title}</Text>

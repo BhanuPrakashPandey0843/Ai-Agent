@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
@@ -40,6 +41,28 @@ export default function EditProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  // Copies the picked asset into the app's own cache directory before we
+  // ever touch it again. This matters on Android: expo-image-picker often
+  // returns a content:// URI (pointing at the system Photos provider)
+  // rather than a plain file:// path. Handing that content:// URI straight
+  // to fetch()/FormData for the Cloudinary upload is unreliable across
+  // Android versions/OEM gallery providers and is the most common cause of
+  // "failed to update profile picture" errors that only show up on Android.
+  // Copying to FileSystem.cacheDirectory first guarantees a real file:// URI
+  // that both <Image> and the upload can read consistently.
+  const cacheLocalCopy = useCallback(async (asset) => {
+    const sourceUri = asset.uri;
+    if (sourceUri.startsWith('file://')) {
+      // Already a local file (typical on iOS) - no copy needed.
+      return sourceUri;
+    }
+    const extGuess = (asset.fileName || sourceUri).split('.').pop().split('?')[0];
+    const ext = /^[a-zA-Z0-9]{2,4}$/.test(extGuess) ? extGuess.toLowerCase() : 'jpg';
+    const destUri = `${FileSystem.cacheDirectory}profile_${Date.now()}.${ext}`;
+    await FileSystem.copyAsync({ from: sourceUri, to: destUri });
+    return destUri;
+  }, []);
+
   const handleImagePick = useCallback(async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -56,40 +79,77 @@ export default function EditProfileScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        setTempImage(result.assets[0].uri);
+        setUploading(true);
+        try {
+          const localUri = await cacheLocalCopy(result.assets[0]);
+          setTempImage(localUri);
+        } catch (copyErr) {
+          console.warn('[EditProfile] Failed to cache picked image locally:', copyErr);
+          // Fall back to the original asset URI rather than blocking the user -
+          // on iOS this path is already a file:// URI and works fine anyway.
+          setTempImage(result.assets[0].uri);
+        } finally {
+          setUploading(false);
+        }
       }
     } catch (err) {
-      showToast('Failed to pick image', 'error');
+      console.warn('[EditProfile] Image pick failed:', err);
+      showToast('Failed to pick image. Please try again.', 'error');
     }
-  }, [showToast]);
+  }, [showToast, cacheLocalCopy]);
 
   const uploadImageToCloudinary = async (uri) => {
-    try {
-      const formData = new FormData();
-      const fileName = uri.split('/').pop();
-      const fileType = fileName.split('.').pop();
-      
-      formData.append('file', {
-        uri,
-        name: fileName,
-        type: `image/${fileType}`,
-      });
-      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-      formData.append('folder', 'profile_pictures');
+    const formData = new FormData();
+    const fileName = uri.split('/').pop() || `profile_${Date.now()}.jpg`;
+    const extMatch = fileName.split('.').pop();
+    const fileType = /^[a-zA-Z0-9]{2,4}$/.test(extMatch) ? extMatch.toLowerCase() : 'jpg';
 
-      const response = await fetch(CLOUDINARY_UPLOAD_URL, {
+    formData.append('file', {
+      uri,
+      name: fileName,
+      type: `image/${fileType === 'jpg' ? 'jpeg' : fileType}`,
+    });
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    formData.append('folder', 'profile_pictures');
+
+    // Guard against the request hanging forever on a poor connection -
+    // without this, "Saving..." could spin indefinitely with no error ever
+    // surfaced to the user.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    let response;
+    try {
+      response = await fetch(CLOUDINARY_UPLOAD_URL, {
         method: 'POST',
         body: formData,
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
       });
-
-      const data = await response.json();
-      if (data.secure_url) {
-        return data.secure_url;
+    } catch (networkErr) {
+      if (networkErr.name === 'AbortError') {
+        throw new Error('Upload timed out. Check your connection and try again.');
       }
-      throw new Error(data.error?.message || 'Upload failed');
-    } catch (err) {
-      throw err;
+      throw new Error('Network error while uploading image. Check your connection and try again.');
+    } finally {
+      clearTimeout(timeoutId);
     }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error('Upload server returned an unexpected response.');
+    }
+
+    if (!response.ok || !data.secure_url) {
+      // Cloudinary returns a descriptive message (e.g. an unsigned upload
+      // preset that doesn't exist/isn't enabled) in data.error.message -
+      // surface it directly instead of a generic failure so this is
+      // diagnosable from the toast alone.
+      throw new Error(data.error?.message || `Upload failed (${response.status})`);
+    }
+    return data.secure_url;
   };
 
   const handleSave = useCallback(async () => {
@@ -104,8 +164,19 @@ export default function EditProfileScreen() {
 
       if (tempImage) {
         setUploading(true);
-        photoURL = await uploadImageToCloudinary(tempImage);
-        setUploading(false);
+        try {
+          photoURL = await uploadImageToCloudinary(tempImage);
+        } catch (uploadErr) {
+          // Surface the specific reason (network/timeout/Cloudinary config) and
+          // stop here - tempImage is left untouched so the preview the user
+          // already sees doesn't disappear and they can just tap Save again
+          // once the underlying issue (e.g. connectivity) is resolved.
+          console.warn('[EditProfile] Image upload failed:', uploadErr);
+          showToast(uploadErr.message || 'Failed to upload image', 'error');
+          return;
+        } finally {
+          setUploading(false);
+        }
       }
 
       const updates = {
@@ -116,13 +187,19 @@ export default function EditProfileScreen() {
       };
 
       const result = await updateUserProfile(updates);
-      if (result.success) {
+      if (result?.success) {
+        // Reflect the newly-persisted photo in local form state and clear the
+        // temp preview so a subsequent Save (e.g. editing just the name) does
+        // not re-trigger a redundant re-upload of the same image.
+        setForm((prev) => ({ ...prev, photoURL }));
+        setTempImage(null);
         showToast('Profile updated successfully!', 'success');
         navigation.goBack();
       } else {
-        showToast(result.error || 'Failed to update profile', 'error');
+        showToast(result?.error || 'Failed to update profile', 'error');
       }
     } catch (err) {
+      console.warn('[EditProfile] Save failed:', err);
       showToast(err.message || 'An error occurred', 'error');
     } finally {
       setLoading(false);

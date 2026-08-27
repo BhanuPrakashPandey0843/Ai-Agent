@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,13 @@ export default function QuizHomeScreen() {
 
   const [savedSession, setSavedSession] = React.useState(null);
 
+  // Skips the first focus (covered already by useQuizCatalog's own
+  // mount-effect fetch below) so re-entering this screen later triggers
+  // exactly one extra catalog refresh per visit instead of a duplicate
+  // fetch stacked on top of the hook's initial one. Same pattern as
+  // LeaderboardScreen's skippedFirstFocus.
+  const skippedFirstCatalogFocus = useRef(false);
+
   // useFocusEffect (not a plain mount-only useEffect) so this re-checks
   // every time Quiz Home regains focus — after quitting a quiz via the
   // hardware back button (which skips QuizSessionScreen's own cleanup),
@@ -67,10 +74,23 @@ export default function QuizHomeScreen() {
         });
       }
 
+      // The "N questions · N attempted" line otherwise only ever reflects
+      // whatever it was when this screen instance first mounted - finishing
+      // a quiz and landing back here (or leaving and returning) would show a
+      // stale attempted-count until a manual pull-to-refresh. refresh() here
+      // is cheap: the question list itself is still served from its 6-hour
+      // cache, and the attempted-IDs sync is already incremental (only pulls
+      // what changed since the last sync).
+      if (!skippedFirstCatalogFocus.current) {
+        skippedFirstCatalogFocus.current = true;
+      } else {
+        refresh();
+      }
+
       return () => {
         mounted = false;
       };
-    }, [user?.uid, patchUserProfile, showToast])
+    }, [user?.uid, patchUserProfile, showToast, refresh])
   );
 
   const startQuiz = async (quizTypeId) => {

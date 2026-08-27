@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import BackHeader from '../../components/common/BackHeader';
@@ -11,7 +10,6 @@ import { achievementProgress } from '../../utils/achievements';
 export default function AchievementsScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
   const { profile, loading } = useQuizProfile();
   const items = achievementProgress(profile || {}) || [];
 

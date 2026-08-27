@@ -3,9 +3,25 @@ import { hashString, seededShuffle, toDateKey } from '../utils/quizDates';
 
 const VALID_CATEGORIES = new Set(['bible', 'jesus', 'old', 'new', 'mixed']);
 
+const CATEGORY_ALIASES = {
+  old_testament: 'old',
+  oldtestament: 'old',
+  ot: 'old',
+  new_testament: 'new',
+  newtestament: 'new',
+  nt: 'new',
+  christ: 'jesus',
+  gospel: 'jesus',
+  gospels: 'jesus',
+  general: 'mixed',
+  mixed_bag: 'mixed',
+};
+
 const normalizeCategory = (value) => {
-  const raw = String(value || 'bible').trim().toLowerCase();
-  return VALID_CATEGORIES.has(raw) ? raw : 'bible';
+  const raw = String(value || 'bible').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (VALID_CATEGORIES.has(raw)) return raw;
+  if (CATEGORY_ALIASES[raw]) return CATEGORY_ALIASES[raw];
+  return 'bible';
 };
 
 const normalizeOptions = (data) => {
@@ -98,9 +114,13 @@ export const selectQuestionsForSession = ({
   const quizType = QUIZ_TYPES[quizTypeId];
   if (!quizType) return { questions: [], exhausted: true };
 
-  const pool = allQuestions.filter(
-    (q) => matchesQuizType(q, quizType) && !attemptedIds.has(q.id)
-  );
+  const seenIds = new Set();
+  const pool = allQuestions.filter((q) => {
+    if (!q?.id || seenIds.has(q.id)) return false;
+    if (!matchesQuizType(q, quizType) || attemptedIds.has(q.id)) return false;
+    seenIds.add(q.id);
+    return true;
+  });
 
   if (!pool.length) {
     return { questions: [], exhausted: true };

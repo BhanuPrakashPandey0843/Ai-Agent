@@ -6,6 +6,16 @@ export const pointsForQuestion = (difficulty = 'medium') =>
 export const computeSessionScore = (answers) =>
   answers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
 
+/** Keep the first answer per question so a resume/double-tap cannot inflate score. */
+export const dedupeAnswers = (answers) => {
+  const seen = new Set();
+  return (answers || []).filter((a) => {
+    if (!a?.questionId || seen.has(a.questionId)) return false;
+    seen.add(a.questionId);
+    return true;
+  });
+};
+
 export const computeAccuracy = (correctCount, total) => {
   if (!total) return 0;
   return Math.round((correctCount / total) * 1000) / 10;

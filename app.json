@@ -42,7 +42,7 @@
         "android.permission.ACCESS_MEDIA_LOCATION",
         "android.permission.SET_WALLPAPER"
       ],
-      "versionCode": 14
+      "versionCode": 18
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -63,6 +63,12 @@
           "photosPermission": "Allow Faith Frames to save wallpapers to your gallery.",
           "savePhotosPermission": "Allow Faith Frames to save wallpapers to your gallery.",
           "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Faith Frames needs access to your photo library so you can set a profile picture."
         }
       ],
       [
