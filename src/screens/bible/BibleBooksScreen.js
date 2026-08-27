@@ -229,7 +229,7 @@ export default function BibleBooksScreen() {
                   <Text style={styles.continueBtnText}>
                     Continue · {continueInTestament.book.name} {continueInTestament.chapter}
                   </Text>
-                  <Ionicons name="arrow-forward" size={16} color={theme.isDark ? '#161208' : '#FFFFFF'} />
+                  <Ionicons name="arrow-forward" size={16} color={theme.onPrimary} />
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -238,7 +238,7 @@ export default function BibleBooksScreen() {
                   onPress={() => openChapter(books[0]?.id, 1)}
                 >
                   <Text style={styles.continueBtnText}>Start Reading</Text>
-                  <Ionicons name="arrow-forward" size={16} color={theme.isDark ? '#161208' : '#FFFFFF'} />
+                  <Ionicons name="arrow-forward" size={16} color={theme.onPrimary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -506,7 +506,7 @@ function createStyles(theme) {
     continueBtnText: {
       fontSize: 13.5,
       fontWeight: '800',
-      color: theme.isDark ? '#161208' : '#FFFFFF',
+      color: theme.onPrimary,
     },
     dailyCard: {
       flexDirection: 'row',
@@ -615,6 +615,6 @@ function createStyles(theme) {
     },
     pillText: { fontSize: 13, fontWeight: '700', color: theme.textMuted },
     pillTextRead: { color: theme.success },
-    pillTextCurrent: { color: theme.isDark ? '#161208' : '#FFFFFF' },
+    pillTextCurrent: { color: theme.onPrimary },
   });
 }

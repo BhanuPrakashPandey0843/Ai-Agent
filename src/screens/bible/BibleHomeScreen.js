@@ -48,10 +48,10 @@ export default function BibleHomeScreen() {
 
         <SectionHeader title="Explore Scripture" action="All Books" onAction={() => navigation.navigate('BibleBooks')} />
         <View style={styles.quickGrid}>
-          <QuickTile icon="book-open-variant" label="Old Testament" color="#8B6914" onPress={() => navigation.navigate('BibleBooks', { testament: 'OT' })} theme={theme} />
-          <QuickTile icon="book-cross" label="New Testament" color={theme.primary} onPress={() => navigation.navigate('BibleBooks', { testament: 'NT' })} theme={theme} />
-          <QuickTile icon="bookmark" label="Bookmarks" color="#6B8F71" onPress={() => navigation.navigate('BibleBookmarks')} theme={theme} />
-          <QuickTile icon="note-text" label="Notes" color="#7B6BA8" onPress={() => navigation.navigate('BibleNotes')} theme={theme} />
+          <QuickTile icon="book-open-variant" label="Old Testament" onPress={() => navigation.navigate('BibleBooks', { testament: 'OT' })} theme={theme} />
+          <QuickTile icon="book-cross" label="New Testament" onPress={() => navigation.navigate('BibleBooks', { testament: 'NT' })} theme={theme} />
+          <QuickTile icon="bookmark" label="Bookmarks" onPress={() => navigation.navigate('BibleBookmarks')} theme={theme} />
+          <QuickTile icon="note-text" label="Notes" onPress={() => navigation.navigate('BibleNotes')} theme={theme} />
         </View>
 
         <SectionHeader title="Reading Plans" action="View All" onAction={() => navigation.navigate('BiblePlans')} />
@@ -93,11 +93,35 @@ function SectionHeader({ title, action, onAction }) {
   );
 }
 
-function QuickTile({ icon, label, color, onPress, theme }) {
+function QuickTile({ icon, label, onPress, theme }) {
+  const orange = theme.primary;
   return (
-    <TouchableOpacity style={{ width: '48%', backgroundColor: theme.surface, borderRadius: 16, padding: 16, marginBottom: 12, ...theme.shadow }} onPress={onPress} activeOpacity={0.88}>
-      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: `${color}22`, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-        <MaterialCommunityIcons name={icon} size={22} color={color} />
+    <TouchableOpacity
+      style={{
+        width: '48%',
+        backgroundColor: theme.surface,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: theme.isDark ? 'rgba(225,138,58,0.28)' : 'rgba(201,106,27,0.22)',
+        ...theme.shadow,
+      }}
+      onPress={onPress}
+      activeOpacity={0.88}
+    >
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          backgroundColor: theme.isDark ? 'rgba(225,138,58,0.16)' : 'rgba(201,106,27,0.14)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 10,
+        }}
+      >
+        <MaterialCommunityIcons name={icon} size={22} color={orange} />
       </View>
       <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>{label}</Text>
     </TouchableOpacity>

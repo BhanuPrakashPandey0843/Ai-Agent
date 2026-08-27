@@ -346,20 +346,57 @@ export const fetchDailyPrayers = async () => {
   const q = query(
     collection(db, COLLECTIONS.DAILY_PRAYERS),
     orderBy('createdAt', 'desc'),
-    limit(20)
+    limit(200)
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs.map((d) => mapDailyPrayer(d.id, d.data()));
 };
 
 export const subscribeToDailyPrayers = (onData, onError) => {
   const q = query(
     collection(db, COLLECTIONS.DAILY_PRAYERS),
     orderBy('createdAt', 'desc'),
-    limit(20)
+    limit(200)
   );
-  return safeOnSnapshot(q, onData, onError);
+  return safeOnSnapshot(q, (items) => onData(items.map((item) => mapDailyPrayer(item.id, item))), onError);
 };
+
+function mapDailyPrayer(id, data = {}) {
+  const bgurl = String(data.bgurl || data.image || data.imageUrl || '').trim();
+  return {
+    ...data,
+    id,
+    verse: data.verse || '',
+    reference: data.reference || '',
+    bgurl,
+    image: bgurl,
+    displayDate: typeof data.displayDate === 'string' ? data.displayDate.trim() : data.displayDate || null,
+    source: 'admin',
+  };
+}
+
+/** Shape approved userPrayers like dailyPrayers so they share PrayerCard UI. */
+export function mapUserPrayerToFeedItem(item = {}) {
+  const bgurl = String(item.bgurl || item.image || item.imageUrl || '').trim();
+  const verse = String(item.content || item.description || item.verse || '').trim();
+  const title = String(item.title || '').trim();
+  const reference = title
+    || (item.anonymous ? 'Community Prayer' : String(item.username || '').trim())
+    || 'Prayer';
+  return {
+    ...item,
+    id: item.id ? `user-${item.id}` : item.id,
+    sourceId: item.id,
+    source: 'community',
+    title,
+    verse,
+    reference,
+    bgurl,
+    image: bgurl,
+    category: item.category || null,
+    displayDate: typeof item.displayDate === 'string' ? item.displayDate.trim() : item.displayDate || null,
+  };
+}
 
 // ─── Quotes ───────────────────────────────────────────────────────────────────
 
@@ -1715,7 +1752,7 @@ export const subscribeToApprovedUserPrayers = (onData, onError) => {
     collection(db, COLLECTIONS.USER_PRAYERS),
     where('status', '==', 'approved'),
     orderBy('createdAt', 'desc'),
-    limit(50)
+    limit(100)
   );
   return safeOnSnapshot(q, onData, onError);
 };

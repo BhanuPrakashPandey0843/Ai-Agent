@@ -4,7 +4,6 @@ const ASSETS = {
   welcome: require('../../assets/welcome.png'),
   welcomeone: require('../../assets/welcomeone.png'),
   welcometwo: require('../../assets/welcometwo.png'),
-  splash: require('../../assets/splash.png'),
   icon: require('../../assets/icon.png'),
 };
 
@@ -12,7 +11,7 @@ const DEMO_DEFS = [
   { id: 'demo-1', title: 'Divine Light', category: 'Christian', asset: 'welcome', rating: '4.9' },
   { id: 'demo-2', title: 'Path of Faith', category: 'Islamic', asset: 'welcomeone', rating: '4.8' },
   { id: 'demo-3', title: 'Sacred Horizon', category: 'Hindu', asset: 'welcometwo', rating: '4.7' },
-  { id: 'demo-4', title: 'Peaceful Spirit', category: 'Buddhist', asset: 'splash', rating: '4.6' },
+  { id: 'demo-4', title: 'Peaceful Spirit', category: 'Buddhist', asset: 'icon', rating: '4.6' },
   { id: 'demo-5', title: 'Golden Grace', category: 'Sikh', asset: 'icon', rating: '4.8' },
   {
     id: 'demo-6',

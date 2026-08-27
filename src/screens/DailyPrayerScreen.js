@@ -1,11 +1,7 @@
 // src/screens/DailyPrayerScreen.js
-// Premium "Prayer Room" reading experience — Firestore: dailyPrayers.
-// Date selection is now a true calendar strip (see PrayerDateTimeline):
-// every day is browsable, past and future, regardless of whether a prayer
-// exists for it — "today" is resolved fresh on every mount, never hardcoded.
-// Same subscribeToDailyPrayers/useFirestoreSubscription data flow, same
-// bookmark storage key + toggle logic, same Share/Clipboard share+copy
-// behavior as before.
+// Premium "Prayer Room" reading experience — Firestore: dailyPrayers plus
+// approved userPrayers mapped onto the same card feed. Grouping uses
+// `displayDate` (YYYY-MM-DD), falling back to createdAt only for legacy docs.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -30,6 +26,7 @@ import {
   subscribeToMyUserPrayers,
   togglePrayingForRequest,
   getMyPrayingState,
+  mapUserPrayerToFeedItem,
 } from '../services/firebaseService';
 import useFirestoreSubscription from '../hooks/useFirestoreSubscription';
 import { STORAGE_KEYS } from '../constants';
@@ -53,7 +50,7 @@ const CARD_STEP = PRAYER_CARD_W + 20;
 
 // 30 days back, 7 days forward — plenty of room to browse either direction;
 // re-generated fresh every mount so "today" is always accurate.
-const DATE_RANGE = buildDateRange(30, 7);
+const DATE_RANGE = buildDateRange(30, 30);
 const TODAY_KEY = DATE_RANGE.find((d) => d.isToday)?.key;
 
 export default function DailyPrayerScreen() {
@@ -138,6 +135,18 @@ export default function DailyPrayerScreen() {
     [navigation]
   );
 
+  const feedItems = useMemo(() => {
+    const approvedAsCards = (community.items || []).map(mapUserPrayerToFeedItem);
+    const seen = new Set();
+    const merged = [];
+    [...items, ...approvedAsCards].forEach((it) => {
+      if (!it?.id || seen.has(it.id)) return;
+      seen.add(it.id);
+      merged.push(it);
+    });
+    return merged;
+  }, [items, community.items]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedDateKey, setSelectedDateKey] = useState(TODAY_KEY);
@@ -162,22 +171,28 @@ export default function DailyPrayerScreen() {
     items.forEach((it) => {
       if (it.category) set.add(it.category);
     });
+    community.items.forEach((it) => {
+      if (it.category) set.add(it.category);
+    });
     return Array.from(set);
-  }, [items]);
+  }, [items, community.items]);
 
   const filteredItems = useMemo(() => {
-    let list = items;
+    let list = feedItems;
     if (selectedCategory) {
       list = list.filter((it) => it.category === selectedCategory);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter(
-        (it) => (it.verse || '').toLowerCase().includes(q) || (it.reference || '').toLowerCase().includes(q)
+        (it) =>
+          (it.verse || '').toLowerCase().includes(q) ||
+          (it.reference || '').toLowerCase().includes(q) ||
+          (it.title || '').toLowerCase().includes(q)
       );
     }
     return list;
-  }, [items, selectedCategory, searchQuery]);
+  }, [feedItems, selectedCategory, searchQuery]);
 
   // Bucket prayers by calendar day so the date strip can show a content dot
   // and the screen can render exactly the selected day's prayers.
@@ -269,13 +284,13 @@ export default function DailyPrayerScreen() {
     );
   } else if (error) {
     body = <LibraryErrorState message={error} onRetry={retry} accent={accent} />;
-  } else if (!items.length) {
+  } else if (!feedItems.length) {
     body = (
       <LibraryEmptyState
         accent={accent}
         icon="hand-left-outline"
         title="No Prayers Yet"
-        message="Daily prayers will appear here once added by the admin."
+        message="Daily prayers will appear here once added or approved for a display date."
       />
     );
   } else {

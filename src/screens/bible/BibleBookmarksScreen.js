@@ -2,12 +2,12 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useBible } from '../../context/BibleContext';
-import { useBibleTheme } from '../../hooks/useBibleTheme';
+import { useBiblePremiumTheme } from '../../hooks/useBiblePremiumTheme';
 import BackHeader from '../../components/common/BackHeader';
 
 export default function BibleBookmarksScreen() {
   const navigation = useNavigation();
-  const theme = useBibleTheme();
+  const theme = useBiblePremiumTheme();
   const { bookmarks } = useBible();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -38,7 +38,7 @@ export default function BibleBookmarksScreen() {
 function createStyles(theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg },
-    card: { backgroundColor: theme.surface, borderRadius: 14, padding: 16, marginBottom: 10, ...theme.shadow },
+    card: { backgroundColor: theme.surface, borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: theme.border, ...theme.shadow },
     ref: { fontSize: 15, fontWeight: '800', color: theme.primary },
     text: { fontSize: 14, color: theme.text, marginTop: 6, lineHeight: 20 },
     empty: { textAlign: 'center', color: theme.textMuted, marginTop: 40, paddingHorizontal: 24, lineHeight: 22 },

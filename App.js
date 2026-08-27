@@ -57,14 +57,11 @@ const navTheme = {
 };
 
 // Images that appear on screen before any network round-trip completes —
-// the native splash mark, the AppLoader mark, and the Onboarding carousel's
-// first slide. Warming these into the image cache while the native splash
-// is still covering the screen means the very first React-rendered frame
-// (AppLoader, then Onboarding/Login) paints instantly instead of popping
-// in a frame or two late.
+// the AppLoader mark and the Onboarding carousel's first slide. Warming
+// these into the image cache during startup means the first React-rendered
+// frame paints instantly instead of popping in a frame or two late.
 const CRITICAL_IMAGES = [
   require('./assets/icon.png'),
-  require('./assets/splash.png'),
   require('./assets/welcome.png'),
 ];
 

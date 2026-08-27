@@ -2,13 +2,11 @@ import { useMemo } from 'react';
 import { useTheme } from '../context/ThemeContext';
 
 /**
- * Premium palette for the Bible *destination* screens — New/Old Testament,
- * Notes, Bookmarks, Reading Plans. Deliberately separate from
- * `useBibleTheme` (which the Bible Home screen and its 4 cards keep using
- * unchanged) so this redesign never bleeds backwards onto Home.
+ * Premium palette for Bible destination screens — Old/New Testament,
+ * Notes, and Bookmarks. Matches the warm orange used on Bible Home cards
+ * (`#C96A1B` / `#E18A3A`), not the previous gold (`#D8B36A` / `#B68C44`).
  *
- * isDark still comes from the app's global ThemeContext, so the existing
- * light/dark toggle keeps working — only the color *values* differ here.
+ * isDark still comes from the app's global ThemeContext.
  */
 export function useBiblePremiumTheme() {
   const { isDark } = useTheme();
@@ -22,9 +20,10 @@ export function useBiblePremiumTheme() {
       text: '#FFFFFF',
       textMuted: '#B7B7B7',
       textFaint: '#7A7A7A',
-      primary: '#D8B36A',
-      primarySoft: 'rgba(216,179,106,0.16)',
-      border: 'rgba(255,255,255,0.08)',
+      primary: '#E18A3A',
+      primarySoft: 'rgba(225,138,58,0.16)',
+      onPrimary: '#1A1008',
+      border: 'rgba(225,138,58,0.22)',
       divider: 'rgba(255,255,255,0.05)',
       success: '#4ADE80',
       successSoft: 'rgba(74,222,128,0.14)',
@@ -32,21 +31,22 @@ export function useBiblePremiumTheme() {
       overlayStrong: ['rgba(9,9,9,0)', 'rgba(9,9,9,0.55)', 'rgba(9,9,9,0.92)'],
     };
     const light = {
-      bg: '#FAF7F2',
+      bg: '#FFF8F3',
       surface: '#FFFFFF',
-      surfaceAlt: '#FFF9F0',
+      surfaceAlt: '#FFF4EB',
       surfaceRaised: '#FFFFFF',
       text: '#232323',
       textMuted: '#6E6E6E',
-      textFaint: '#9A9182',
-      primary: '#B68C44',
-      primarySoft: 'rgba(182,140,68,0.12)',
-      border: '#ECE5D8',
-      divider: '#F1EBDF',
+      textFaint: '#8A7A6C',
+      primary: '#C96A1B',
+      primarySoft: 'rgba(201,106,27,0.12)',
+      onPrimary: '#FFFFFF',
+      border: 'rgba(201,106,27,0.18)',
+      divider: '#F3E8DC',
       success: '#16A34A',
       successSoft: 'rgba(22,163,74,0.12)',
       danger: '#DC2626',
-      overlayStrong: ['rgba(250,247,242,0)', 'rgba(35,30,20,0.45)', 'rgba(20,17,12,0.85)'],
+      overlayStrong: ['rgba(255,248,243,0)', 'rgba(40,22,10,0.40)', 'rgba(28,14,6,0.82)'],
     };
     const c = isDark ? dark : light;
 

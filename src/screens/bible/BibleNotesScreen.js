@@ -2,12 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useBible } from '../../context/BibleContext';
-import { useBibleTheme } from '../../hooks/useBibleTheme';
+import { useBiblePremiumTheme } from '../../hooks/useBiblePremiumTheme';
 import BackHeader from '../../components/common/BackHeader';
 
 export default function BibleNotesScreen() {
   const route = useRoute();
-  const theme = useBibleTheme();
+  const theme = useBiblePremiumTheme();
   const { notes, upsertNote, removeNote } = useBible();
   const draft = route.params?.draft;
   const [body, setBody] = useState('');
@@ -65,13 +65,13 @@ export default function BibleNotesScreen() {
 function createStyles(theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg },
-    compose: { margin: 16, backgroundColor: theme.surface, borderRadius: 16, padding: 16, ...theme.shadow },
+    compose: { margin: 16, backgroundColor: theme.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: theme.border, ...theme.shadow },
     ref: { fontSize: 14, fontWeight: '800', color: theme.primary },
     preview: { fontSize: 13, color: theme.textMuted, marginTop: 4, marginBottom: 10 },
     input: { minHeight: 90, borderWidth: 1, borderColor: theme.border, borderRadius: 12, padding: 12, color: theme.text, textAlignVertical: 'top' },
     saveBtn: { marginTop: 12, backgroundColor: theme.primary, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
-    saveText: { color: '#FFF', fontWeight: '700' },
-    card: { backgroundColor: theme.surface, borderRadius: 14, padding: 16, marginBottom: 10, ...theme.shadow },
+    saveText: { color: theme.onPrimary, fontWeight: '700' },
+    card: { backgroundColor: theme.surface, borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: theme.border, ...theme.shadow },
     text: { fontSize: 14, color: theme.text, marginTop: 8, lineHeight: 20 },
     delete: { marginTop: 10, color: '#E55A00', fontWeight: '700', fontSize: 13 },
     empty: { textAlign: 'center', color: theme.textMuted, marginTop: 40 },

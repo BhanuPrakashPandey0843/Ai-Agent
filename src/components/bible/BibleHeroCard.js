@@ -50,8 +50,8 @@ export default function BibleHeroCard({
   };
 
   const baseGradient = gradient || (theme.isDark
-    ? ['#1C1610', '#141210', theme.surface]
-    : ['#F6ECDA', '#FBF7EF', theme.surface]);
+    ? ['#1C140E', '#141210', theme.surface]
+    : ['#F8EDE0', '#FFF8F3', theme.surface]);
 
   return (
     <Animated.View
@@ -79,7 +79,7 @@ export default function BibleHeroCard({
           <MaterialCommunityIcons
             name={glyph || icon}
             size={132}
-            color={theme.isDark ? 'rgba(216,179,106,0.10)' : 'rgba(182,140,68,0.14)'}
+            color={theme.isDark ? 'rgba(225,138,58,0.12)' : 'rgba(201,106,27,0.14)'}
             style={styles.glyph}
           />
 
@@ -100,7 +100,7 @@ export default function BibleHeroCard({
           ) : null}
 
           <Animated.View style={[styles.arrowBtn, { backgroundColor: theme.primary }]}>
-            <Ionicons name="arrow-forward" size={16} color={theme.isDark ? '#161208' : '#FFFFFF'} />
+            <Ionicons name="arrow-forward" size={16} color={theme.onPrimary} />
           </Animated.View>
         </LinearGradient>
       </Pressable>

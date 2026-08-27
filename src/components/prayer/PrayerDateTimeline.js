@@ -64,12 +64,25 @@ export function buildDateRange(daysBack = 30, daysForward = 7) {
   return dates;
 }
 
-/** Bucket prayers by the calendar day (local time) their createdAt falls on. */
+/**
+ * Calendar day a prayer should appear. Prefer admin-set `displayDate`
+ * (YYYY-MM-DD). Fall back to createdAt only for legacy documents.
+ */
+export function prayerDisplayDateKey(item) {
+  if (typeof item?.displayDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.displayDate.trim())) {
+    return item.displayDate.trim();
+  }
+  const scheduled = toDateSafe(item?.displayDate) || toDateSafe(item?.displayAt);
+  if (scheduled) return dateKey(scheduled);
+  const created = toDateSafe(item?.createdAt);
+  return created ? dateKey(created) : 'undated';
+}
+
+/** Bucket prayers by scheduled display day, not upload time. */
 export function groupPrayersByDateKey(items) {
   const map = {};
   items.forEach((item) => {
-    const date = toDateSafe(item.createdAt);
-    const key = date ? dateKey(date) : 'undated';
+    const key = prayerDisplayDateKey(item);
     if (!map[key]) map[key] = [];
     map[key].push(item);
   });
@@ -100,7 +113,8 @@ export default function PrayerDateTimeline({ dates, selectedKey, onSelect, color
   const renderItem = useCallback(
     ({ item }) => {
       const isActive = item.key === selectedKey;
-      const hasContent = (countsByKey?.[item.key] || 0) > 0;
+      const bucket = countsByKey?.[item.key];
+      const hasContent = Array.isArray(bucket) ? bucket.length > 0 : Number(bucket || 0) > 0;
       return (
         <TouchableOpacity
           activeOpacity={0.85}
