@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Typography, Spacing } from '../theme/colors';
+import { Typography, Spacing } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import useWallpapers from '../hooks/useWallpapers';
 import WallpaperCard from '../components/wallpaper/WallpaperCard';
 import useFavorites from '../hooks/useFavorites';
@@ -14,6 +15,8 @@ export default function CategoryScreen({ route }) {
   const categoryTitle =
     typeof categoryParam === 'object' ? categoryParam?.label || categoryParam?.id : categoryParam;
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const { wallpapers, loading, loadMore } = useWallpapers(categoryId);
   const { toggle, isFavorite } = useFavorites();
 
@@ -56,15 +59,16 @@ export default function CategoryScreen({ route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgDark },
-  list: { paddingHorizontal: Spacing.lg - Spacing.xs, paddingTop: Spacing.md },
-  row: { justifyContent: 'space-between' },
-  skeletonGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  empty: {
-    color: Colors.textMuted,
-    textAlign: 'center',
-    marginTop: 60,
-    fontSize: Typography.fontSizeMD,
-  },
-});
+const getStyles = (colors) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    list: { paddingHorizontal: Spacing.lg - Spacing.xs, paddingTop: Spacing.md },
+    row: { justifyContent: 'space-between' },
+    skeletonGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+    empty: {
+      color: colors.textMuted,
+      textAlign: 'center',
+      marginTop: 60,
+      fontSize: Typography.fontSizeMD,
+    },
+  });

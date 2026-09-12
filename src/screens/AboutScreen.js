@@ -1,5 +1,5 @@
 // src/screens/AboutScreen.js
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,16 +15,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Typography, Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { APP_VERSION, APP_NAME, SUPPORT_EMAIL } from '../constants';
 
 // ─── Small sub-components ─────────────────────────────────────────────────────
 
-function FeatureCard({ icon, title, description, delay, fadeAnim }) {
+function FeatureCard({ icon, title, description, fadeAnim, colors, styles }) {
   return (
     <Animated.View style={[styles.featureCard, { opacity: fadeAnim }]}>
       <View style={styles.featureIconWrap}>
-        <Ionicons name={icon} size={24} color={Colors.primary} />
+        <Ionicons name={icon} size={24} color={colors.primary} />
       </View>
       <View style={styles.featureText}>
         <Text style={styles.featureTitle}>{title}</Text>
@@ -34,12 +34,12 @@ function FeatureCard({ icon, title, description, delay, fadeAnim }) {
   );
 }
 
-function TimelineItem({ icon, title, body, isLast }) {
+function TimelineItem({ icon, title, body, isLast, colors, styles }) {
   return (
     <View style={styles.timelineRow}>
       <View style={styles.timelineLeft}>
         <View style={styles.timelineDot}>
-          <Ionicons name={icon} size={16} color={Colors.white} />
+          <Ionicons name={icon} size={16} color={colors.white} />
         </View>
         {!isLast && <View style={styles.timelineLine} />}
       </View>
@@ -51,7 +51,7 @@ function TimelineItem({ icon, title, body, isLast }) {
   );
 }
 
-function InfoRow({ label, value }) {
+function InfoRow({ label, value, styles }) {
   return (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -65,6 +65,8 @@ function InfoRow({ label, value }) {
 export default function AboutScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   // Staggered entrance animations
   const heroFade = useRef(new Animated.Value(0)).current;
@@ -103,7 +105,7 @@ export default function AboutScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={Colors.gradientDark} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[colors.bg, colors.bgSecondary]} style={StyleSheet.absoluteFill} />
 
       {/* Back button */}
       <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
@@ -113,7 +115,7 @@ export default function AboutScreen() {
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>About Us</Text>
         <View style={styles.headerSpacer} />
@@ -131,19 +133,19 @@ export default function AboutScreen() {
           ]}
         >
           <LinearGradient
-            colors={['rgba(255,107,0,0.18)', 'rgba(255,107,0,0.04)']}
+            colors={isDark ? ['rgba(225,138,58,0.18)', 'rgba(225,138,58,0.04)'] : ['rgba(201,106,27,0.14)', 'rgba(201,106,27,0.03)']}
             style={styles.heroGradientBg}
           />
           <View style={styles.logoCircle}>
-            <LinearGradient colors={Colors.gradientPrimary} style={styles.logoGradient}>
-              <Ionicons name="flame" size={36} color={Colors.white} />
+            <LinearGradient colors={colors.gradientPrimary} style={styles.logoGradient}>
+              <Ionicons name="flame" size={36} color={colors.white} />
             </LinearGradient>
           </View>
           <Text style={styles.heroAppName}>{APP_NAME}</Text>
           <Text style={styles.heroTagline}>Grow Deeper in Faith Every Day</Text>
           <View style={styles.heroBadge}>
-            <Ionicons name="shield-checkmark" size={13} color={Colors.primary} />
-            <Text style={styles.heroBadgeText}>v{APP_VERSION} · Trusted & Secure</Text>
+            <Ionicons name="shield-checkmark" size={13} color={colors.primary} />
+            <Text style={styles.heroBadgeText}>v{APP_VERSION} · Trusted &amp; Secure</Text>
           </View>
         </Animated.View>
 
@@ -165,7 +167,7 @@ export default function AboutScreen() {
               { icon: 'hand-right-outline', label: 'Prayer Support' },
             ].map((p) => (
               <View key={p.label} style={styles.missionPill}>
-                <Ionicons name={p.icon} size={15} color={Colors.primary} />
+                <Ionicons name={p.icon} size={15} color={colors.primary} />
                 <Text style={styles.missionPillText}>{p.label}</Text>
               </View>
             ))}
@@ -185,6 +187,8 @@ export default function AboutScreen() {
                 title={f.title}
                 description={f.description}
                 fadeAnim={cardFade}
+                colors={colors}
+                styles={styles}
               />
             ))}
           </View>
@@ -203,6 +207,8 @@ export default function AboutScreen() {
                 title={t.title}
                 body={t.body}
                 isLast={t.isLast}
+                colors={colors}
+                styles={styles}
               />
             ))}
           </View>
@@ -213,12 +219,12 @@ export default function AboutScreen() {
           <Text style={styles.sectionEyebrow}>BUILT WITH LOVE</Text>
           <View style={styles.devCard}>
             <LinearGradient
-              colors={['rgba(255,107,0,0.12)', 'rgba(255,107,0,0.04)']}
+              colors={isDark ? ['rgba(225,138,58,0.12)', 'rgba(225,138,58,0.04)'] : ['rgba(201,106,27,0.10)', 'rgba(201,106,27,0.03)']}
               style={styles.devCardGradient}
             />
             <View style={styles.devAvatar}>
-              <LinearGradient colors={Colors.gradientPrimary} style={styles.devAvatarGradient}>
-                <Ionicons name="code-slash" size={24} color={Colors.white} />
+              <LinearGradient colors={colors.gradientPrimary} style={styles.devAvatarGradient}>
+                <Ionicons name="code-slash" size={24} color={colors.white} />
               </LinearGradient>
             </View>
             <Text style={styles.devName}>FaithFrames Team</Text>
@@ -241,13 +247,13 @@ export default function AboutScreen() {
             onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
           >
             <View style={styles.contactIconWrap}>
-              <Ionicons name="mail" size={22} color={Colors.primary} />
+              <Ionicons name="mail" size={22} color={colors.primary} />
             </View>
             <View style={styles.contactInfo}>
               <Text style={styles.contactLabel}>Email Support</Text>
               <Text style={styles.contactValue}>{SUPPORT_EMAIL}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -256,13 +262,13 @@ export default function AboutScreen() {
             onPress={() => Linking.openURL('https://faithframes.app')}
           >
             <View style={styles.contactIconWrap}>
-              <Ionicons name="globe-outline" size={22} color={Colors.primary} />
+              <Ionicons name="globe-outline" size={22} color={colors.primary} />
             </View>
             <View style={styles.contactInfo}>
               <Text style={styles.contactLabel}>Website</Text>
               <Text style={styles.contactValue}>faithframes.app</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </Animated.View>
 
@@ -270,13 +276,13 @@ export default function AboutScreen() {
         <Animated.View style={[styles.section, { opacity: cardFade }]}>
           <Text style={styles.sectionEyebrow}>APP INFORMATION</Text>
           <View style={styles.infoCard}>
-            <InfoRow label="Version" value={APP_VERSION} />
+            <InfoRow label="Version" value={APP_VERSION} styles={styles} />
             <View style={styles.infoSeparator} />
-            <InfoRow label="Build" value="stable" />
+            <InfoRow label="Build" value="stable" styles={styles} />
             <View style={styles.infoSeparator} />
-            <InfoRow label="Platform" value={Platform.OS === 'ios' ? 'iOS' : 'Android'} />
+            <InfoRow label="Platform" value={Platform.OS === 'ios' ? 'iOS' : 'Android'} styles={styles} />
             <View style={styles.infoSeparator} />
-            <InfoRow label="Last Updated" value="June 2025" />
+            <InfoRow label="Last Updated" value="June 2025" styles={styles} />
           </View>
         </Animated.View>
 
@@ -291,332 +297,331 @@ export default function AboutScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgDark },
+const getStyles = (colors) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
 
-  // Header bar
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-    zIndex: 10,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.bgCard,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: Typography.fontSizeXL,
-    fontWeight: Typography.fontWeightBold,
-    color: Colors.textPrimary,
-  },
-  headerSpacer: { width: 40 },
+    // Header bar
+    headerBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.lg,
+      paddingBottom: Spacing.md,
+      zIndex: 10,
+    },
+    backBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.bgCard,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerTitle: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: Typography.fontSizeXL,
+      fontWeight: Typography.fontWeightBold,
+      color: colors.textPrimary,
+    },
+    headerSpacer: { width: 40 },
 
-  // Scroll
-  scroll: { paddingHorizontal: Spacing.xl },
+    // Scroll
+    scroll: { paddingHorizontal: Spacing.xl },
 
-  // Hero
-  heroSection: {
-    alignItems: 'center',
-    paddingVertical: Spacing.huge,
-    marginBottom: Spacing.lg,
-    borderRadius: BorderRadius.xl,
-    overflow: 'hidden',
-    backgroundColor: Colors.bgCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginTop: Spacing.lg,
-  },
-  heroGradientBg: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  logoCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    ...Shadows.glow,
-    marginBottom: Spacing.xl,
-  },
-  logoGradient: {
-    flex: 1,
-    borderRadius: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroAppName: {
-    fontSize: Typography.fontSize3XL,
-    fontWeight: Typography.fontWeightExtraBold,
-    color: Colors.textPrimary,
-    letterSpacing: 0.5,
-  },
-  heroTagline: {
-    fontSize: Typography.fontSizeMD,
-    color: Colors.textSecondary,
-    marginTop: Spacing.sm,
-    textAlign: 'center',
-  },
-  heroBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: Spacing.lg,
-    backgroundColor: Colors.accentSoft,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 5,
-    borderRadius: BorderRadius.round,
-  },
-  heroBadgeText: {
-    fontSize: Typography.fontSizeSM,
-    color: Colors.primary,
-    fontWeight: Typography.fontWeightSemiBold,
-  },
+    // Hero
+    heroSection: {
+      alignItems: 'center',
+      paddingVertical: Spacing.huge,
+      marginBottom: Spacing.lg,
+      borderRadius: BorderRadius.xl,
+      overflow: 'hidden',
+      backgroundColor: colors.bgCard,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginTop: Spacing.lg,
+    },
+    heroGradientBg: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    logoCircle: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      marginBottom: Spacing.xl,
+    },
+    logoGradient: {
+      flex: 1,
+      borderRadius: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    heroAppName: {
+      fontSize: Typography.fontSize3XL,
+      fontWeight: Typography.fontWeightExtraBold,
+      color: colors.textPrimary,
+      letterSpacing: 0.5,
+    },
+    heroTagline: {
+      fontSize: Typography.fontSizeMD,
+      color: colors.textSecondary,
+      marginTop: Spacing.sm,
+      textAlign: 'center',
+    },
+    heroBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: Spacing.lg,
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: 5,
+      borderRadius: BorderRadius.round,
+    },
+    heroBadgeText: {
+      fontSize: Typography.fontSizeSM,
+      color: colors.primary,
+      fontWeight: Typography.fontWeightSemiBold,
+    },
 
-  // Section wrapper
-  section: {
-    marginBottom: Spacing.xxxl,
-  },
-  sectionEyebrow: {
-    fontSize: 10,
-    fontWeight: Typography.fontWeightBold,
-    color: Colors.primary,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: Spacing.sm,
-  },
-  sectionHeading: {
-    fontSize: Typography.fontSize2XL,
-    fontWeight: Typography.fontWeightExtraBold,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.md,
-    lineHeight: Typography.lineHeightXL,
-  },
-  sectionBody: {
-    fontSize: Typography.fontSizeMD,
-    color: Colors.textSecondary,
-    lineHeight: Typography.lineHeightLG,
-    marginBottom: Spacing.lg,
-  },
+    // Section wrapper
+    section: {
+      marginBottom: Spacing.xxxl,
+    },
+    sectionEyebrow: {
+      fontSize: 10,
+      fontWeight: Typography.fontWeightBold,
+      color: colors.primary,
+      letterSpacing: 2,
+      textTransform: 'uppercase',
+      marginBottom: Spacing.sm,
+    },
+    sectionHeading: {
+      fontSize: Typography.fontSize2XL,
+      fontWeight: Typography.fontWeightExtraBold,
+      color: colors.textPrimary,
+      marginBottom: Spacing.md,
+      lineHeight: Typography.lineHeightXL,
+    },
+    sectionBody: {
+      fontSize: Typography.fontSizeMD,
+      color: colors.textSecondary,
+      lineHeight: Typography.lineHeightLG,
+      marginBottom: Spacing.lg,
+    },
 
-  // Mission pills
-  missionPillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  missionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: Colors.accentSoft,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.round,
-  },
-  missionPillText: {
-    fontSize: Typography.fontSizeSM,
-    color: Colors.primary,
-    fontWeight: Typography.fontWeightSemiBold,
-  },
+    // Mission pills
+    missionPillsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+    },
+    missionPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: 6,
+      borderRadius: BorderRadius.round,
+    },
+    missionPillText: {
+      fontSize: Typography.fontSizeSM,
+      color: colors.primary,
+      fontWeight: Typography.fontWeightSemiBold,
+    },
 
-  // Features
-  featuresGrid: {
-    gap: Spacing.sm,
-  },
-  featureCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: Colors.bgCard,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: Spacing.md,
-  },
-  featureIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  featureText: { flex: 1 },
-  featureTitle: {
-    fontSize: Typography.fontSizeMD,
-    fontWeight: Typography.fontWeightSemiBold,
-    color: Colors.textPrimary,
-    marginBottom: 3,
-  },
-  featureDesc: {
-    fontSize: Typography.fontSizeSM,
-    color: Colors.textSecondary,
-    lineHeight: Typography.lineHeightMD,
-  },
+    // Features
+    featuresGrid: {
+      gap: Spacing.sm,
+    },
+    featureCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: colors.bgCard,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: Spacing.md,
+    },
+    featureIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    featureText: { flex: 1 },
+    featureTitle: {
+      fontSize: Typography.fontSizeMD,
+      fontWeight: Typography.fontWeightSemiBold,
+      color: colors.textPrimary,
+      marginBottom: 3,
+    },
+    featureDesc: {
+      fontSize: Typography.fontSizeSM,
+      color: colors.textSecondary,
+      lineHeight: Typography.lineHeightMD,
+    },
 
-  // Timeline
-  timelineWrap: { paddingLeft: 4 },
-  timelineRow: {
-    flexDirection: 'row',
-    marginBottom: 0,
-  },
-  timelineLeft: {
-    alignItems: 'center',
-    width: 40,
-  },
-  timelineDot: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  timelineLine: {
-    flex: 1,
-    width: 2,
-    backgroundColor: Colors.borderAccent,
-    marginVertical: 2,
-    minHeight: 24,
-  },
-  timelineContent: {
-    flex: 1,
-    paddingLeft: Spacing.md,
-    paddingBottom: Spacing.xxl,
-  },
-  timelineTitle: {
-    fontSize: Typography.fontSizeLG,
-    fontWeight: Typography.fontWeightBold,
-    color: Colors.textPrimary,
-    marginBottom: 4,
-    marginTop: 6,
-  },
-  timelineBody: {
-    fontSize: Typography.fontSizeSM,
-    color: Colors.textSecondary,
-    lineHeight: Typography.lineHeightMD,
-  },
+    // Timeline
+    timelineWrap: { paddingLeft: 4 },
+    timelineRow: {
+      flexDirection: 'row',
+      marginBottom: 0,
+    },
+    timelineLeft: {
+      alignItems: 'center',
+      width: 40,
+    },
+    timelineDot: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 2,
+    },
+    timelineLine: {
+      flex: 1,
+      width: 2,
+      backgroundColor: colors.borderAccent,
+      marginVertical: 2,
+      minHeight: 24,
+    },
+    timelineContent: {
+      flex: 1,
+      paddingLeft: Spacing.md,
+      paddingBottom: Spacing.xxl,
+    },
+    timelineTitle: {
+      fontSize: Typography.fontSizeLG,
+      fontWeight: Typography.fontWeightBold,
+      color: colors.textPrimary,
+      marginBottom: 4,
+      marginTop: 6,
+    },
+    timelineBody: {
+      fontSize: Typography.fontSizeSM,
+      color: colors.textSecondary,
+      lineHeight: Typography.lineHeightMD,
+    },
 
-  // Developer card
-  devCard: {
-    alignItems: 'center',
-    backgroundColor: Colors.bgCard,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.xxxl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  devCardGradient: { ...StyleSheet.absoluteFillObject },
-  devAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    ...Shadows.glow,
-    marginBottom: Spacing.lg,
-  },
-  devAvatarGradient: {
-    flex: 1,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  devName: {
-    fontSize: Typography.fontSizeXL,
-    fontWeight: Typography.fontWeightBold,
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  devRole: {
-    fontSize: Typography.fontSizeSM,
-    color: Colors.primary,
-    fontWeight: Typography.fontWeightSemiBold,
-    marginBottom: Spacing.md,
-  },
-  devBio: {
-    fontSize: Typography.fontSizeSM,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: Typography.lineHeightMD,
-  },
+    // Developer card
+    devCard: {
+      alignItems: 'center',
+      backgroundColor: colors.bgCard,
+      borderRadius: BorderRadius.xl,
+      padding: Spacing.xxxl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+    },
+    devCardGradient: { ...StyleSheet.absoluteFillObject },
+    devAvatar: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      marginBottom: Spacing.lg,
+    },
+    devAvatarGradient: {
+      flex: 1,
+      borderRadius: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    devName: {
+      fontSize: Typography.fontSizeXL,
+      fontWeight: Typography.fontWeightBold,
+      color: colors.textPrimary,
+      marginBottom: 4,
+    },
+    devRole: {
+      fontSize: Typography.fontSizeSM,
+      color: colors.primary,
+      fontWeight: Typography.fontWeightSemiBold,
+      marginBottom: Spacing.md,
+    },
+    devBio: {
+      fontSize: Typography.fontSizeSM,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: Typography.lineHeightMD,
+    },
 
-  // Contact
-  contactCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.bgCard,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: Spacing.md,
-  },
-  contactIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  contactInfo: { flex: 1 },
-  contactLabel: {
-    fontSize: Typography.fontSizeSM,
-    color: Colors.textMuted,
-    fontWeight: Typography.fontWeightMedium,
-    marginBottom: 2,
-  },
-  contactValue: {
-    fontSize: Typography.fontSizeMD,
-    color: Colors.textPrimary,
-    fontWeight: Typography.fontWeightSemiBold,
-  },
+    // Contact
+    contactCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.bgCard,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      marginBottom: Spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: Spacing.md,
+    },
+    contactIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    contactInfo: { flex: 1 },
+    contactLabel: {
+      fontSize: Typography.fontSizeSM,
+      color: colors.textMuted,
+      fontWeight: Typography.fontWeightMedium,
+      marginBottom: 2,
+    },
+    contactValue: {
+      fontSize: Typography.fontSizeMD,
+      color: colors.textPrimary,
+      fontWeight: Typography.fontWeightSemiBold,
+    },
 
-  // App info
-  infoCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: Spacing.lg,
-  },
-  infoSeparator: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginHorizontal: Spacing.lg,
-  },
-  infoLabel: {
-    fontSize: Typography.fontSizeMD,
-    color: Colors.textSecondary,
-    fontWeight: Typography.fontWeightMedium,
-  },
-  infoValue: {
-    fontSize: Typography.fontSizeMD,
-    color: Colors.textPrimary,
-    fontWeight: Typography.fontWeightSemiBold,
-  },
+    // App info
+    infoCard: {
+      backgroundColor: colors.bgCard,
+      borderRadius: BorderRadius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+    },
+    infoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: Spacing.lg,
+    },
+    infoSeparator: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginHorizontal: Spacing.lg,
+    },
+    infoLabel: {
+      fontSize: Typography.fontSizeMD,
+      color: colors.textSecondary,
+      fontWeight: Typography.fontWeightMedium,
+    },
+    infoValue: {
+      fontSize: Typography.fontSizeMD,
+      color: colors.textPrimary,
+      fontWeight: Typography.fontWeightSemiBold,
+    },
 
-  // Footer
-  footerText: {
-    textAlign: 'center',
-    color: Colors.textMuted,
-    fontSize: Typography.fontSizeSM,
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.xxl,
-  },
-});
+    // Footer
+    footerText: {
+      textAlign: 'center',
+      color: colors.textMuted,
+      fontSize: Typography.fontSizeSM,
+      marginTop: Spacing.lg,
+      marginBottom: Spacing.xxl,
+    },
+  });

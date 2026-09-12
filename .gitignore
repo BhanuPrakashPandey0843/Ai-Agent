@@ -79,3 +79,43 @@ dist-verify
 # Temporary check files
 check-syntax.js
 check-with-babel.js
+check-brackets.js
+check-json.js
+babel_parse_check.js
+temp_parse_check.js
+test-context.js
+find-all-syntax.js
+find-bad-chars.js
+find-syntax-errors.js
+
+# Temp bundles / debug output
+temp.bundle.js
+temp.bundle.map
+firebase-debug.log
+*.log
+hs_err_pid*.log
+replay_pid*.log
+teloooo.txt
+
+# Large local-only artifacts / test payloads
+bundletool.jar
+client-test.zip
+client-test-extracted/
+aab_check/
+
+# Env files (never commit secrets)
+.env
+functions/.env
+!.env.example
+!functions/.env.example
+
+# Firebase functions build output
+functions/lib/
+functions/node_modules/
+
+# Android/Gradle extras
+android/.kotlin/
+android/build/
+android/app/build/
+
+.expo/

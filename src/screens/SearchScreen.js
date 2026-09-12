@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Colors, Typography, Spacing, BorderRadius } from '../theme/colors';
+import { Typography, Spacing, BorderRadius } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { searchWallpapers, searchStories } from '../services/firebaseService';
 import WallpaperCard from '../components/wallpaper/WallpaperCard';
 import ProphetStoryCard from '../components/home/ProphetStoryCard';
@@ -26,6 +27,8 @@ export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const { toggle, isFavorite } = useFavorites();
   const { width: screenWidth } = useWindowDimensions();
   const cardWidth = screenWidth - (Spacing.lg - Spacing.xs) * 2;
@@ -85,11 +88,11 @@ export default function SearchScreen() {
       </View>
 
       <View style={styles.searchWrap}>
-        <Ionicons name="search" size={20} color={Colors.textMuted} />
+        <Ionicons name="search" size={20} color={colors.textMuted} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search stories, wallpapers, prophets..."
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={colors.textMuted}
           value={query}
           onChangeText={setQuery}
           onSubmitEditing={handleSearch}
@@ -98,14 +101,14 @@ export default function SearchScreen() {
         />
         {query.length > 0 ? (
           <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         ) : null}
         <TouchableOpacity onPress={handleSearch} style={styles.searchBtn}>
           {loading ? (
-            <ActivityIndicator size="small" color={Colors.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Ionicons name="arrow-forward" size={20} color={Colors.primary} />
+            <Ionicons name="arrow-forward" size={20} color={colors.primary} />
           )}
         </TouchableOpacity>
       </View>
@@ -135,8 +138,8 @@ export default function SearchScreen() {
                   story={story}
                   index={index}
                   onPress={handleOpenStory}
-                  colors={Colors}
-                  isDark
+                  colors={colors}
+                  isDark={isDark}
                   cardWidth={cardWidth}
                 />
               ))}
@@ -155,7 +158,7 @@ export default function SearchScreen() {
         ListEmptyComponent={
           searched && !loading && !hasResults ? (
             <View style={styles.empty}>
-              <Ionicons name="search-outline" size={48} color={Colors.textMuted} />
+              <Ionicons name="search-outline" size={48} color={colors.textMuted} />
               <Text style={styles.emptyText}>No results for "{query}"</Text>
             </View>
           ) : null
@@ -165,63 +168,64 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgDark },
-  header: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-  },
-  headerTitle: {
-    fontSize: Typography.fontSize3XL,
-    fontWeight: Typography.fontWeightExtraBold,
-    color: Colors.textPrimary,
-  },
-  headerSub: {
-    fontSize: Typography.fontSizeSM,
-    color: Colors.textSecondary,
-    marginTop: Spacing.xs,
-  },
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.bgCard,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginHorizontal: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    height: 52,
-    gap: Spacing.md,
-  },
-  searchInput: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: Typography.fontSizeMD,
-  },
-  searchBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  list: { paddingHorizontal: Spacing.lg - Spacing.xs, paddingTop: Spacing.lg },
-  row: { justifyContent: 'space-between' },
-  storiesSection: {
-    marginBottom: Spacing.md,
-  },
-  sectionLabel: {
-    fontSize: Typography.fontSizeSM,
-    fontWeight: Typography.fontWeightBold,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: Spacing.md,
-    paddingHorizontal: Spacing.xs,
-  },
-  empty: { alignItems: 'center', paddingTop: 80 },
-  emptyText: {
-    color: Colors.textMuted,
-    fontSize: Typography.fontSizeMD,
-    marginTop: Spacing.lg,
-  },
-});
+const getStyles = (colors) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    header: {
+      paddingHorizontal: Spacing.lg,
+      paddingBottom: Spacing.md,
+    },
+    headerTitle: {
+      fontSize: Typography.fontSize3XL,
+      fontWeight: Typography.fontWeightExtraBold,
+      color: colors.textPrimary,
+    },
+    headerSub: {
+      fontSize: Typography.fontSizeSM,
+      color: colors.textSecondary,
+      marginTop: Spacing.xs,
+    },
+    searchWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.bgCard,
+      borderRadius: BorderRadius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginHorizontal: Spacing.lg,
+      paddingHorizontal: Spacing.lg,
+      height: 52,
+      gap: Spacing.md,
+    },
+    searchInput: {
+      flex: 1,
+      color: colors.textPrimary,
+      fontSize: Typography.fontSizeMD,
+    },
+    searchBtn: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    list: { paddingHorizontal: Spacing.lg - Spacing.xs, paddingTop: Spacing.lg },
+    row: { justifyContent: 'space-between' },
+    storiesSection: {
+      marginBottom: Spacing.md,
+    },
+    sectionLabel: {
+      fontSize: Typography.fontSizeSM,
+      fontWeight: Typography.fontWeightBold,
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+      marginBottom: Spacing.md,
+      paddingHorizontal: Spacing.xs,
+    },
+    empty: { alignItems: 'center', paddingTop: 80 },
+    emptyText: {
+      color: colors.textMuted,
+      fontSize: Typography.fontSizeMD,
+      marginTop: Spacing.lg,
+    },
+  });

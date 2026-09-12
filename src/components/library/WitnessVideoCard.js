@@ -2,12 +2,11 @@
 // Vertical video card for the Witness Videos list. Tapping anywhere opens
 // the dedicated VideoPlayerScreen — video never plays inline in the list.
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Share, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography, Spacing, BorderRadius } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
-import useVideoInteraction from '../../hooks/useVideoInteraction';
 
 function formatDuration(seconds) {
   const s = Math.max(0, Math.round(seconds || 0));
@@ -36,8 +35,6 @@ function formatCount(n) {
 function WitnessVideoCard({ item, index = 0, accent, onPress }) {
   const { colors } = useTheme();
   const [imageError, setImageError] = useState(false);
-  const { liked, disliked, saved, likeCount, dislikeCount, like, dislike, toggleSave } =
-    useVideoInteraction(item);
 
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const translateAnim = useRef(new Animated.Value(16)).current;
@@ -48,18 +45,6 @@ function WitnessVideoCard({ item, index = 0, accent, onPress }) {
       Animated.spring(translateAnim, { toValue: 0, friction: 9, tension: 70, delay: index * 40, useNativeDriver: true }),
     ]).start();
   }, [index]);
-
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message: item.videoUrl
-          ? `${item.title} — watch on Faith Frames\n${item.videoUrl}`
-          : `${item.title} — watch on Faith Frames`,
-      });
-    } catch {
-      // user cancelled or share failed — no-op
-    }
-  };
 
   return (
     <Animated.View style={{ opacity: opacityAnim, transform: [{ translateY: translateAnim }] }}>
@@ -108,11 +93,6 @@ function WitnessVideoCard({ item, index = 0, accent, onPress }) {
           <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={2}>
             {item.title}
           </Text>
-          {item.description ? (
-            <Text style={[styles.desc, { color: colors.textSecondary }]} numberOfLines={2}>
-              {item.description}
-            </Text>
-          ) : null}
 
           <View style={styles.metaRow}>
             <Text style={[styles.metaText, { color: colors.textMuted }]}>
@@ -127,49 +107,11 @@ function WitnessVideoCard({ item, index = 0, accent, onPress }) {
               </>
             ) : null}
           </View>
-
-          <View style={[styles.actionsRow, { borderTopColor: colors.border }]}>
-            <TouchableOpacity style={styles.actionBtn} onPress={like} hitSlop={hitSlop}>
-              <Ionicons
-                name={liked ? 'thumbs-up' : 'thumbs-up-outline'}
-                size={18}
-                color={liked ? accent : colors.textMuted}
-              />
-              <Text style={[styles.actionText, { color: liked ? accent : colors.textMuted }]}>
-                {formatCount(likeCount)}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionBtn} onPress={dislike} hitSlop={hitSlop}>
-              <Ionicons
-                name={disliked ? 'thumbs-down' : 'thumbs-down-outline'}
-                size={18}
-                color={disliked ? colors.error : colors.textMuted}
-              />
-              <Text style={[styles.actionText, { color: disliked ? colors.error : colors.textMuted }]}>
-                {formatCount(dislikeCount)}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionBtn} onPress={toggleSave} hitSlop={hitSlop}>
-              <Ionicons
-                name={saved ? 'bookmark' : 'bookmark-outline'}
-                size={18}
-                color={saved ? accent : colors.textMuted}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionBtn} onPress={handleShare} hitSlop={hitSlop}>
-              <Ionicons name="share-social-outline" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
         </View>
       </TouchableOpacity>
     </Animated.View>
   );
 }
-
-const hitSlop = { top: 8, bottom: 8, left: 8, right: 8 };
 
 const cardShadow = {
   shadowColor: '#000',
@@ -232,30 +174,15 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSizeLG,
     fontWeight: Typography.fontWeightBold,
     lineHeight: 22,
-    marginBottom: 4,
-  },
-  desc: {
-    fontSize: Typography.fontSizeSM,
-    lineHeight: 19,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: Spacing.md,
   },
   metaText: { fontSize: Typography.fontSizeXS, fontWeight: Typography.fontWeightMedium },
   metaDot: { width: 3, height: 3, borderRadius: 1.5 },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xl,
-    paddingTop: Spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  actionText: { fontSize: Typography.fontSizeSM, fontWeight: Typography.fontWeightSemiBold },
 });
 
 export default React.memo(WitnessVideoCard);

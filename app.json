@@ -41,7 +41,7 @@
         "android.permission.ACCESS_MEDIA_LOCATION",
         "android.permission.SET_WALLPAPER"
       ],
-      "versionCode": 18
+      "versionCode": 24
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -75,7 +75,8 @@
         {
           "backgroundColor": "#0A0A0A"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "firebaseApiKey": "AIzaSyDNbydpnLFgjurjWKDfUWCZ3qOI61K7FxU",

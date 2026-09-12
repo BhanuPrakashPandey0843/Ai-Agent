@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { APP_NAME } from '../constants';
+import { Typography, BorderRadius } from '../theme/colors';
 import { STORY_CATEGORIES } from '../theme/homeTheme';
 import { useAuth } from '../context/AuthContext';
 import CategoryBowl from '../components/home/CategoryBowl';
@@ -139,8 +140,8 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   brandTitle: {
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: Typography.fontSize3XL,
+    fontWeight: Typography.fontWeightExtraBold,
     letterSpacing: -0.5,
   },
   headerRight: {
@@ -150,7 +151,7 @@ const styles = StyleSheet.create({
   avatarWrap: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BorderRadius.round,
     overflow: 'hidden',
     backgroundColor: '#B8D4E8',
     borderWidth: 2,
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 28,
+    borderRadius: BorderRadius.round,
     height: 52,
     paddingLeft: 16,
     paddingRight: 6,
@@ -185,19 +186,19 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: Typography.fontSizeLG,
     paddingVertical: 0,
   },
   searchBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BorderRadius.round,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sectionHeading: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: Typography.fontSize2XL,
+    fontWeight: Typography.fontWeightExtraBold,
     paddingHorizontal: 20,
     marginBottom: 14,
     letterSpacing: -0.3,

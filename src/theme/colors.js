@@ -107,6 +107,40 @@ export const Typography = {
   lineHeightXL: 32,
 };
 
+// Global typography -- Poppins family + semantic size/weight scale from the
+// design-system spec. Additive only: existing `Typography` export above is
+// untouched so no current screen breaks. FontFamily falls back to the OS
+// default until the Poppins font package is loaded in App.js (requires
+// running `npx expo install @expo-google-fonts/poppins` once).
+export const FontFamily = {
+  regular: 'Poppins_400Regular',
+  medium: 'Poppins_500Medium',
+  semiBold: 'Poppins_600SemiBold',
+  bold: 'Poppins_700Bold',
+};
+
+export const FontScale = {
+  displayLarge: { fontSize: 32, fontFamily: FontFamily.bold },
+  screenTitle: { fontSize: 28, fontFamily: FontFamily.bold },
+  sectionTitle: { fontSize: 24, fontFamily: FontFamily.semiBold },
+  cardTitle: { fontSize: 20, fontFamily: FontFamily.semiBold },
+  bodyLarge: { fontSize: 18, fontFamily: FontFamily.medium },
+  bodyRegular: { fontSize: 16, fontFamily: FontFamily.regular },
+  secondaryBody: { fontSize: 14, fontFamily: FontFamily.regular },
+  caption: { fontSize: 12, fontFamily: FontFamily.regular },
+  tinyLabel: { fontSize: 11, fontFamily: FontFamily.medium },
+};
+
+// Spec-exact radius scale (sm/md/lg/xl/pill). Existing `BorderRadius` export
+// below is untouched; new components should use this named scale.
+export const RadiusScale = {
+  sm: 12,
+  md: 16,
+  lg: 20,
+  xl: 24,
+  pill: 999,
+};
+
 export const Spacing = {
   xs: 4,
   sm: 8,

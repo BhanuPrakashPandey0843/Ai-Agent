@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Typography, Spacing } from '../theme/colors';
+import { Typography, Spacing } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import ScreenContainer from '../components/common/ScreenContainer';
@@ -31,6 +32,8 @@ const getAuthErrorMessage = (error) => {
 
 export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const { login } = useAuth();
   const { showToast } = useToast();
   const [email, setEmail] = useState('');
@@ -140,42 +143,43 @@ export default function LoginScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  scroll: { flexGrow: 1, paddingHorizontal: Spacing.xxxl },
-  header: { alignItems: 'center', marginBottom: Spacing.xxxl },
-  logo: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    marginBottom: Spacing.xxl,
-  },
-  title: {
-    fontSize: Typography.fontSize3XL,
-    fontWeight: Typography.fontWeightExtraBold,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.sm,
-  },
-  subtitle: {
-    fontSize: Typography.fontSizeMD,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  forgotBtn: { alignSelf: 'flex-end', marginBottom: Spacing.lg, marginTop: -Spacing.sm },
-  forgotText: {
-    color: Colors.primary,
-    fontSize: Typography.fontSizeSM,
-    fontWeight: Typography.fontWeightMedium,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: Spacing.xxxl,
-  },
-  footerText: { color: Colors.textSecondary, fontSize: Typography.fontSizeMD },
-  linkText: {
-    color: Colors.primary,
-    fontSize: Typography.fontSizeMD,
-    fontWeight: Typography.fontWeightBold,
-  },
-});
+const getStyles = (colors) =>
+  StyleSheet.create({
+    flex: { flex: 1 },
+    scroll: { flexGrow: 1, paddingHorizontal: Spacing.xxxl },
+    header: { alignItems: 'center', marginBottom: Spacing.xxxl },
+    logo: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      marginBottom: Spacing.xxl,
+    },
+    title: {
+      fontSize: Typography.fontSize3XL,
+      fontWeight: Typography.fontWeightExtraBold,
+      color: colors.textPrimary,
+      marginBottom: Spacing.sm,
+    },
+    subtitle: {
+      fontSize: Typography.fontSizeMD,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    forgotBtn: { alignSelf: 'flex-end', marginBottom: Spacing.lg, marginTop: -Spacing.sm },
+    forgotText: {
+      color: colors.primary,
+      fontSize: Typography.fontSizeSM,
+      fontWeight: Typography.fontWeightMedium,
+    },
+    footer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: Spacing.xxxl,
+    },
+    footerText: { color: colors.textSecondary, fontSize: Typography.fontSizeMD },
+    linkText: {
+      color: colors.primary,
+      fontSize: Typography.fontSizeMD,
+      fontWeight: Typography.fontWeightBold,
+    },
+  });

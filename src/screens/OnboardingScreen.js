@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
   FlatList,
   TouchableOpacity,
   Animated,
@@ -17,10 +17,9 @@ import { WELCOME_SLIDES } from '../constants';
 import { setOnboardingDone } from '../storage';
 import GradientButton from '../components/common/GradientButton';
 
-const { width, height } = Dimensions.get('window');
 const AUTO_SLIDE_MS = 4500;
 
-function WelcomeSlide({ item, index, scrollX }) {
+function WelcomeSlide({ item, index, scrollX, width, height }) {
   const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
   const imageScale = scrollX.interpolate({
     inputRange,
@@ -39,9 +38,9 @@ function WelcomeSlide({ item, index, scrollX }) {
   });
 
   return (
-    <View style={styles.slide}>
+    <View style={[styles.slide, { width, height }]}>
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: imageScale }] }]}>
-        <ExpoImage source={item.image} style={styles.bgImage} contentFit="cover" transition={400} />
+        <ExpoImage source={item.image} style={{ width, height }} contentFit="cover" transition={400} />
       </Animated.View>
 
       <LinearGradient
@@ -54,6 +53,7 @@ function WelcomeSlide({ item, index, scrollX }) {
         style={[
           styles.slideContent,
           {
+            bottom: height * 0.22,
             opacity: contentOpacity,
             transform: [{ translateY: contentTranslate }],
           },
@@ -72,6 +72,7 @@ function WelcomeSlide({ item, index, scrollX }) {
 
 export default function OnboardingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -164,7 +165,7 @@ export default function OnboardingScreen({ navigation }) {
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
         renderItem={({ item, index }) => (
-          <WelcomeSlide item={item} index={index} scrollX={scrollX} />
+          <WelcomeSlide item={item} index={index} scrollX={scrollX} width={width} height={height} />
         )}
       />
 
@@ -218,11 +219,9 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSizeMD,
     fontWeight: Typography.fontWeightMedium,
   },
-  slide: { width, height },
-  bgImage: { width, height },
+  slide: {},
   slideContent: {
     position: 'absolute',
-    bottom: height * 0.22,
     left: 0,
     right: 0,
     alignItems: 'center',

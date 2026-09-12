@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Typography, Spacing } from '../theme/colors';
+import { Typography, Spacing } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import ScreenContainer from '../components/common/ScreenContainer';
@@ -21,6 +22,8 @@ import BackHeader from '../components/common/BackHeader';
 
 export default function ForgotPasswordScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const { forgotPassword } = useAuth();
   const { showToast } = useToast();
   const [email, setEmail] = useState('');
@@ -73,7 +76,7 @@ export default function ForgotPasswordScreen({ navigation }) {
               <Ionicons
                 name={sent ? 'checkmark-circle' : 'mail-unread-outline'}
                 size={48}
-                color={Colors.primary}
+                color={colors.primary}
               />
             </View>
 
@@ -119,32 +122,33 @@ export default function ForgotPasswordScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  scroll: { flexGrow: 1, paddingHorizontal: Spacing.xxxl, paddingTop: Spacing.xxl },
-  iconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: Colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginBottom: Spacing.xxxl,
-  },
-  title: {
-    fontSize: Typography.fontSize2XL,
-    fontWeight: Typography.fontWeightExtraBold,
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: Spacing.md,
-  },
-  subtitle: {
-    fontSize: Typography.fontSizeMD,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: Typography.lineHeightMD,
-    marginBottom: Spacing.xxl,
-  },
-  emailHighlight: { color: Colors.primary, fontWeight: Typography.fontWeightSemiBold },
-});
+const getStyles = (colors) =>
+  StyleSheet.create({
+    flex: { flex: 1 },
+    scroll: { flexGrow: 1, paddingHorizontal: Spacing.xxxl, paddingTop: Spacing.xxl },
+    iconWrap: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      alignSelf: 'center',
+      marginBottom: Spacing.xxxl,
+    },
+    title: {
+      fontSize: Typography.fontSize2XL,
+      fontWeight: Typography.fontWeightExtraBold,
+      color: colors.textPrimary,
+      textAlign: 'center',
+      marginBottom: Spacing.md,
+    },
+    subtitle: {
+      fontSize: Typography.fontSizeMD,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: Typography.lineHeightMD,
+      marginBottom: Spacing.xxl,
+    },
+    emailHighlight: { color: colors.primary, fontWeight: Typography.fontWeightSemiBold },
+  });

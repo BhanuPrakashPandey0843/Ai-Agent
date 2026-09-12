@@ -1,27 +1,30 @@
 import Constants from 'expo-constants';
 
-/** app.json `extra` — available in Expo Go; may be missing in some dev-client builds */
+/** app.json `extra` — available in Expo Go and some dev builds; NOT guaranteed in standalone/production builds */
 const extra = Constants.expoConfig?.extra ?? {};
 
-function pick(envKey, extraKey) {
-  return process.env[envKey] ?? extra[extraKey] ?? '';
-}
-
+// IMPORTANT: EXPO_PUBLIC_* variables only get baked into the production
+// bundle when accessed as a literal, static `process.env.EXACT_NAME`
+// expression — that's the only pattern Expo's build tooling can statically
+// find and replace. A dynamic/bracket lookup like `process.env[someVar]`
+// is invisible to that step and is ALWAYS undefined at runtime, in every
+// build. This previously only worked in dev because it fell back to the
+// `extra` object above, which is not reliably present in a standalone
+// release build — causing Firebase config to silently end up empty in
+// production while looking fine in dev/Expo Go.
 export const Env = {
   firebase: {
-    apiKey: pick('EXPO_PUBLIC_FIREBASE_API_KEY', 'firebaseApiKey'),
-    authDomain: pick('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN', 'firebaseAuthDomain'),
-    projectId: pick('EXPO_PUBLIC_FIREBASE_PROJECT_ID', 'firebaseProjectId'),
-    storageBucket: pick('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET', 'firebaseStorageBucket'),
-    messagingSenderId: pick(
-      'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-      'firebaseMessagingSenderId'
-    ),
-    appId: pick('EXPO_PUBLIC_FIREBASE_APP_ID', 'firebaseAppId'),
+    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || extra.firebaseApiKey || '',
+    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || extra.firebaseAuthDomain || '',
+    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || extra.firebaseProjectId || '',
+    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || extra.firebaseStorageBucket || '',
+    messagingSenderId:
+      process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || extra.firebaseMessagingSenderId || '',
+    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || extra.firebaseAppId || '',
   },
   cloudinary: {
-    cloudName: pick('EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME', 'cloudinaryCloudName'),
-    uploadPreset: pick('EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET', 'cloudinaryUploadPreset'),
+    cloudName: process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || extra.cloudinaryCloudName || '',
+    uploadPreset: process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || extra.cloudinaryUploadPreset || '',
   },
 };
 

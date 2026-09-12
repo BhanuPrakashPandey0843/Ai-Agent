@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,8 @@ import {
   Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Typography, Spacing } from '../theme/colors';
+import { Typography, Spacing } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import ScreenContainer from '../components/common/ScreenContainer';
@@ -29,6 +30,8 @@ const getAuthErrorMessage = (error) => {
 
 export default function SignupScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const { signup } = useAuth();
   const { showToast } = useToast();
   const [name, setName] = useState('');
@@ -148,23 +151,24 @@ export default function SignupScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  scroll: { flexGrow: 1, paddingHorizontal: Spacing.xxxl, paddingTop: Spacing.lg },
-  subtitle: {
-    fontSize: Typography.fontSizeMD,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xxl,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: Spacing.xxxl,
-  },
-  footerText: { color: Colors.textSecondary, fontSize: Typography.fontSizeMD },
-  linkText: {
-    color: Colors.primary,
-    fontSize: Typography.fontSizeMD,
-    fontWeight: Typography.fontWeightBold,
-  },
-});
+const getStyles = (colors) =>
+  StyleSheet.create({
+    flex: { flex: 1 },
+    scroll: { flexGrow: 1, paddingHorizontal: Spacing.xxxl, paddingTop: Spacing.lg },
+    subtitle: {
+      fontSize: Typography.fontSizeMD,
+      color: colors.textSecondary,
+      marginBottom: Spacing.xxl,
+    },
+    footer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: Spacing.xxxl,
+    },
+    footerText: { color: colors.textSecondary, fontSize: Typography.fontSizeMD },
+    linkText: {
+      color: colors.primary,
+      fontSize: Typography.fontSizeMD,
+      fontWeight: Typography.fontWeightBold,
+    },
+  });

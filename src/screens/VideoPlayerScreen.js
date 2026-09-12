@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Share,
   StatusBar,
   Dimensions,
 } from 'react-native';
@@ -21,7 +20,6 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Typography, Spacing, BorderRadius } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
-import useVideoInteraction from '../hooks/useVideoInteraction';
 import {
   fetchWitnessVideoById,
   fetchRelatedWitnessVideos,
@@ -71,9 +69,6 @@ export default function VideoPlayerScreen() {
   const videoRef = useRef(null);
   const hasCountedView = useRef(false);
   const hasRestoredPosition = useRef(false);
-
-  const { liked, disliked, saved, likeCount, dislikeCount, like, dislike, toggleSave } =
-    useVideoInteraction(video);
 
   const videoId = route.params?.videoId || video?.id;
 
@@ -197,18 +192,6 @@ export default function VideoPlayerScreen() {
     videoRef.current?.presentFullscreenPlayer?.();
   };
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message: video?.videoUrl
-          ? `${video.title} — watch on Faith Frames\n${video.videoUrl}`
-          : `${video?.title} — watch on Faith Frames`,
-      });
-    } catch {
-      // cancelled — no-op
-    }
-  };
-
   const openRelated = (item) => {
     hasCountedView.current = false;
     navigation.push('VideoPlayer', { video: item });
@@ -326,47 +309,6 @@ export default function VideoPlayerScreen() {
             </Text>
           </View>
 
-          <View style={[styles.actionsRow, { borderColor: colors.border }]}>
-            <TouchableOpacity style={styles.actionBtn} onPress={like} hitSlop={hit}>
-              <Ionicons
-                name={liked ? 'thumbs-up' : 'thumbs-up-outline'}
-                size={20}
-                color={liked ? ACCENT : colors.textSecondary}
-              />
-              <Text style={[styles.actionText, { color: liked ? ACCENT : colors.textSecondary }]}>
-                {formatCount(likeCount)}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={dislike} hitSlop={hit}>
-              <Ionicons
-                name={disliked ? 'thumbs-down' : 'thumbs-down-outline'}
-                size={20}
-                color={disliked ? colors.error : colors.textSecondary}
-              />
-              <Text style={[styles.actionText, { color: disliked ? colors.error : colors.textSecondary }]}>
-                {formatCount(dislikeCount)}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={toggleSave} hitSlop={hit}>
-              <Ionicons
-                name={saved ? 'bookmark' : 'bookmark-outline'}
-                size={20}
-                color={saved ? ACCENT : colors.textSecondary}
-              />
-              <Text style={[styles.actionText, { color: saved ? ACCENT : colors.textSecondary }]}>Save</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={handleShare} hitSlop={hit}>
-              <Ionicons name="share-social-outline" size={20} color={colors.textSecondary} />
-              <Text style={[styles.actionText, { color: colors.textSecondary }]}>Share</Text>
-            </TouchableOpacity>
-          </View>
-
-          {video.description ? (
-            <View style={[styles.descCard, { backgroundColor: colors.bgCard }]}>
-              <Text style={[styles.descText, { color: colors.textSecondary }]}>{video.description}</Text>
-            </View>
-          ) : null}
-
           {related.length > 0 ? (
             <View style={styles.relatedSection}>
               <Text style={[styles.relatedHeading, { color: colors.textPrimary }]}>Related Videos</Text>
@@ -466,23 +408,9 @@ const styles = StyleSheet.create({
 
   details: { padding: Spacing.xl },
   title: { fontSize: Typography.fontSizeXL, fontWeight: Typography.fontWeightBold, lineHeight: 26, marginBottom: Spacing.sm },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.lg },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.xl },
   metaText: { fontSize: Typography.fontSizeSM, fontWeight: Typography.fontWeightMedium },
   metaDot: { width: 3, height: 3, borderRadius: 1.5 },
-
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.xl,
-  },
-  actionBtn: { alignItems: 'center', gap: 4 },
-  actionText: { fontSize: Typography.fontSizeXS, fontWeight: Typography.fontWeightSemiBold },
-
-  descCard: { borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.xxl },
-  descText: { fontSize: Typography.fontSizeMD, lineHeight: 22 },
 
   relatedSection: { gap: Spacing.md },
   relatedHeading: { fontSize: Typography.fontSizeLG, fontWeight: Typography.fontWeightBold, marginBottom: Spacing.sm },
