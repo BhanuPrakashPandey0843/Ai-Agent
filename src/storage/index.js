@@ -28,23 +28,60 @@ export const removeItem = async (key) => {
   }
 };
 
+// ─── Stored-list change notifications ─────────────────────────────────────────
+// AsyncStorage has no change events, so a hook that mirrors a stored list
+// (favorites, story bookmarks, …) only ever sees the snapshot it read when it
+// mounted. Long-lived screens — the Settings tab in particular, which stays
+// mounted for the rest of the session once it is first opened — therefore kept
+// rendering stale counts after the user favorited something on another screen.
+// Every mutating helper below publishes the resulting list here, so all mounted
+// readers of that key update together. The data itself still lives exactly
+// where it always did; this only adds notification on top of it.
+const listListeners = new Map(); // storageKey -> Set<listener>
+
+export const subscribeToStoredList = (storageKey, listener) => {
+  if (!storageKey || typeof listener !== 'function') return () => {};
+  if (!listListeners.has(storageKey)) listListeners.set(storageKey, new Set());
+  const set = listListeners.get(storageKey);
+  set.add(listener);
+  return () => {
+    set.delete(listener);
+    if (!set.size) listListeners.delete(storageKey);
+  };
+};
+
+const emitStoredList = (storageKey, list) => {
+  const set = listListeners.get(storageKey);
+  if (!set) return;
+  set.forEach((listener) => {
+    try {
+      listener(list);
+    } catch {
+      // a broken subscriber must never break the write that triggered it
+    }
+  });
+};
+
 // ─── Favorites ────────────────────────────────────────────────────────────────
 export const getFavorites = async () =>
   (await getJSON(STORAGE_KEYS.FAVORITES)) || [];
 
 export const addFavorite = async (wallpaperId) => {
   const favs = await getFavorites();
-  if (!favs.includes(wallpaperId)) {
-    await storeJSON(STORAGE_KEYS.FAVORITES, [...favs, wallpaperId]);
+  const next = favs.includes(wallpaperId) ? favs : [...favs, wallpaperId];
+  if (next !== favs) {
+    await storeJSON(STORAGE_KEYS.FAVORITES, next);
   }
+  emitStoredList(STORAGE_KEYS.FAVORITES, next);
+  return next;
 };
 
 export const removeFavorite = async (wallpaperId) => {
   const favs = await getFavorites();
-  await storeJSON(
-    STORAGE_KEYS.FAVORITES,
-    favs.filter((id) => id !== wallpaperId)
-  );
+  const next = favs.filter((id) => id !== wallpaperId);
+  await storeJSON(STORAGE_KEYS.FAVORITES, next);
+  emitStoredList(STORAGE_KEYS.FAVORITES, next);
+  return next;
 };
 
 export const isFavorite = async (wallpaperId) => {
@@ -69,6 +106,7 @@ export const toggleBookmarkId = async (storageKey, id) => {
   const ids = await getBookmarkIds(storageKey);
   const next = ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
   await storeJSON(storageKey, next);
+  emitStoredList(storageKey, next);
   return next;
 };
 

@@ -171,17 +171,12 @@ export default function CommunityPrayerDetailScreen() {
             />
             <View style={styles.cardContent}>
               <View style={styles.headerRow}>
-                {item.category ? (
-                  <View style={[styles.badge, { borderColor: accent }]}>
-                    <Text style={[styles.badgeText, { color: accent }]}>{item.category.toUpperCase()}</Text>
-                  </View>
-                ) : <View />}
                 {item.anonymous ? (
                   <View style={styles.anonRow}>
                     <Ionicons name="eye-off-outline" size={12} color={colors.textMuted} />
                     <Text style={[styles.anonText, { color: colors.textMuted }]}>Anonymous</Text>
                   </View>
-                ) : null}
+                ) : <View />}
               </View>
 
               <Text style={[styles.title, { color: colors.textPrimary }]}>{item.title}</Text>
@@ -303,8 +298,6 @@ const styles = StyleSheet.create({
   },
   cardContent: { padding: 24 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  badge: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
   anonRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   anonText: { fontSize: 11, fontWeight: '600' },
   title: { fontSize: 22, fontWeight: '800', lineHeight: 29, marginBottom: 6 },

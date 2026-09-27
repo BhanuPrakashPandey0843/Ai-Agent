@@ -38,7 +38,7 @@ export default function FeaturedStoryCard({ story, onPress }) {
 }
 
 const styles = StyleSheet.create({
-  card: { width: 168 },
+  card: { width: 168, ...H.shadow },
   image: {
     width: 168,
     height: 148,

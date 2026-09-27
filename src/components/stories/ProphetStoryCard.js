@@ -81,6 +81,10 @@ export const ProphetStoryCard = React.memo(function ProphetStoryCard({
         accessibilityRole="button"
         accessibilityLabel={`Open story ${story?.title || 'faith story'}`}
         accessibilityHint={`Read the story of ${story?.category || 'this faith story'}`}
+        style={[
+          styles.shadowWrap,
+          { shadowColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.12)' },
+        ]}
       >
         <View
           style={[
@@ -88,7 +92,6 @@ export const ProphetStoryCard = React.memo(function ProphetStoryCard({
             {
               backgroundColor: colors.bgCard,
               borderColor: isDark ? 'rgba(168, 159, 255, 0.18)' : 'rgba(146, 138, 253, 0.18)',
-              shadowColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.12)',
             },
           ]}
         >
@@ -174,6 +177,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     overflow: 'hidden',
+  },
+  shadowWrap: {
+    borderRadius: 20,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
     shadowRadius: 16,

@@ -61,6 +61,7 @@ export default function FaithGalleryCard({ item, index = 0, accent, onPress }) {
       style={{
         opacity: opacityAnim,
         transform: [{ translateY: translateAnim }, { scale: scaleAnim }],
+        ...cardShadow(isDark),
       }}
     >
       <TouchableOpacity
@@ -68,7 +69,7 @@ export default function FaithGalleryCard({ item, index = 0, accent, onPress }) {
         onPress={() => onPress?.(item)}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        style={[styles.card, { backgroundColor: colors.bgCard }, cardShadow(isDark)]}
+        style={[styles.card, { backgroundColor: colors.bgCard }]}
         accessibilityRole="imagebutton"
         accessibilityLabel={item?.title || 'Open content'}
       >

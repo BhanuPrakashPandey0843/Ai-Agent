@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Typography, Spacing, BorderRadius } from '../../theme/colors';
+import { Typography, Spacing, BorderRadius, Shadows } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
 
 function formatDuration(seconds) {
@@ -33,7 +33,7 @@ function formatCount(n) {
 }
 
 function WitnessVideoCard({ item, index = 0, accent, onPress }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [imageError, setImageError] = useState(false);
 
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -47,11 +47,11 @@ function WitnessVideoCard({ item, index = 0, accent, onPress }) {
   }, [index]);
 
   return (
-    <Animated.View style={{ opacity: opacityAnim, transform: [{ translateY: translateAnim }] }}>
+    <Animated.View style={{ opacity: opacityAnim, transform: [{ translateY: translateAnim }], ...Shadows.card(isDark) }}>
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={() => onPress?.(item)}
-        style={[styles.card, { backgroundColor: colors.bgCard }, cardShadow]}
+        style={[styles.card, { backgroundColor: colors.bgCard }]}
       >
         <View style={styles.thumbWrap}>
           {item.thumbnail && !imageError ? (
@@ -112,14 +112,6 @@ function WitnessVideoCard({ item, index = 0, accent, onPress }) {
     </Animated.View>
   );
 }
-
-const cardShadow = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.08,
-  shadowRadius: 10,
-  elevation: 4,
-};
 
 const styles = StyleSheet.create({
   card: {

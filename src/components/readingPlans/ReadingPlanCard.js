@@ -21,7 +21,7 @@ function ReadingPlanCard({ plan, meta, done, pct, index, onPress, onContinue }) 
 
   return (
     <Animated.View entering={FadeInUp.delay(index * 90).duration(420).springify().damping(16)}>
-      <Animated.View style={anim}>
+      <Animated.View style={[anim, theme.shadow, { borderRadius: theme.radius.card }]}>
         <View
           style={[
             styles.card,
@@ -30,7 +30,6 @@ function ReadingPlanCard({ plan, meta, done, pct, index, onPress, onContinue }) 
               borderColor: theme.border,
               borderRadius: theme.radius.card,
             },
-            theme.shadow,
           ]}
         >
           <LinearGradient

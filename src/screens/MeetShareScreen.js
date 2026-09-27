@@ -33,7 +33,6 @@ import {
   setUserRsvpResponse,
   fetchRsvpCounts,
 } from '../services/firebaseService';
-import { LIBRARY_ACCENTS } from '../constants/library';
 import LibraryEmptyState from '../components/library/LibraryEmptyState';
 import LibraryErrorState from '../components/library/LibraryErrorState';
 import SkeletonLoader from '../components/common/SkeletonLoader';
@@ -42,11 +41,13 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Typography, Spacing, BorderRadius } from '../theme/colors';
 
-// This section's brand color, consistent with every other Library tab
-// (verse = orange, prayer = purple, study = green, meet = cyan, ...).
-// Every gradient/tint below is derived from this + the theme's own
-// `gradientMeet`, instead of unrelated hardcoded purples/ambers.
-const ACCENT = LIBRARY_ACCENTS.meet;
+// This section's brand color. Now aligned with the app's real orange design
+// system (same hex as `Colors.primary` / the Bible & Verse sections) instead
+// of the previous unrelated cyan/blue tone, so this screen matches the rest
+// of Faith Frames. Gradients below use `colors.gradientPrimary` (the same
+// gradient used by primary buttons app-wide) instead of the old blue-toned
+// `gradientMeet`.
+const ACCENT = '#C96A1B';
 
 const STATUS_META = {
   live: { label: 'LIVE', color: '#EF4444' },
@@ -96,7 +97,7 @@ function WorshipMeetingCard({
 
   return (
     <LinearGradient
-      colors={colors.gradientMeet}
+      colors={colors.gradientPrimary}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.cardBorder}
@@ -115,7 +116,7 @@ function WorshipMeetingCard({
             />
           ) : (
             <LinearGradient
-              colors={colors.gradientMeet}
+              colors={colors.gradientPrimary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.banner}
@@ -269,7 +270,7 @@ function WorshipMeetingCard({
             style={styles.joinWrap}
           >
             <LinearGradient
-              colors={joinDisabled ? ['#4B5563', '#374151'] : colors.gradientMeet}
+              colors={joinDisabled ? ['#4B5563', '#374151'] : colors.gradientPrimary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.joinBtn}
@@ -583,7 +584,7 @@ export default function MeetShareScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
-  headerWrap: { paddingHorizontal: 20, paddingBottom: 14, alignItems: 'center' },
+  headerWrap: { paddingHorizontal: 20, paddingBottom: 12, alignItems: 'center' },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -598,9 +599,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center' },
-  headerTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
-  headerSubtitle: { fontSize: 12, fontWeight: '700', marginTop: 2 },
-  headerUnderline: { width: 44, height: 4, borderRadius: 999, marginTop: 10 },
+  headerTitle: { fontSize: 23, fontWeight: '800', letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: 12, fontWeight: '700', marginTop: 3, letterSpacing: 0.2 },
+  headerUnderline: { width: 44, height: 4, borderRadius: 999, marginTop: 8 },
 
   loadingArea: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm },
 
@@ -609,14 +610,14 @@ const styles = StyleSheet.create({
   cardBorder: {
     borderRadius: 28,
     padding: 1.5,
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg + 2,
   },
   card: {
     borderRadius: 26.5,
     overflow: 'hidden',
   },
 
-  bannerWrap: { width: '100%', aspectRatio: 4 / 4.6, position: 'relative', overflow: 'hidden' },
+  bannerWrap: { width: '100%', aspectRatio: 4 / 3.55, position: 'relative', overflow: 'hidden' },
   banner: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   bannerBadgeRow: {
     position: 'absolute',
@@ -633,26 +634,26 @@ const styles = StyleSheet.create({
     bottom: Spacing.lg,
   },
   overlayTitle: {
-    fontSize: 30,
+    fontSize: 26,
     fontWeight: '800',
-    lineHeight: 34,
+    lineHeight: 30,
     color: '#FFFFFF',
-    letterSpacing: -0.6,
+    letterSpacing: -0.5,
     textShadowColor: 'rgba(0,0,0,0.4)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 6,
   },
   overlaySubtitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    lineHeight: 24,
-    marginTop: 2,
-    letterSpacing: -0.4,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginTop: 3,
+    letterSpacing: -0.2,
   },
   titleDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    marginTop: 14,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    marginTop: 12,
   },
   videoIconCircle: {
     width: 38,
@@ -678,31 +679,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    marginBottom: Spacing.lg,
-    paddingTop: Spacing.sm,
+    marginBottom: Spacing.md + 2,
+    paddingTop: Spacing.xs,
   },
-  quoteMark: { fontSize: 30, fontWeight: '800', lineHeight: 28, marginTop: -2 },
-  verseText: { flex: 1, fontSize: Typography.fontSizeMD, lineHeight: 23, fontStyle: 'italic' },
+  quoteMark: { fontSize: 28, fontWeight: '800', lineHeight: 26, marginTop: -2 },
+  verseText: { flex: 1, fontSize: Typography.fontSizeMD, lineHeight: 21, fontStyle: 'italic' },
 
-  infoBox: { borderRadius: 18, borderWidth: 1, marginBottom: Spacing.lg, overflow: 'hidden' },
+  infoBox: { borderRadius: 18, borderWidth: 1, marginBottom: Spacing.md + 2, overflow: 'hidden' },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm + 3,
     borderBottomWidth: 1,
   },
   infoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.md,
   },
   infoTextWrap: { flex: 1 },
-  infoLabel: { fontSize: Typography.fontSizeXS, fontWeight: '600', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.4 },
-  infoValue: { fontSize: Typography.fontSizeMD, fontWeight: '700' },
+  infoLabel: { fontSize: Typography.fontSizeXS, fontWeight: '700', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
+  infoValue: { fontSize: Typography.fontSizeMD, fontWeight: '700', lineHeight: 18 },
   copyBtn: { padding: 6, marginLeft: Spacing.sm },
 
   rsvpRow: {
@@ -710,38 +711,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 18,
     borderWidth: 1,
-    paddingVertical: Spacing.md,
-    marginBottom: Spacing.lg,
+    paddingVertical: Spacing.sm + 3,
+    marginBottom: Spacing.md + 2,
   },
-  rsvpItem: { flex: 1, alignItems: 'center', gap: 4 },
+  rsvpItem: { flex: 1, alignItems: 'center', gap: 3 },
   rsvpIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  rsvpCount: { fontSize: Typography.fontSize2XL, fontWeight: '800' },
-  rsvpLabel: { fontSize: Typography.fontSizeSM, fontWeight: '700' },
-  rsvpDivider: { width: 1, height: 44 },
+  rsvpCount: { fontSize: Typography.fontSizeXL, fontWeight: '800' },
+  rsvpLabel: { fontSize: Typography.fontSizeXS, fontWeight: '700', letterSpacing: 0.2 },
+  rsvpDivider: { width: 1, height: 40 },
 
   joinWrap: { borderRadius: BorderRadius.round, overflow: 'hidden' },
   joinBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 17,
+    gap: 8,
+    paddingVertical: 16,
   },
-  joinText: { color: '#FFFFFF', fontSize: Typography.fontSizeLG, fontWeight: '800', letterSpacing: 0.3 },
+  joinText: { color: '#FFFFFF', fontSize: Typography.fontSizeLG, fontWeight: '800', letterSpacing: 0.2 },
 
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.xl,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.lg,
     flexWrap: 'wrap',
   },
   footerText: { fontSize: Typography.fontSizeSM, fontWeight: '600' },

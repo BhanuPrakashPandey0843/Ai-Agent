@@ -50,7 +50,7 @@ const LOGO_SIZE = 104;
 const GOLD = '#D4AF37';
 
 const WORDMARK = 'Faith Frames';
-const TAGLINE = 'PREMIUM FAITH WALLPAPERS';
+const TAGLINE = 'SACRED PATHWAAYS BEING HERE';
 const BREATHE_EASE = Easing.inOut(Easing.ease);
 
 // Fixed (not random-per-render) so the halo layout is stable across

@@ -10,13 +10,13 @@ import {
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Typography, Spacing, BorderRadius } from '../../theme/colors';
+import { Typography, Spacing, BorderRadius, Shadows } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
 
 const MAX_COLLAPSED = 140;
 
 export default function WitnessCard({ item, index, accent }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(16)).current;
@@ -41,7 +41,7 @@ export default function WitnessCard({ item, index, accent }) {
   };
 
   return (
-    <Animated.View style={[styles.wrap, { opacity: opacityAnim, transform: [{ translateY }] }]}>
+    <Animated.View style={[styles.wrap, { opacity: opacityAnim, transform: [{ translateY }] }, Shadows.card(isDark)]}>
       <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
         {item.imageUrl ? (
           <View style={styles.heroWrap}>

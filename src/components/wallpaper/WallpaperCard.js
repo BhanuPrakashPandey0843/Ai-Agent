@@ -45,7 +45,8 @@ const WallpaperCard = ({ item, index = 0, isFavorite = false, onFavoriteToggle }
   const [imageError, setImageError] = React.useState(false);
 
   return (
-    <Animated.View style={[styles.container, { opacity, transform: [{ scale }] }]}>
+    <Animated.View style={[styles.shadowWrap, { opacity, transform: [{ scale }] }]}>
+    <View style={styles.container}>
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={openDetail}
@@ -105,22 +106,26 @@ const WallpaperCard = ({ item, index = 0, isFavorite = false, onFavoriteToggle }
           </TouchableOpacity>
         )}
       </TouchableOpacity>
+    </View>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  shadowWrap: {
     width: CARD_W,
     margin: Spacing.xs,
     borderRadius: BorderRadius.xl,
-    overflow: 'hidden',
-    backgroundColor: Colors.bgCard,
     elevation: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
+  },
+  container: {
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+    backgroundColor: Colors.bgCard,
   },
   image: {
     width: '100%',

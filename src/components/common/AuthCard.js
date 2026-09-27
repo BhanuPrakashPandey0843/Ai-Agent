@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
-import { Colors, BorderRadius, Spacing, Shadows } from '../../theme/colors';
+import { Animated, StyleSheet } from 'react-native';
+import { BorderRadius, Spacing } from '../../theme/colors';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function AuthCard({ children, style, delay = 0 }) {
+  const { colors, isDark, elevation } = useTheme();
   const fade = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.96)).current;
 
@@ -26,7 +28,17 @@ export default function AuthCard({ children, style, delay = 0 }) {
 
   return (
     <Animated.View
-      style={[styles.card, Shadows.card, { opacity: fade, transform: [{ scale }] }, style]}
+      style={[
+        styles.card,
+        elevation('medium'),
+        {
+          backgroundColor: colors.bgCard,
+          borderColor: isDark ? colors.border : 'rgba(0,0,0,0.05)',
+          opacity: fade,
+          transform: [{ scale }],
+        },
+        style,
+      ]}
     >
       {children}
     </Animated.View>
@@ -35,10 +47,8 @@ export default function AuthCard({ children, style, delay = 0 }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
-    borderColor: Colors.border,
     padding: Spacing.xxl,
   },
 });

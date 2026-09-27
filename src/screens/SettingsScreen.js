@@ -21,6 +21,9 @@ import ScreenContainer from '../components/common/ScreenContainer';
 import useFavorites from '../hooks/useFavorites';
 import useStoryBookmarks from '../hooks/useStoryBookmarks';
 import useSavedVideos from '../hooks/useSavedVideos';
+import { Shadows } from '../theme/colors';
+
+const cardShadow = Shadows.card;
 
 function StatCard({ icon, label, value, colors, isDark }) {
   const cardBg = isDark ? '#101010' : '#F5F5F5';
@@ -28,7 +31,7 @@ function StatCard({ icon, label, value, colors, isDark }) {
   const textSecondary = isDark ? '#9CA3AF' : '#6B7280';
 
   return (
-    <View style={[styles.statCard, { backgroundColor: cardBg }]}>
+    <View style={[styles.statCard, { backgroundColor: cardBg }, cardShadow(isDark)]}>
       <Ionicons name={icon} size={22} color={colors.primary} />
       <Text style={[styles.statValue, { color: textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
         {value}
@@ -116,7 +119,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.profileCard, { backgroundColor: cardBg }]}>
+        <View style={[styles.profileCard, { backgroundColor: cardBg }, cardShadow(isDark)]}>
           {userProfile?.photoURL ? (
             <Image source={{ uri: userProfile.photoURL }} style={styles.avatar} />
           ) : (
@@ -151,7 +154,8 @@ export default function SettingsScreen() {
         </View>
 
         <Text style={[styles.sectionLabel, { color: textSecondary }]}>Preferences</Text>
-        <View style={[styles.section, { backgroundColor: cardBg }]}>
+        <View style={[styles.section, cardShadow(isDark)]}>
+          <View style={[styles.sectionInner, { backgroundColor: cardBg }]}>
           <SettingRow
             icon="moon-outline"
             label="Dark Mode"
@@ -160,10 +164,12 @@ export default function SettingsScreen() {
             colors={colors}
             isDark={isDark}
           />
+          </View>
         </View>
 
         <Text style={[styles.sectionLabel, { color: textSecondary }]}>Support</Text>
-        <View style={[styles.section, { backgroundColor: cardBg }]}>
+        <View style={[styles.section, cardShadow(isDark)]}>
+          <View style={[styles.sectionInner, { backgroundColor: cardBg }]}>
           <SettingRow
             icon="mail-outline"
             label="Contact Us"
@@ -192,10 +198,12 @@ export default function SettingsScreen() {
             colors={colors}
             isDark={isDark}
           />
+          </View>
         </View>
 
         <Text style={[styles.sectionLabel, { color: textSecondary }]}>Legal & Information</Text>
-        <View style={[styles.section, { backgroundColor: cardBg }]}>
+        <View style={[styles.section, cardShadow(isDark)]}>
+          <View style={[styles.sectionInner, { backgroundColor: cardBg }]}>
           <SettingRow
             icon="information-circle-outline"
             label="About Us"
@@ -217,14 +225,17 @@ export default function SettingsScreen() {
             colors={colors}
             isDark={isDark}
           />
+          </View>
         </View>
 
         <Text style={[styles.sectionLabel, { color: textSecondary }]}>Account</Text>
-        <View style={[styles.section, { backgroundColor: cardBg }]}>
+        <View style={[styles.section, cardShadow(isDark)]}>
+          <View style={[styles.sectionInner, { backgroundColor: cardBg }]}>
           <SettingRow icon="log-out-outline" label="Sign Out" onPress={handleLogout} danger colors={colors} isDark={isDark} />
+          </View>
         </View>
 
-        <Text style={[styles.footer, { color: textSecondary }]}>{APP_NAME} — Premium Faith Wallpapers</Text>
+        <Text style={[styles.footer, { color: textSecondary }]}>{APP_NAME} — Sacred Pathwaays Begin Here</Text>
       </ScrollView>
     </ScreenContainer>
   );
@@ -319,6 +330,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   section: {
+    borderRadius: 20,
+  },
+  sectionInner: {
     borderRadius: 20,
     overflow: 'hidden',
   },

@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Colors, Typography, Spacing, BorderRadius } from '../../theme/colors';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../theme/colors';
 
 export default function StudyPlanCard({ item, index, accent, expanded, onPress }) {
   const scaleAnim = useRef(new Animated.Value(0.97)).current;
@@ -97,7 +97,7 @@ export default function StudyPlanCard({ item, index, accent, expanded, onPress }
 }
 
 const styles = StyleSheet.create({
-  container: { marginBottom: Spacing.lg },
+  container: { marginBottom: Spacing.lg, ...Shadows.card(true) },
   card: {
     borderRadius: BorderRadius.xxl,
     padding: Spacing.lg,

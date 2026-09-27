@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, Platform, UIManager } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useReadingPlanTheme } from '../../hooks/useReadingPlanTheme';
+import { useBiblePremiumTheme } from '../../hooks/useBiblePremiumTheme';
 import GoldenButton from './GoldenButton';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -11,7 +11,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 function DayTimelineCard({ day, status, richContent, onRead, onComplete, onNotes }) {
-  const theme = useReadingPlanTheme();
+  const theme = useBiblePremiumTheme();
   const [expanded, setExpanded] = useState(false);
   const locked = status === 'locked';
   const isToday = status === 'today';
@@ -26,7 +26,7 @@ function DayTimelineCard({ day, status, richContent, onRead, onComplete, onNotes
     setExpanded((e) => !e);
   };
 
-  const borderColor = isToday ? theme.accent : theme.border;
+  const borderColor = isToday ? theme.primary : theme.border;
   const opacity = locked ? 0.5 : status === 'upcoming' ? 0.78 : 1;
 
   const prayer = day.prayer || 'Lord, open my heart to receive what You have for me in this passage.';
@@ -41,8 +41,8 @@ function DayTimelineCard({ day, status, richContent, onRead, onComplete, onNotes
           style={[
             styles.railDot,
             {
-              backgroundColor: completed || isToday ? theme.accent : theme.surfaceSecondary,
-              borderColor: theme.accent,
+              backgroundColor: completed || isToday ? theme.primary : theme.surfaceAlt,
+              borderColor: theme.primary,
             },
           ]}
         />
@@ -51,51 +51,56 @@ function DayTimelineCard({ day, status, richContent, onRead, onComplete, onNotes
 
       <View
         style={[
+          styles.cardShadowWrap,
+          { borderRadius: theme.radius, opacity },
+          isToday ? theme.shadow : theme.shadowSoft,
+        ]}
+      >
+      <View
+        style={[
           styles.card,
           {
             backgroundColor: theme.surface,
             borderColor,
-            borderRadius: theme.radius.progress,
-            opacity,
+            borderRadius: theme.radius,
           },
-          isToday ? theme.shadow : theme.shadowSoft,
         ]}
       >
-        <View style={[styles.accentBar, { backgroundColor: isToday || completed ? theme.accent : theme.border }]} />
+        <View style={[styles.accentBar, { backgroundColor: isToday || completed ? theme.primary : theme.border }]} />
 
-        <Pressable onPress={toggle} android_ripple={{ color: theme.accentSoft }} style={styles.header}>
+        <Pressable onPress={toggle} android_ripple={{ color: theme.primarySoft }} style={styles.header}>
           <View
             style={[
               styles.badge,
               {
-                backgroundColor: completed ? theme.accent : isToday ? theme.accentSoft : theme.surfaceSecondary,
+                backgroundColor: completed ? theme.primary : isToday ? theme.primarySoft : theme.surfaceAlt,
               },
             ]}
           >
             {completed ? (
-              <Ionicons name="checkmark" size={16} color={theme.onAccent} />
+              <Ionicons name="checkmark" size={16} color={theme.onPrimary} />
             ) : locked ? (
-              <Ionicons name="lock-closed" size={14} color={theme.textSecondary} />
+              <Ionicons name="lock-closed" size={14} color={theme.textMuted} />
             ) : (
-              <Text style={[styles.badgeText, { color: isToday ? theme.accent : theme.textPrimary }]}>
+              <Text style={[styles.badgeText, { color: isToday ? theme.primary : theme.text }]}>
                 {day.day}
               </Text>
             )}
           </View>
 
           <View style={styles.headerText}>
-            <Text style={[theme.type.caption, { color: theme.textSecondary }]}>Day {day.day}</Text>
-            <Text style={[styles.title, { color: theme.textPrimary }]} numberOfLines={expanded ? 3 : 1}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textFaint, textTransform: 'uppercase', letterSpacing: 0.4 }}>Day {day.day}</Text>
+            <Text style={[styles.title, { color: theme.text }]} numberOfLines={expanded ? 3 : 1}>
               {day.title}
             </Text>
           </View>
 
           {isToday ? (
-            <View style={[styles.todayChip, { backgroundColor: theme.accent }]}>
-              <Text style={[theme.type.caption, { color: theme.onAccent, fontWeight: '600' }]}>Today</Text>
+            <View style={[styles.todayChip, { backgroundColor: theme.primary }]}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: theme.onPrimary }}>Today</Text>
             </View>
           ) : (
-            <Ionicons name={expanded ? 'chevron-up' : 'chevron-forward'} size={20} color={theme.textSecondary} />
+            <Ionicons name={expanded ? 'chevron-up' : 'chevron-forward'} size={20} color={theme.textFaint} />
           )}
         </Pressable>
 
@@ -111,39 +116,39 @@ function DayTimelineCard({ day, status, richContent, onRead, onComplete, onNotes
             entering={FadeIn.duration(220)}
             exiting={FadeOut.duration(160)}
             layout={LinearTransition.duration(220)}
-            style={[styles.expanded, { borderTopColor: theme.border }]}
+            style={[styles.expanded, { borderTopColor: theme.divider }]}
           >
             {day.description ? (
-              <Text style={[theme.type.bodySm, { color: theme.textSecondary, fontStyle: 'italic' }]}>
+              <Text style={{ fontSize: 13.5, lineHeight: 20, color: theme.textMuted, fontStyle: 'italic' }}>
                 {day.description}
               </Text>
             ) : (
-              <Text style={[theme.type.bodySm, { color: theme.textSecondary }]}>{day.scripture}</Text>
+              <Text style={{ fontSize: 13.5, lineHeight: 20, color: theme.textMuted }}>{day.scripture}</Text>
             )}
 
             {richContent && day.devotional ? (
-              <Text style={[theme.type.bodySm, styles.block, { color: theme.textPrimary }]}>{day.devotional}</Text>
+              <Text style={[styles.block, { fontSize: 13.5, lineHeight: 20, color: theme.text }]}>{day.devotional}</Text>
             ) : null}
 
-            <View style={[styles.prayerBox, { backgroundColor: theme.surfaceSecondary }]}>
-              <Text style={[theme.type.caption, { color: theme.accent, marginBottom: 8 }]}>PRAYER FOCUS</Text>
-              <Text style={[theme.type.bodySm, { color: theme.textPrimary }]}>{prayer}</Text>
+            <View style={[styles.prayerBox, { backgroundColor: theme.surfaceAlt }]}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: theme.primary, marginBottom: 8, letterSpacing: 0.4 }}>PRAYER FOCUS</Text>
+              <Text style={{ fontSize: 13.5, lineHeight: 20, color: theme.text }}>{prayer}</Text>
             </View>
 
             <View
               style={[
                 styles.reflectBox,
-                { backgroundColor: theme.accentSoft, borderLeftColor: theme.accent },
+                { backgroundColor: theme.primarySoft, borderLeftColor: theme.primary },
               ]}
             >
               <View style={styles.reflectHead}>
-                <Ionicons name="leaf-outline" size={18} color={theme.accent} />
-                <Text style={[theme.type.caption, { color: theme.accent }]}>REFLECTION</Text>
+                <Ionicons name="leaf-outline" size={18} color={theme.primary} />
+                <Text style={{ fontSize: 11, fontWeight: '800', color: theme.primary, letterSpacing: 0.4 }}>REFLECTION</Text>
               </View>
-              <Text style={[theme.type.bodySm, { color: theme.textPrimary, marginTop: 8 }]}>{reflection}</Text>
+              <Text style={{ fontSize: 13.5, lineHeight: 20, color: theme.text, marginTop: 8 }}>{reflection}</Text>
               <Pressable onPress={() => onNotes?.(day)} style={styles.notesCta}>
-                <Text style={[theme.type.caption, { color: theme.accent, fontWeight: '600' }]}>Write a note</Text>
-                <Ionicons name="create-outline" size={16} color={theme.accent} />
+                <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.primary }}>Write a note</Text>
+                <Ionicons name="create-outline" size={16} color={theme.primary} />
               </Pressable>
             </View>
 
@@ -157,12 +162,13 @@ function DayTimelineCard({ day, status, richContent, onRead, onComplete, onNotes
                 onPress={() => onComplete?.(day)}
                 style={[styles.doneBtn, { borderColor: theme.border }]}
               >
-                <Ionicons name="checkmark-circle-outline" size={20} color={theme.accent} />
-                <Text style={[theme.type.caption, { color: theme.textPrimary }]}>Mark complete</Text>
+                <Ionicons name="checkmark-circle-outline" size={20} color={theme.primary} />
+                <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.text }}>Mark complete</Text>
               </Pressable>
             ) : null}
           </Animated.View>
         ) : null}
+      </View>
       </View>
     </View>
   );
@@ -170,9 +176,9 @@ function DayTimelineCard({ day, status, richContent, onRead, onComplete, onNotes
 
 function Chip({ icon, label, theme }) {
   return (
-    <View style={[chipStyles.chip, { backgroundColor: theme.surfaceSecondary }]}>
-      <Ionicons name={icon} size={14} color={theme.accent} />
-      <Text style={[theme.type.caption, { color: theme.textSecondary, flexShrink: 1 }]} numberOfLines={1}>
+    <View style={[chipStyles.chip, { backgroundColor: theme.surfaceAlt }]}>
+      <Ionicons name={icon} size={14} color={theme.primary} />
+      <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted, flexShrink: 1 }} numberOfLines={1}>
         {label}
       </Text>
     </View>
@@ -206,6 +212,9 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1.5,
     overflow: 'hidden',
+  },
+  cardShadowWrap: {
+    flex: 1,
     marginLeft: 8,
   },
   accentBar: {
@@ -230,9 +239,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontSize: 13, fontWeight: '600' },
+  badgeText: { fontSize: 13, fontWeight: '800' },
   headerText: { flex: 1 },
-  title: { fontSize: 16, fontWeight: '600', lineHeight: 22, marginTop: 2 },
+  title: { fontSize: 15, fontWeight: '800', lineHeight: 21, marginTop: 2 },
   todayChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
   chipRow: {
     flexDirection: 'row',

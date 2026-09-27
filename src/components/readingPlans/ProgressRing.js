@@ -17,12 +17,12 @@ export default function ProgressRing({
   size = 128,
   strokeWidth = 10,
   progress = 0,
-  color = '#D4AF37',
-  trackColor = 'rgba(212,175,55,0.16)',
+  color = '#C96A1B',
+  trackColor = 'rgba(201,106,27,0.16)',
   label,
   sublabel,
   labelColor = '#FFFFFF',
-  sublabelColor = '#B8B2A6',
+  sublabelColor = '#B7B7B7',
   children,
 }) {
   const radius = (size - strokeWidth) / 2;

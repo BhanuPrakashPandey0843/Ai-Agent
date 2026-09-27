@@ -16,7 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useBible } from '../../context/BibleContext';
-import { useReadingPlanTheme } from '../../hooks/useReadingPlanTheme';
+import { useBiblePremiumTheme } from '../../hooks/useBiblePremiumTheme';
 import { READING_PLANS } from '../../constants/bible';
 import { getPlanDays, getPlanWeeks, PLAN_META } from '../../constants/readingPlansData';
 import ProgressRing from '../../components/readingPlans/ProgressRing';
@@ -30,7 +30,7 @@ export default function ReadingPlanDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
-  const theme = useReadingPlanTheme();
+  const theme = useBiblePremiumTheme();
   const { planProgress, completePlanDay, streak, toggleBookmark, bookmarks } = useBible();
 
   const planId = route.params?.planId || '30_faith';
@@ -130,43 +130,43 @@ export default function ReadingPlanDetailScreen() {
   }, [todayData, toggleBookmark]);
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.background }]}>
+    <View style={[styles.root, { backgroundColor: theme.bg }]}>
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
 
-      <View style={[styles.sticky, { paddingTop: insets.top + 8, backgroundColor: theme.background }]}>
+      <View style={[styles.sticky, { paddingTop: insets.top + 8, backgroundColor: theme.bg }]}>
         <View style={styles.stickyRow}>
           <Pressable
             onPress={() => navigation.goBack()}
-            style={[styles.circleBtn, { backgroundColor: theme.surface }]}
+            style={[styles.circleBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}
           >
-            <Ionicons name="chevron-back" size={22} color={theme.textPrimary} />
+            <Ionicons name="chevron-back" size={22} color={theme.text} />
           </Pressable>
 
           <View style={styles.stickyTitles}>
-            <Text style={[theme.type.caption, { color: theme.textPrimary, fontWeight: '600' }]} numberOfLines={1}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text }} numberOfLines={1}>
               {plan.title}
             </Text>
-            <Text style={[theme.type.caption, { color: theme.accent }]}>{pct}% complete</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: theme.primary, marginTop: 1 }}>{pct}% complete</Text>
           </View>
 
           <View style={styles.stickyActions}>
-            <Pressable onPress={bookmarkToday} style={[styles.circleBtn, { backgroundColor: theme.surface }]}>
+            <Pressable onPress={bookmarkToday} style={[styles.circleBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
               <Ionicons
                 name={isVerseBookmarked ? 'bookmark' : 'bookmark-outline'}
                 size={20}
-                color={theme.accent}
+                color={theme.primary}
               />
             </Pressable>
             <Pressable
               onPress={() => setMenuOpen(true)}
-              style={[styles.circleBtn, { backgroundColor: theme.surface }]}
+              style={[styles.circleBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}
             >
-              <Ionicons name="ellipsis-horizontal" size={20} color={theme.textPrimary} />
+              <Ionicons name="ellipsis-horizontal" size={20} color={theme.text} />
             </Pressable>
           </View>
         </View>
         <LinearGradient
-          colors={[theme.accent, 'transparent']}
+          colors={[theme.primary, 'transparent']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.divider}
@@ -180,8 +180,8 @@ export default function ReadingPlanDetailScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 48 }}
       >
         <Animated.View style={[styles.heroCopy, heroFade]}>
-          <Text style={[theme.type.screenTitle, { color: theme.textPrimary }]}>{plan.title}</Text>
-          <Text style={[theme.type.bodySm, { color: theme.textSecondary, marginTop: 8 }]}>{meta.tagline}</Text>
+          <Text style={{ fontSize: 26, fontWeight: '800', color: theme.text, lineHeight: 32 }}>{plan.title}</Text>
+          <Text style={{ fontSize: 14, lineHeight: 21, color: theme.textMuted, marginTop: 8 }}>{meta.tagline}</Text>
         </Animated.View>
 
         <View style={styles.content}>
@@ -211,7 +211,7 @@ export default function ReadingPlanDetailScreen() {
               {
                 backgroundColor: theme.surface,
                 borderColor: theme.border,
-                borderRadius: theme.radius.card,
+                borderRadius: theme.radius,
               },
               theme.shadow,
             ]}
@@ -221,22 +221,22 @@ export default function ReadingPlanDetailScreen() {
                 size={112}
                 strokeWidth={9}
                 progress={pct}
-                color={theme.accent}
-                trackColor={theme.accentSoft}
+                color={theme.primary}
+                trackColor={theme.primarySoft}
                 label={`${pct}%`}
-                labelColor={theme.textPrimary}
+                labelColor={theme.text}
                 sublabel={`${doneCount}/${plan.days}`}
-                sublabelColor={theme.textSecondary}
+                sublabelColor={theme.textMuted}
               />
               <View style={styles.progressStats}>
-                <Text style={[theme.type.caption, { color: theme.accent }]}>CURRENT DAY</Text>
-                <Text style={[theme.type.cardTitle, { color: theme.textPrimary }]}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: theme.primary, letterSpacing: 0.4 }}>CURRENT DAY</Text>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: theme.text, marginTop: 2 }}>
                   {isComplete ? plan.days : currentDay}
                 </Text>
-                <Text style={[theme.type.bodySm, { color: theme.textSecondary, marginTop: 8 }]}>
+                <Text style={{ fontSize: 14, lineHeight: 21, color: theme.textMuted, marginTop: 8 }}>
                   {isComplete ? 'Journey complete' : `${plan.days - doneCount} days remaining`}
                 </Text>
-                <Text style={[theme.type.caption, { color: theme.textSecondary, marginTop: 8 }]}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textFaint, marginTop: 8 }}>
                   {streak?.readingStreak || 0} day streak
                 </Text>
               </View>
@@ -273,8 +273,8 @@ export default function ReadingPlanDetailScreen() {
         <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)}>
           <View style={[styles.menu, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Pressable style={styles.menuItem} onPress={sharePlan}>
-              <Ionicons name="share-outline" size={20} color={theme.accent} />
-              <Text style={[theme.type.body, { color: theme.textPrimary }]}>Share plan</Text>
+              <Ionicons name="share-outline" size={20} color={theme.primary} />
+              <Text style={{ fontSize: 15, fontWeight: '600', color: theme.text }}>Share plan</Text>
             </Pressable>
             <Pressable
               style={styles.menuItem}
@@ -283,8 +283,8 @@ export default function ReadingPlanDetailScreen() {
                 bookmarkToday();
               }}
             >
-              <Ionicons name="bookmark-outline" size={20} color={theme.accent} />
-              <Text style={[theme.type.body, { color: theme.textPrimary }]}>Bookmark today's reading</Text>
+              <Ionicons name="bookmark-outline" size={20} color={theme.primary} />
+              <Text style={{ fontSize: 15, fontWeight: '600', color: theme.text }}>Bookmark today's reading</Text>
             </Pressable>
             {todayData ? (
               <Pressable
@@ -294,8 +294,8 @@ export default function ReadingPlanDetailScreen() {
                   openNotes(todayData);
                 }}
               >
-                <Ionicons name="create-outline" size={20} color={theme.accent} />
-                <Text style={[theme.type.body, { color: theme.textPrimary }]}>Write a reflection</Text>
+                <Ionicons name="create-outline" size={20} color={theme.primary} />
+                <Text style={{ fontSize: 15, fontWeight: '600', color: theme.text }}>Write a reflection</Text>
               </Pressable>
             ) : null}
           </View>

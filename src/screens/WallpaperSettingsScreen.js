@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -39,6 +39,59 @@ const WALLPAPER_CATEGORIES = [
 const QUALITY_OPTIONS = ['Auto', 'HD', 'Full HD', '2K', '4K'];
 const DOWNLOAD_OPTIONS = ['WiFi Only', 'Mobile Data', 'Always Download'];
 const AUTO_WALLPAPER_OPTIONS = ['Off', 'Daily', 'Weekly', 'Monthly'];
+
+// Where these preferences live. The device copy is the one the screen renders
+// from (instant on open, works offline and signed out); the Firestore document
+// is the per-account copy so the same choices follow the user to another
+// device. Both are keyed exactly as before — only the security rule for the
+// Firestore path changed (see firebase/firestore.rules).
+const WALLPAPER_SETTINGS_STORAGE_KEY = 'wallpaper_settings';
+const WALLPAPER_PREFERENCES_COLLECTION = 'wallpaper_preferences';
+
+const buildDefaultCategories = () =>
+  WALLPAPER_CATEGORIES.reduce((acc, cat) => {
+    acc[cat.id] = true;
+    return acc;
+  }, {});
+
+const DEFAULT_SETTINGS = {
+  categories: buildDefaultCategories(),
+  quality: 'Auto',
+  downloadPreference: 'WiFi Only',
+  autoWallpaper: 'Off',
+  smartRecommendations: true,
+};
+
+/**
+ * Coerces anything read from disk or Firestore into exactly the five fields
+ * this screen owns. Two reasons this matters: a partial or legacy document
+ * used to be able to leave `categories` undefined, which crashes the
+ * selectedCount lookup below; and the Firestore payload has to match the
+ * shape firestore.rules validates, or the write is rejected.
+ */
+const normalizeSettings = (raw, base = DEFAULT_SETTINGS) => {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const categories =
+    source.categories && typeof source.categories === 'object'
+      ? source.categories
+      : base.categories;
+  return {
+    // Defaults underneath so a category added to the list later starts enabled
+    // instead of vanishing from a saved document that predates it.
+    categories: { ...buildDefaultCategories(), ...categories },
+    quality: QUALITY_OPTIONS.includes(source.quality) ? source.quality : base.quality,
+    downloadPreference: DOWNLOAD_OPTIONS.includes(source.downloadPreference)
+      ? source.downloadPreference
+      : base.downloadPreference,
+    autoWallpaper: AUTO_WALLPAPER_OPTIONS.includes(source.autoWallpaper)
+      ? source.autoWallpaper
+      : base.autoWallpaper,
+    smartRecommendations:
+      typeof source.smartRecommendations === 'boolean'
+        ? source.smartRecommendations
+        : base.smartRecommendations,
+  };
+};
 
 /** Staggered fade + rise entrance, matching the app's card-reveal language. */
 function Reveal({ delay = 0, children, style }) {
@@ -217,60 +270,111 @@ export default function WallpaperSettingsScreen() {
   const ACCENT = colors.primary;
   const { showToast } = useToast();
 
-  const [settings, setSettings] = useState({
-    categories: {},
-    quality: 'Auto',
-    downloadPreference: 'WiFi Only',
-    autoWallpaper: 'Off',
-    smartRecommendations: true,
-  });
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [storageInfo, setStorageInfo] = useState({
     cacheSize: '12.5 MB',
     downloadCount: 45,
     favoriteCount: 128,
   });
 
+  // Last committed settings, for rolling the UI back if a save doesn't stick.
+  const settingsRef = useRef(settings);
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const localSettings = await AsyncStorage.getItem('wallpaper_settings');
-        if (localSettings) {
-          setSettings((prev) => ({ ...prev, ...JSON.parse(localSettings) }));
-        } else {
-          const defaultCats = WALLPAPER_CATEGORIES.reduce((acc, cat) => {
-            acc[cat.id] = true;
-            return acc;
-          }, {});
-          setSettings((prev) => ({ ...prev, categories: defaultCats }));
-        }
+    settingsRef.current = settings;
+  }, [settings]);
 
-        if (user) {
-          const firestoreSettings = await getDoc(doc(db, 'wallpaper_preferences', user.uid));
-          if (firestoreSettings.exists()) {
-            const data = firestoreSettings.data();
-            setSettings((prev) => ({ ...prev, ...data }));
-            await AsyncStorage.setItem('wallpaper_settings', JSON.stringify(data));
-          }
-        }
+  // One warning per run of account-sync failures, so a burst of taps while
+  // offline isn't a burst of identical toasts.
+  const syncWarnedRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSettings = async () => {
+      // 1. Device copy — present after a restart, and the only copy when the
+      //    user is signed out.
+      let current = DEFAULT_SETTINGS;
+      try {
+        const localSettings = await AsyncStorage.getItem(WALLPAPER_SETTINGS_STORAGE_KEY);
+        if (localSettings) current = normalizeSettings(JSON.parse(localSettings));
+      } catch {
+        // Unreadable or corrupt local copy — defaults stand.
+      }
+      if (cancelled) return;
+      setSettings(current);
+
+      // 2. Account copy, layered on top when signed in.
+      if (!user?.uid) return;
+      try {
+        const snap = await getDoc(doc(db, WALLPAPER_PREFERENCES_COLLECTION, user.uid));
+        if (cancelled || !snap.exists()) return;
+        const remote = normalizeSettings(snap.data(), current);
+        setSettings(remote);
+        await AsyncStorage.setItem(WALLPAPER_SETTINGS_STORAGE_KEY, JSON.stringify(remote));
       } catch (err) {
-        // Silent — local defaults already applied
+        // The device copy is already on screen, so there is nothing useful to
+        // tell the user here — but log it rather than swallowing it silently,
+        // which is how the permission-denied on this path went unnoticed.
+        if (__DEV__) {
+          console.warn(
+            '[WallpaperSettings] could not read saved preferences:',
+            err?.code || err?.message
+          );
+        }
       }
     };
 
     loadSettings();
-  }, [user]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
 
-  const saveSettings = async (newSettings) => {
-    setSettings(newSettings);
-    try {
-      await AsyncStorage.setItem('wallpaper_settings', JSON.stringify(newSettings));
-      if (user) {
-        await setDoc(doc(db, 'wallpaper_preferences', user.uid), newSettings, { merge: true });
+  const saveSettings = useCallback(
+    async (newSettings) => {
+      const previous = settingsRef.current;
+      const normalized = normalizeSettings(newSettings);
+      setSettings(normalized);
+
+      // Device copy first: it's what this screen reads on open and what keeps
+      // the choice across restarts, signed in or not. If this fails nothing
+      // was persisted anywhere, so put the control back where it was rather
+      // than leaving the UI showing a change that doesn't exist.
+      try {
+        await AsyncStorage.setItem(WALLPAPER_SETTINGS_STORAGE_KEY, JSON.stringify(normalized));
+      } catch {
+        setSettings(previous);
+        showToast('Could not save settings. Please try again.', 'error');
+        return;
       }
-    } catch (err) {
-      showToast('Failed to save settings', 'error');
-    }
-  };
+
+      if (!user?.uid) return;
+
+      try {
+        await setDoc(
+          doc(db, WALLPAPER_PREFERENCES_COLLECTION, user.uid),
+          normalized,
+          { merge: true }
+        );
+        syncWarnedRef.current = false;
+      } catch (err) {
+        // The change is saved on this device, just not to the account. Say
+        // exactly that instead of a blanket "failed to save", which used to
+        // contradict the UI still showing the new value.
+        if (__DEV__) {
+          console.warn(
+            '[WallpaperSettings] account sync failed:',
+            err?.code || err?.message
+          );
+        }
+        if (!syncWarnedRef.current) {
+          syncWarnedRef.current = true;
+          showToast("Saved on this device — couldn't sync to your account.", 'error');
+        }
+      }
+    },
+    [user?.uid, showToast]
+  );
 
   const handleToggleCategory = (id) => {
     Haptics.selectionAsync();
@@ -305,7 +409,7 @@ export default function WallpaperSettingsScreen() {
     ]);
   };
 
-  const selectedCount = Object.values(settings.categories).filter(Boolean).length;
+  const selectedCount = Object.values(settings.categories || {}).filter(Boolean).length;
 
   return (
     <ScreenContainer>

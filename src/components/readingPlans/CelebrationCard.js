@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { useReadingPlanTheme } from '../../hooks/useReadingPlanTheme';
+import { useBiblePremiumTheme } from '../../hooks/useBiblePremiumTheme';
 import GoldenButton from './GoldenButton';
 
 function Particle({ delay, x, color }) {
@@ -52,29 +52,31 @@ function Particle({ delay, x, color }) {
 }
 
 function CelebrationCard({ title, body, scripture, onContinue, onExplore }) {
-  const theme = useReadingPlanTheme();
+  const theme = useBiblePremiumTheme();
   const particles = useMemo(
     () =>
       Array.from({ length: 14 }, (_, i) => ({
         id: i,
         delay: i * 40,
         x: 16 + i * 18,
-        color: i % 2 === 0 ? theme.accent : theme.accentDark,
+        color: theme.primary,
       })),
-    [theme.accent, theme.accentDark]
+    [theme.primary]
   );
 
   return (
     <Animated.View
       entering={FadeIn.duration(280)}
+      style={[theme.shadow, { borderRadius: theme.radius }]}
+    >
+    <View
       style={[
         styles.card,
         {
           backgroundColor: theme.surface,
-          borderColor: theme.accent,
-          borderRadius: theme.radius.card,
+          borderColor: theme.primary,
+          borderRadius: theme.radius,
         },
-        theme.shadow,
       ]}
     >
       <View style={styles.confetti} pointerEvents="none">
@@ -83,22 +85,23 @@ function CelebrationCard({ title, body, scripture, onContinue, onExplore }) {
         ))}
       </View>
 
-      <Animated.View entering={FadeInUp.duration(360)} style={[styles.check, { backgroundColor: theme.accent }]}>
-        <Ionicons name="checkmark" size={28} color={theme.onAccent} />
+      <Animated.View entering={FadeInUp.duration(360)} style={[styles.check, { backgroundColor: theme.primary }]}>
+        <Ionicons name="checkmark" size={28} color={theme.onPrimary} />
       </Animated.View>
-      <Text style={[theme.type.cardTitle, { color: theme.textPrimary, textAlign: 'center' }]}>{title}</Text>
-      <Text style={[theme.type.bodySm, styles.body, { color: theme.textSecondary }]}>{body}</Text>
+      <Text style={{ fontSize: 20, fontWeight: '800', color: theme.text, textAlign: 'center' }}>{title}</Text>
+      <Text style={[styles.body, { fontSize: 14, lineHeight: 21, color: theme.textMuted }]}>{body}</Text>
       {scripture ? (
-        <Text style={[theme.type.caption, { color: theme.accent, textAlign: 'center', marginBottom: 16 }]}>
+        <Text style={{ fontSize: 12, fontWeight: '700', color: theme.primary, textAlign: 'center', marginBottom: 16 }}>
           {scripture}
         </Text>
       ) : null}
       <GoldenButton label="Continue" onPress={onContinue} icon="arrow-forward" />
       {onExplore ? (
         <Pressable onPress={onExplore} style={styles.link}>
-          <Text style={[theme.type.caption, { color: theme.accent }]}>Explore other plans</Text>
+          <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.primary }}>Explore other plans</Text>
         </Pressable>
       ) : null}
+    </View>
     </Animated.View>
   );
 }

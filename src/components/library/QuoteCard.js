@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, BorderRadius } from '../../theme/colors';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../theme/colors';
 
 export default function QuoteCard({ item, index, accent, onShare }) {
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -68,7 +68,7 @@ export default function QuoteCard({ item, index, accent, onShare }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginBottom: Spacing.lg },
+  wrap: { marginBottom: Spacing.lg, ...Shadows.card(true) },
   card: {
     borderRadius: BorderRadius.xxl,
     overflow: 'hidden',

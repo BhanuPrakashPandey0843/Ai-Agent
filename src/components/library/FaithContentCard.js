@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Share, Animated } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Typography, Spacing, BorderRadius } from '../../theme/colors';
+import { Typography, Spacing, BorderRadius, Shadows } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
 import useContentInteraction from '../../hooks/useContentInteraction';
 
@@ -33,7 +33,7 @@ const FALLBACK_ICON_BY_TYPE = {
 };
 
 export default function FaithContentCard({ kind, item, index = 0, accent, onPress }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [imageError, setImageError] = useState(false);
   const { liked, disliked, saved, likeCount, dislikeCount, like, dislike, toggleSave } =
     useContentInteraction(kind, item);
@@ -65,11 +65,11 @@ export default function FaithContentCard({ kind, item, index = 0, accent, onPres
   };
 
   return (
-    <Animated.View style={{ opacity: opacityAnim, transform: [{ translateY: translateAnim }] }}>
+    <Animated.View style={{ opacity: opacityAnim, transform: [{ translateY: translateAnim }], ...Shadows.card(isDark) }}>
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={() => onPress?.(item)}
-        style={[styles.card, { backgroundColor: colors.bgCard }, cardShadow]}
+        style={[styles.card, { backgroundColor: colors.bgCard }]}
       >
         <View style={styles.thumbWrap}>
           {item.thumbnail && !imageError ? (
@@ -172,14 +172,6 @@ export default function FaithContentCard({ kind, item, index = 0, accent, onPres
 }
 
 const hitSlop = { top: 8, bottom: 8, left: 8, right: 8 };
-
-const cardShadow = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.08,
-  shadowRadius: 10,
-  elevation: 4,
-};
 
 const styles = StyleSheet.create({
   card: {

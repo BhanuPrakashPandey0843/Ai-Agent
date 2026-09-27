@@ -28,6 +28,7 @@ export default function PrayerCard({ item, colors, accent, isBookmarked, onBookm
   const badgeColor = onImage ? '#FFFFFF' : accent;
 
   return (
+    <View style={styles.shadowWrap}>
     <View style={[styles.outer, { shadowColor: '#000' }]}>
       {showImage ? (
         <>
@@ -134,20 +135,26 @@ export default function PrayerCard({ item, colors, accent, isBookmarked, onBookm
         </View>
       </View>
     </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  shadowWrap: {
+    width: PRAYER_CARD_W,
+    borderRadius: 26,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 6,
+  },
   outer: {
     width: PRAYER_CARD_W,
     borderRadius: 26,
     overflow: 'hidden',
     minHeight: 280,
     position: 'relative',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
-    elevation: 6,
   },
   blobTop: {
     position: 'absolute',

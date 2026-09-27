@@ -41,7 +41,7 @@
         "android.permission.ACCESS_MEDIA_LOCATION",
         "android.permission.SET_WALLPAPER"
       ],
-      "versionCode": 24
+      "versionCode": 25
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -73,6 +73,8 @@
       [
         "expo-splash-screen",
         {
+          "image": "./assets/applogo.png",
+          "resizeMode": "contain",
           "backgroundColor": "#0A0A0A"
         }
       ],

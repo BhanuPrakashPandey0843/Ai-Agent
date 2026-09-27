@@ -8,7 +8,8 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { useReadingPlanTheme } from '../../hooks/useReadingPlanTheme';
+import { useBiblePremiumTheme } from '../../hooks/useBiblePremiumTheme';
+import { getColors, BorderRadius } from '../../theme/colors';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -19,7 +20,8 @@ function GoldenButton({
   disabled = false,
   compact = false,
 }) {
-  const theme = useReadingPlanTheme();
+  const theme = useBiblePremiumTheme();
+  const colors = getColors(theme.isDark);
   const scale = useSharedValue(1);
   const arrowX = useSharedValue(0);
 
@@ -46,19 +48,19 @@ function GoldenButton({
       style={[anim, compact ? styles.compactWrap : styles.wrap]}
     >
       <LinearGradient
-        colors={[theme.accent, theme.accentDark]}
+        colors={colors.gradientPrimary}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 1, y: 0 }}
         style={[
           styles.btn,
-          { height: compact ? 44 : 52, borderRadius: theme.radius.button },
+          { height: compact ? 44 : 52, borderRadius: BorderRadius.round },
           theme.shadowSoft,
         ]}
       >
-        <Text style={[theme.type.button, styles.label, { color: theme.onAccent }]}>{label}</Text>
+        <Text style={[styles.label, { color: theme.onPrimary }]}>{label}</Text>
         {icon ? (
           <Animated.View style={arrowAnim}>
-            <Ionicons name={icon} size={20} color={theme.onAccent} />
+            <Ionicons name={icon} size={20} color={theme.onPrimary} />
           </Animated.View>
         ) : null}
       </LinearGradient>
@@ -76,7 +78,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 20,
   },
-  label: { letterSpacing: 0.2 },
+  label: { fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
 });
 
 export default memo(GoldenButton);

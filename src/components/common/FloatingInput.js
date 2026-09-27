@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, BorderRadius } from '../../theme/colors';
+import { Typography, Spacing, BorderRadius } from '../../theme/colors';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function FloatingInput({
   label,
@@ -23,41 +24,39 @@ export default function FloatingInput({
   showPassword,
   ...rest
 }) {
+  const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
   const floated = focused || (value != null && String(value).length > 0);
+
+  const stateColor = focused ? colors.primary : error ? colors.error : colors.textMuted;
 
   return (
     <View style={styles.wrap}>
       <View
         style={[
           styles.inputContainer,
-          focused && styles.inputFocused,
-          error && styles.inputError,
+          {
+            backgroundColor: focused ? colors.bgCardSoft : colors.bgCard,
+            borderColor: error ? colors.error : focused ? colors.primary : colors.border,
+          },
         ]}
       >
         {icon ? (
-          <Ionicons
-            name={icon}
-            size={20}
-            color={focused ? Colors.primary : Colors.textMuted}
-            style={styles.icon}
-          />
+          <Ionicons name={icon} size={19} color={stateColor} style={styles.icon} />
         ) : null}
         <View style={styles.inputInner}>
           <Text
             style={[
               styles.floatingLabel,
               floated && styles.floatingLabelActive,
-              {
-                color: focused ? Colors.primary : error ? Colors.error : Colors.textMuted,
-              },
+              { color: stateColor },
             ]}
             pointerEvents="none"
           >
             {label}
           </Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.textPrimary }]}
             value={value}
             onChangeText={onChangeText}
             onFocus={() => setFocused(true)}
@@ -66,6 +65,8 @@ export default function FloatingInput({
             keyboardType={keyboardType}
             autoCapitalize={autoCapitalize}
             placeholderTextColor="transparent"
+            selectionColor={colors.primary}
+            cursorColor={colors.primary}
             {...rest}
           />
         </View>
@@ -76,13 +77,18 @@ export default function FloatingInput({
           >
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-              size={20}
-              color={Colors.textMuted}
+              size={19}
+              color={focused ? colors.primary : colors.textMuted}
             />
           </TouchableOpacity>
         ) : null}
       </View>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.errorRow}>
+          <Ionicons name="alert-circle" size={13} color={colors.error} />
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -92,18 +98,11 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderWidth: 1.5,
     paddingHorizontal: Spacing.lg,
     minHeight: 58,
   },
-  inputFocused: {
-    borderColor: Colors.borderAccent,
-    backgroundColor: Colors.bgCardLight,
-  },
-  inputError: { borderColor: Colors.error },
   icon: { marginRight: Spacing.sm },
   inputInner: { flex: 1, justifyContent: 'center' },
   floatingLabel: {
@@ -117,18 +116,24 @@ const styles = StyleSheet.create({
   floatingLabelActive: {
     top: 6,
     fontSize: Typography.fontSizeXS,
+    fontWeight: Typography.fontWeightSemiBold,
+    letterSpacing: 0.4,
   },
   input: {
-    color: Colors.textPrimary,
     fontSize: Typography.fontSizeMD,
     paddingTop: 20,
     paddingBottom: 10,
     minHeight: 44,
   },
-  errorText: {
-    color: Colors.error,
-    fontSize: Typography.fontSizeSM,
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginTop: Spacing.xs,
     marginLeft: Spacing.xs,
+  },
+  errorText: {
+    fontSize: Typography.fontSizeSM,
+    fontWeight: Typography.fontWeightMedium,
   },
 });

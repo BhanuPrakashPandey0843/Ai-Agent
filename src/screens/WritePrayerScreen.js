@@ -1,7 +1,7 @@
 // src/screens/WritePrayerScreen.js
 // Premium "Write a Prayer" form — submits to Firestore: userPrayers.
 // Drafts are persisted locally via AsyncStorage so users never lose work.
-// Includes word counter, category chips, anonymous toggle, loading + success states,
+// Includes word counter, anonymous toggle, loading + success states,
 // accessibility labels, and proper keyboard handling.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -35,7 +35,7 @@ import {
   getPrayerDraft,
   savePrayerDraft,
 } from '../storage';
-import { STORAGE_KEYS, USER_PRAYER_CATEGORIES } from '../constants';
+import { STORAGE_KEYS } from '../constants';
 
 const MAX_WORDS = 500;
 const MAX_TITLE_CHARS = 120;
@@ -57,7 +57,6 @@ export default function WritePrayerScreen() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState(null);
   const [content, setContent] = useState('');
   const [anonymous, setAnonymous] = useState(false);
 
@@ -77,7 +76,6 @@ export default function WritePrayerScreen() {
         if (active && draft && !submitting) {
           setTitle(draft.title || '');
           setDescription(draft.description || '');
-          setCategory(draft.category || null);
           setContent(draft.content || '');
           setAnonymous(draft.anonymous === true);
         }
@@ -99,14 +97,13 @@ export default function WritePrayerScreen() {
     if (draftDebounce.current) clearTimeout(draftDebounce.current);
     draftDebounce.current = setTimeout(async () => {
       try {
-        if (!title && !description && !category && !content && !anonymous) {
+        if (!title && !description && !content && !anonymous) {
           await clearPrayerDraft(STORAGE_KEYS.PRAYER_DRAFT);
           return;
         }
         await savePrayerDraft(STORAGE_KEYS.PRAYER_DRAFT, {
           title,
           description,
-          category,
           content,
           anonymous,
         });
@@ -117,7 +114,7 @@ export default function WritePrayerScreen() {
     return () => {
       if (draftDebounce.current) clearTimeout(draftDebounce.current);
     };
-  }, [loaded, submitting, title, description, category, content, anonymous]);
+  }, [loaded, submitting, title, description, content, anonymous]);
 
   // ─── Derived validation / word state ──────────────────────────────────────
   const wordCount = useMemo(() => countWords(content), [content]);
@@ -131,12 +128,11 @@ export default function WritePrayerScreen() {
       errors.push(`Title must be ${MAX_TITLE_CHARS} characters or fewer`);
     if (description.length > MAX_DESCRIPTION_CHARS)
       errors.push(`Description must be ${MAX_DESCRIPTION_CHARS} characters or fewer`);
-    if (!category) errors.push('Please select a category');
     if (!content.trim()) errors.push('Please write your prayer');
     else if (overWordLimit)
       errors.push(`Prayer exceeds the ${MAX_WORDS} word limit by ${-wordsRemaining} word(s)`);
     return errors;
-  }, [title, description, category, content, overWordLimit, wordsRemaining]);
+  }, [title, description, content, overWordLimit, wordsRemaining]);
 
   const canSubmit = validationErrors.length === 0 && !submitting && user;
 
@@ -148,7 +144,6 @@ export default function WritePrayerScreen() {
       await savePrayerDraft(STORAGE_KEYS.PRAYER_DRAFT, {
         title,
         description,
-        category,
         content,
         anonymous,
       });
@@ -158,7 +153,7 @@ export default function WritePrayerScreen() {
     } finally {
       setSavingDraft(false);
     }
-  }, [savingDraft, title, description, category, content, anonymous, showToast]);
+  }, [savingDraft, title, description, content, anonymous, showToast]);
 
   const handleDiscard = useCallback(() => {
     Alert.alert('Discard Prayer?', 'Your unsaved changes and draft will be deleted.', [
@@ -188,7 +183,6 @@ export default function WritePrayerScreen() {
         userId: user.uid,
         title: title.trim(),
         description: description.trim(),
-        category,
         content: content.trim(),
         anonymous,
         username,
@@ -201,7 +195,6 @@ export default function WritePrayerScreen() {
       showToast('Your prayer request has been submitted successfully and is awaiting approval.', 'success', 3800);
       setTitle('');
       setDescription('');
-      setCategory(null);
       setContent('');
       setAnonymous(false);
       setTimeout(() => {
@@ -221,45 +214,11 @@ export default function WritePrayerScreen() {
     userProfile,
     title,
     description,
-    category,
     content,
     anonymous,
     showToast,
     navigation,
   ]);
-
-  const renderCategoryChip = useCallback(
-    (cat) => {
-      const selected = category === cat;
-      return (
-        <TouchableOpacity
-          key={cat}
-          activeOpacity={0.8}
-          onPress={() => setCategory(cat)}
-          accessibilityLabel={`Category ${cat}`}
-          accessibilityState={{ selected }}
-          style={[
-            styles.chip,
-            {
-              borderColor: selected ? accent : colors.border,
-              backgroundColor: selected ? accent + '15' : colors.bgCard,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.chipText,
-              { color: selected ? accent : colors.textPrimary },
-              selected && { fontWeight: '700' },
-            ]}
-          >
-            {cat}
-          </Text>
-        </TouchableOpacity>
-      );
-    },
-    [category, accent, colors]
-  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -351,14 +310,6 @@ export default function WritePrayerScreen() {
                   {description.length}/{MAX_DESCRIPTION_CHARS}
                 </Text>
               </View>
-            </View>
-
-            {/* Category */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={[styles.label, { color: colors.textPrimary }]}>
-                Category <Text style={{ color: '#f44336' }}>*</Text>
-              </Text>
-              <View style={styles.chipWrap}>{USER_PRAYER_CATEGORIES.map(renderCategoryChip)}</View>
             </View>
 
             {/* Content */}
@@ -553,21 +504,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 24,
     fontWeight: '400',
-  },
-  chipWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  chip: {
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 999,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   toggleRow: {
     flexDirection: 'row',

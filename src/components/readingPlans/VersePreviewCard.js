@@ -8,6 +8,7 @@ function VersePreviewCard({ text, reference, bookmarked, onBookmark, onShare }) 
   const theme = useReadingPlanTheme();
 
   return (
+    <View style={[{ borderRadius: theme.radius.card }, theme.shadowSoft]}>
     <LinearGradient
       colors={theme.isDark ? ['#322E24', theme.surface] : ['#FFF8E8', theme.surface]}
       style={[
@@ -16,7 +17,6 @@ function VersePreviewCard({ text, reference, bookmarked, onBookmark, onShare }) 
           borderColor: theme.accentSoft,
           borderRadius: theme.radius.card,
         },
-        theme.shadowSoft,
       ]}
     >
       <View style={[styles.goldLine, { backgroundColor: theme.accent }]} />
@@ -38,6 +38,7 @@ function VersePreviewCard({ text, reference, bookmarked, onBookmark, onShare }) 
       <Text style={[styles.verse, { color: theme.textPrimary }]}>"{text}"</Text>
       <Text style={[theme.type.caption, { color: theme.accent, marginTop: 12 }]}>{reference}</Text>
     </LinearGradient>
+    </View>
   );
 }
 

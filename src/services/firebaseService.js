@@ -393,7 +393,6 @@ export function mapUserPrayerToFeedItem(item = {}) {
     reference,
     bgurl,
     image: bgurl,
-    category: item.category || null,
     displayDate: typeof item.displayDate === 'string' ? item.displayDate.trim() : item.displayDate || null,
   };
 }
@@ -1712,12 +1711,10 @@ export const createUserPrayer = async (payload) => {
   if (!payload?.userId) throw new Error('Missing user id');
   if (!payload?.title?.trim()) throw new Error('Prayer title is required');
   if (!payload?.content?.trim()) throw new Error('Prayer content is required');
-  if (!payload?.category) throw new Error('Please select a category');
 
   const docRef = await addDoc(collection(db, COLLECTIONS.USER_PRAYERS), {
     title: String(payload.title).trim(),
     description: String(payload.description || '').trim(),
-    category: String(payload.category),
     content: String(payload.content).trim(),
     anonymous: payload.anonymous === true,
     status: 'pending',

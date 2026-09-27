@@ -11,7 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, BorderRadius } from '../../theme/colors';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../theme/colors';
 
 const StoryCard = ({
   item,
@@ -66,6 +66,7 @@ const StoryCard = ({
 const styles = StyleSheet.create({
   container: {
     marginBottom: Spacing.lg,
+    ...Shadows.card(true),
   },
   card: {
     borderRadius: BorderRadius.xxl,

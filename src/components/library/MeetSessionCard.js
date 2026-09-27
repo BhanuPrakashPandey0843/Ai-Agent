@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Typography, Spacing, BorderRadius } from '../../theme/colors';
+import { Typography, Spacing, BorderRadius, Shadows } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
 
 function formatSessionDate(createdAt) {
@@ -25,7 +25,7 @@ function formatSessionDate(createdAt) {
 }
 
 export default function MeetSessionCard({ item, index, accent, onJoinError }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.96)).current;
   const [joining, setJoining] = React.useState(false);
@@ -59,7 +59,7 @@ export default function MeetSessionCard({ item, index, accent, onJoinError }) {
   };
 
   return (
-    <Animated.View style={[styles.wrap, { opacity: opacityAnim, transform: [{ scale: scaleAnim }] }]}>
+    <Animated.View style={[styles.wrap, { opacity: opacityAnim, transform: [{ scale: scaleAnim }] }, Shadows.card(isDark)]}>
       <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
         <View style={[styles.iconCircle, { backgroundColor: accent + '18', borderColor: accent + '35' }]}>
           <Ionicons name="videocam" size={22} color={accent} />

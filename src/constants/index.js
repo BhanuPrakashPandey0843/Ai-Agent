@@ -113,30 +113,6 @@ export const QUOTE_CATEGORIES = [
   'General',
 ];
 
-export const USER_PRAYER_CATEGORIES = [
-  'Myself',
-  'Family',
-  'Friends',
-  'Marriage',
-  'Children',
-  'Parents',
-  'Health',
-  'Healing',
-  'Education',
-  'Career',
-  'Financial Needs',
-  'Thanksgiving',
-  'Guidance',
-  'Forgiveness',
-  'Protection',
-  'Church',
-  'Community',
-  'Nation',
-  'World Peace',
-  'Salvation',
-  'Other',
-];
-
 export const USER_PRAYER_STATUS = {
   PENDING: 'pending',
   APPROVED: 'approved',

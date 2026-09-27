@@ -1,7 +1,12 @@
 // src/screens/DailyPrayerScreen.js
-// Premium "Prayer Room" reading experience — Firestore: dailyPrayers plus
-// approved userPrayers mapped onto the same card feed. Grouping uses
-// `displayDate` (YYYY-MM-DD), falling back to createdAt only for legacy docs.
+// Premium "Prayer Room" reading experience.
+//
+// Data mapping (corrected):
+//   Daily Prayers     -> approved user-submitted prayers (userPrayers, status == 'approved')
+//   Community Prayers -> admin-uploaded prayers (dailyPrayers collection)
+//
+// Grouping for the Daily date-strip uses `displayDate` (YYYY-MM-DD) when
+// present, falling back to `createdAt` for legacy/undated docs.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -24,8 +29,6 @@ import {
   subscribeToDailyPrayers,
   subscribeToApprovedUserPrayers,
   subscribeToMyUserPrayers,
-  togglePrayingForRequest,
-  getMyPrayingState,
   mapUserPrayerToFeedItem,
 } from '../services/firebaseService';
 import useFirestoreSubscription from '../hooks/useFirestoreSubscription';
@@ -40,9 +43,7 @@ import LibraryEmptyState from '../components/library/LibraryEmptyState';
 import LibraryErrorState from '../components/library/LibraryErrorState';
 import PrayerDateTimeline, { buildDateRange, groupPrayersByDateKey } from '../components/prayer/PrayerDateTimeline';
 import PrayerSearchBar from '../components/prayer/PrayerSearchBar';
-import PrayerCategoryChips from '../components/prayer/PrayerCategoryChips';
 import PrayerCard, { PRAYER_CARD_W } from '../components/prayer/PrayerCard';
-import CommunityPrayerCard from '../components/prayer/CommunityPrayerCard';
 import MyPrayerStatusCard from '../components/prayer/MyPrayerStatusCard';
 import BackHeader from '../components/common/BackHeader';
 
@@ -60,95 +61,49 @@ export default function DailyPrayerScreen() {
   const { showToast } = useToast();
   const { user } = useAuth();
 
-  const { items, loading, error, fromCache, refreshing, refresh, retry } = useFirestoreSubscription(
+  // ─── Admin-uploaded prayers (dailyPrayers collection) — now powers the
+  // "Community" tab. ──────────────────────────────────────────────────────
+  const admin = useFirestoreSubscription(
     subscribeToDailyPrayers,
     STORAGE_KEYS.LIBRARY_CACHE_PRAYERS
+  );
+
+  // ─── Approved user-submitted prayers (userPrayers, status == 'approved')
+  // — now powers the "Daily" tab. ─────────────────────────────────────────
+  const community = useFirestoreSubscription(
+    subscribeToApprovedUserPrayers,
+    STORAGE_KEYS.LIBRARY_CACHE_COMMUNITY_PRAYERS
   );
 
   const handleAddPrayer = useCallback(() => {
     navigation.navigate('WritePrayer');
   }, [navigation]);
 
-  // ─── Community Prayer Requests (approved userPrayers) ────────────────────
   const [activeTab, setActiveTab] = useState('daily'); // 'daily' | 'community'
 
-  const community = useFirestoreSubscription(
-    subscribeToApprovedUserPrayers,
-    STORAGE_KEYS.LIBRARY_CACHE_COMMUNITY_PRAYERS
-  );
-
+  // This user's own submissions — surfaced under the Daily tab (that's the
+  // tab that now shows approved userPrayers, so it's where "my submission is
+  // still pending/was rejected" status belongs).
   const subscribeMine = useCallback(
     (onData, onError) => subscribeToMyUserPrayers(user?.uid, onData, onError),
     [user?.uid]
   );
   const { items: myPrayers } = useFirestoreSubscription(subscribeMine, null);
-  // Only pending/rejected need surfacing here — approved ones already show
-  // up as regular cards in the community feed below.
   const myPendingOrRejected = useMemo(
     () => myPrayers.filter((p) => p.status === 'pending' || p.status === 'rejected'),
     [myPrayers]
   );
 
-  const [prayingMap, setPrayingMap] = useState({});
-  const [prayBusyId, setPrayBusyId] = useState(null);
-
-  useEffect(() => {
-    if (activeTab !== 'community' || !user?.uid || !community.items.length) return;
-    let cancelled = false;
-    Promise.all(
-      community.items.map((it) => getMyPrayingState(it.id, user.uid).then((val) => [it.id, val]))
-    ).then((entries) => {
-      if (cancelled) return;
-      setPrayingMap((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, user?.uid, community.items]);
-
-  const handleTogglePray = useCallback(
-    async (item) => {
-      if (!user?.uid) {
-        showToast('Please sign in to pray for this request.', 'error');
-        return;
-      }
-      if (prayBusyId) return;
-      setPrayBusyId(item.id);
-      const prevPraying = !!prayingMap[item.id];
-      setPrayingMap((prev) => ({ ...prev, [item.id]: !prevPraying }));
-      try {
-        const next = await togglePrayingForRequest(item.id, user.uid);
-        setPrayingMap((prev) => ({ ...prev, [item.id]: next }));
-      } catch (err) {
-        setPrayingMap((prev) => ({ ...prev, [item.id]: prevPraying }));
-        showToast(err?.message || 'Could not update right now.', 'error');
-      } finally {
-        setPrayBusyId(null);
-      }
-    },
-    [user?.uid, prayingMap, prayBusyId, showToast]
+  // ─── Daily Prayers (approved user-submitted prayers) ─────────────────────
+  // subscribeToApprovedUserPrayers already filters status == 'approved' and
+  // orders by createdAt desc, so this is already "approved only, newest
+  // first" with no client-side re-sorting needed.
+  const feedItems = useMemo(
+    () => (community.items || []).map(mapUserPrayerToFeedItem),
+    [community.items]
   );
-
-  const openCommunityDetail = useCallback(
-    (item) => navigation.navigate('CommunityPrayerDetail', { item }),
-    [navigation]
-  );
-
-  const feedItems = useMemo(() => {
-    const approvedAsCards = (community.items || []).map(mapUserPrayerToFeedItem);
-    const seen = new Set();
-    const merged = [];
-    [...items, ...approvedAsCards].forEach((it) => {
-      if (!it?.id || seen.has(it.id)) return;
-      seen.add(it.id);
-      merged.push(it);
-    });
-    return merged;
-  }, [items, community.items]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedDateKey, setSelectedDateKey] = useState(TODAY_KEY);
   const [bookmarked, setBookmarked] = useState({});
 
@@ -164,24 +119,8 @@ export default function DailyPrayerScreen() {
     });
   }, []);
 
-  // Only built from real data — categories are hidden entirely if the
-  // admin never set a `category` field on any prayer document.
-  const categories = useMemo(() => {
-    const set = new Set();
-    items.forEach((it) => {
-      if (it.category) set.add(it.category);
-    });
-    community.items.forEach((it) => {
-      if (it.category) set.add(it.category);
-    });
-    return Array.from(set);
-  }, [items, community.items]);
-
   const filteredItems = useMemo(() => {
     let list = feedItems;
-    if (selectedCategory) {
-      list = list.filter((it) => it.category === selectedCategory);
-    }
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter(
@@ -192,22 +131,22 @@ export default function DailyPrayerScreen() {
       );
     }
     return list;
-  }, [feedItems, selectedCategory, searchQuery]);
+  }, [feedItems, searchQuery]);
 
   // Bucket prayers by calendar day so the date strip can show a content dot
   // and the screen can render exactly the selected day's prayers.
   const groupsByKey = useMemo(() => groupPrayersByDateKey(filteredItems), [filteredItems]);
 
-  // If a search/category filter empties out the currently selected day,
-  // fall back to today rather than showing a confusing blank state on a
-  // date the person didn't actually pick.
+  // If the search filter empties out the currently selected day, fall back to
+  // today rather than showing a confusing blank state on a date the person
+  // didn't actually pick.
   useEffect(() => {
-    if (!searchQuery.trim() && !selectedCategory) return;
+    if (!searchQuery.trim()) return;
     if (!groupsByKey[selectedDateKey]?.length && selectedDateKey !== TODAY_KEY) {
       setSelectedDateKey(TODAY_KEY);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery]);
 
   const dayItems = groupsByKey[selectedDateKey] || [];
 
@@ -273,8 +212,9 @@ export default function DailyPrayerScreen() {
     return `${entry.dayLabel}, ${entry.monthLabel} ${entry.dateLabel}`;
   }, [selectedDateKey]);
 
+  // ─── Daily tab body (approved user-submitted prayers) ─────────────────────
   let body;
-  if (loading) {
+  if (community.loading) {
     body = (
       <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
         <SkeletonLoader height={54} borderRadius={18} style={{ marginBottom: 16 }} />
@@ -282,21 +222,21 @@ export default function DailyPrayerScreen() {
         <SkeletonLoader height={380} borderRadius={26} />
       </View>
     );
-  } else if (error) {
-    body = <LibraryErrorState message={error} onRetry={retry} accent={accent} />;
+  } else if (community.error) {
+    body = <LibraryErrorState message={community.error} onRetry={community.retry} accent={accent} />;
   } else if (!feedItems.length) {
     body = (
       <LibraryEmptyState
         accent={accent}
         icon="hand-left-outline"
         title="No Prayers Yet"
-        message="Daily prayers will appear here once added or approved for a display date."
+        message="Prayers submitted by the community will appear here once approved by our team."
       />
     );
   } else {
     body = (
       <>
-        {fromCache ? (
+        {community.fromCache ? (
           <View style={[styles.cacheBanner, { borderColor: accent + '40', backgroundColor: colors.bgCard }]}>
             <Ionicons name="cloud-offline-outline" size={13} color={accent} />
             <Text style={[styles.cacheText, { color: accent }]}>Showing saved content</Text>
@@ -316,15 +256,12 @@ export default function DailyPrayerScreen() {
 
         <PrayerSearchBar value={searchQuery} onChangeText={setSearchQuery} colors={colors} accent={accent} onAddPress={handleAddPrayer} />
 
-        {categories.length ? (
-          <View style={{ marginTop: 18 }}>
-            <PrayerCategoryChips
-              categories={categories}
-              selected={selectedCategory}
-              onSelect={setSelectedCategory}
-              colors={colors}
-              accent={accent}
-            />
+        {myPendingOrRejected.length ? (
+          <View style={{ paddingHorizontal: 20, marginTop: 18 }}>
+            <Text style={[styles.myRequestsHeading, { color: colors.textMuted }]}>YOUR SUBMISSIONS</Text>
+            {myPendingOrRejected.map((p) => (
+              <MyPrayerStatusCard key={p.id} item={p} colors={colors} />
+            ))}
           </View>
         ) : null}
 
@@ -363,7 +300,7 @@ export default function DailyPrayerScreen() {
               title="No Prayers This Day"
               message={
                 selectedDateKey === TODAY_KEY
-                  ? 'No prayer has been posted for today yet — check back soon.'
+                  ? 'No approved prayer has been posted for today yet — check back soon.'
                   : 'Nothing was posted on this date. Try another day on the calendar above.'
               }
             />
@@ -373,80 +310,62 @@ export default function DailyPrayerScreen() {
     );
   }
 
+  // ─── Community tab body (admin-uploaded prayers) ──────────────────────────
   let communityBody;
-  if (community.loading) {
+  if (admin.loading) {
     communityBody = (
-      <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
-        <SkeletonLoader height={140} borderRadius={22} style={{ marginBottom: 16 }} />
-        <SkeletonLoader height={140} borderRadius={22} />
+      <View style={{ paddingHorizontal: 20, marginTop: 24, alignItems: 'center' }}>
+        <SkeletonLoader height={280} borderRadius={26} style={{ marginBottom: 16, width: PRAYER_CARD_W }} />
+        <SkeletonLoader height={280} borderRadius={26} style={{ width: PRAYER_CARD_W }} />
       </View>
     );
-  } else if (community.error) {
-    communityBody = <LibraryErrorState message={community.error} onRetry={community.retry} accent={accent} />;
+  } else if (admin.error) {
+    communityBody = <LibraryErrorState message={admin.error} onRetry={admin.retry} accent={accent} />;
+  } else if (!admin.items.length) {
+    communityBody = (
+      <LibraryEmptyState
+        accent={accent}
+        icon="people-outline"
+        title="No Community Prayers Yet"
+        message="Prayers shared by our team will appear here."
+      />
+    );
   } else {
     communityBody = (
       <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
-        {community.fromCache ? (
+        {admin.fromCache ? (
           <View style={[styles.cacheBanner, { borderColor: accent + '40', backgroundColor: colors.bgCard, alignSelf: 'center' }]}>
             <Ionicons name="cloud-offline-outline" size={13} color={accent} />
             <Text style={[styles.cacheText, { color: accent }]}>Showing saved content</Text>
           </View>
         ) : null}
 
-        <View style={styles.communityHeaderRow}>
-          <Text style={[styles.dayHeading, { color: colors.textPrimary }]}>Community Prayer Requests</Text>
-          <TouchableOpacity
-            style={[styles.shareBtn, { backgroundColor: accent }]}
-            onPress={handleAddPrayer}
-            activeOpacity={0.85}
-            accessibilityLabel="Share a prayer request"
-          >
-            <Ionicons name="add" size={16} color="#fff" />
-            <Text style={styles.shareBtnText}>Share</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={[styles.dayHeading, { color: colors.textPrimary }]}>Community Prayers</Text>
         <Text style={[styles.communitySubtitle, { color: colors.textMuted }]}>
-          Requests approved by our team. Tap to read, pray, and leave encouragement.
+          Prayers shared with the whole FaithFrames community by our team.
         </Text>
 
-        {myPendingOrRejected.length ? (
-          <View style={{ marginTop: 18, marginBottom: 4 }}>
-            <Text style={[styles.myRequestsHeading, { color: colors.textMuted }]}>YOUR SUBMISSIONS</Text>
-            {myPendingOrRejected.map((p) => (
-              <MyPrayerStatusCard key={p.id} item={p} colors={colors} />
-            ))}
-          </View>
-        ) : null}
-
-        <View style={{ marginTop: 16 }}>
-          {community.items.length ? (
-            community.items.map((it) => (
-              <CommunityPrayerCard
-                key={it.id}
-                item={it}
+        <View style={{ marginTop: 18, alignItems: 'center' }}>
+          {admin.items.map((item) => (
+            <View key={item.id} style={{ marginBottom: 20 }}>
+              <PrayerCard
+                item={item}
                 colors={colors}
                 accent={accent}
-                isPraying={!!prayingMap[it.id]}
-                prayBusy={prayBusyId === it.id}
-                onPress={() => openCommunityDetail(it)}
-                onPray={() => handleTogglePray(it)}
+                isBookmarked={!!bookmarked[item.id]}
+                onBookmark={() => handleBookmark(item.id)}
+                onShare={() => handleShare(item)}
+                onCopy={() => handleCopy(item)}
               />
-            ))
-          ) : (
-            <LibraryEmptyState
-              accent={accent}
-              icon="people-outline"
-              title="No Community Requests Yet"
-              message="Approved prayer requests from the community will appear here."
-            />
-          )}
+            </View>
+          ))}
         </View>
       </View>
     );
   }
 
-  const onRefreshActive = activeTab === 'daily' ? refresh : community.refresh;
-  const isRefreshingActive = activeTab === 'daily' ? refreshing : community.refreshing;
+  const onRefreshActive = activeTab === 'daily' ? community.refresh : admin.refresh;
+  const isRefreshingActive = activeTab === 'daily' ? community.refreshing : admin.refreshing;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -471,6 +390,9 @@ export default function DailyPrayerScreen() {
           accessibilityState={{ selected: activeTab === 'daily' }}
         >
           <Text style={[styles.tabBtnText, { color: activeTab === 'daily' ? '#fff' : colors.textSecondary }]}>Daily</Text>
+          {myPendingOrRejected.some((p) => p.status === 'rejected') ? (
+            <View style={[styles.tabDot, { backgroundColor: activeTab === 'daily' ? '#fff' : '#EF4444' }]} />
+          ) : null}
         </TouchableOpacity>
         <TouchableOpacity
           style={[
@@ -480,13 +402,10 @@ export default function DailyPrayerScreen() {
           ]}
           onPress={() => setActiveTab('community')}
           activeOpacity={0.85}
-          accessibilityLabel="Community Prayer Requests tab"
+          accessibilityLabel="Community Prayers tab"
           accessibilityState={{ selected: activeTab === 'community' }}
         >
           <Text style={[styles.tabBtnText, { color: activeTab === 'community' ? '#fff' : colors.textSecondary }]}>Community</Text>
-          {myPendingOrRejected.some((p) => p.status === 'rejected') ? (
-            <View style={[styles.tabDot, { backgroundColor: activeTab === 'community' ? '#fff' : '#EF4444' }]} />
-          ) : null}
         </TouchableOpacity>
       </View>
 
@@ -545,11 +464,6 @@ const styles = StyleSheet.create({
     height: 7,
     borderRadius: 4,
   },
-  communityHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   communitySubtitle: {
     fontSize: 13,
     fontWeight: '500',
@@ -562,15 +476,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     marginBottom: 10,
   },
-  shareBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  shareBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   pageChip: {
     alignSelf: 'center',
     borderRadius: 999,

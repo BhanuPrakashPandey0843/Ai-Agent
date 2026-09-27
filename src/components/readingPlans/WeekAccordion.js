@@ -3,14 +3,14 @@ import { View, Text, StyleSheet, Pressable, Platform, UIManager } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useReadingPlanTheme } from '../../hooks/useReadingPlanTheme';
+import { useBiblePremiumTheme } from '../../hooks/useBiblePremiumTheme';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 export default function WeekAccordion({ weeks, currentDay, renderDay, defaultOpenWeek }) {
-  const theme = useReadingPlanTheme();
+  const theme = useBiblePremiumTheme();
   const [openWeek, setOpenWeek] = useState(defaultOpenWeek ?? null);
 
   const toggle = (week) => {
@@ -32,9 +32,9 @@ export default function WeekAccordion({ weeks, currentDay, renderDay, defaultOpe
             style={[
               styles.weekWrap,
               {
-                borderColor: containsToday ? theme.accentSoft : theme.border,
+                borderColor: containsToday ? theme.primary : theme.border,
                 backgroundColor: theme.surface,
-                borderRadius: theme.radius.card,
+                borderRadius: theme.radius,
               },
               theme.shadowSoft,
             ]}
@@ -46,27 +46,27 @@ export default function WeekAccordion({ weeks, currentDay, renderDay, defaultOpe
               <View
                 style={[
                   styles.weekDot,
-                  { backgroundColor: allDone || containsToday ? theme.accentSoft : theme.surfaceSecondary },
+                  { backgroundColor: allDone || containsToday ? theme.primarySoft : theme.surfaceAlt },
                 ]}
               >
                 {allDone ? (
-                  <Ionicons name="checkmark" size={16} color={theme.accent} />
+                  <Ionicons name="checkmark" size={16} color={theme.primary} />
                 ) : (
-                  <Ionicons name="calendar-outline" size={16} color={containsToday ? theme.accent : theme.textSecondary} />
+                  <Ionicons name="calendar-outline" size={16} color={containsToday ? theme.primary : theme.textMuted} />
                 )}
               </View>
               <View style={styles.weekCopy}>
-                <Text style={[theme.type.body, { color: theme.textPrimary, fontWeight: '600' }]}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: theme.text }}>
                   Week {week}
                 </Text>
-                <Text style={[theme.type.caption, { color: theme.textSecondary }]}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted, marginTop: 2 }}>
                   {doneCount}/{days.length} days
                 </Text>
               </View>
               <Ionicons
                 name={isOpen ? 'chevron-up' : 'chevron-down'}
                 size={20}
-                color={theme.textSecondary}
+                color={theme.textFaint}
               />
             </Pressable>
 

@@ -149,7 +149,6 @@ const styles = StyleSheet.create({
   cardOuter: {
     width: SWIPE_CARD_W,
     borderRadius: 24,
-    overflow: 'hidden',
     elevation: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -161,6 +160,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 28,
     position: 'relative',
+    borderRadius: 24,
     overflow: 'hidden',
   },
   blob: {
