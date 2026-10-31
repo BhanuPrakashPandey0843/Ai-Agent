@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchLeaderboard } from '../services/quizService';
 
 // Maps raw Firestore error codes to messages a person testing the app can
@@ -19,23 +19,30 @@ export default function useLeaderboard(period = 'daily') {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const requestId = useRef(0);
 
   const refresh = useCallback(async () => {
+    const currentRequest = ++requestId.current;
     setLoading(true);
     setError(null);
     try {
       const data = await fetchLeaderboard(period, 50);
-      setEntries(data);
+      if (currentRequest === requestId.current) setEntries(data);
     } catch (err) {
-      setError(describeLeaderboardError(err));
-      setEntries([]);
+      if (currentRequest === requestId.current) {
+        setError(describeLeaderboardError(err));
+        setEntries([]);
+      }
     } finally {
-      setLoading(false);
+      if (currentRequest === requestId.current) setLoading(false);
     }
   }, [period]);
 
   useEffect(() => {
     refresh();
+    return () => {
+      requestId.current += 1;
+    };
   }, [refresh]);
 
   return { entries, loading, error, refresh };

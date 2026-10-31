@@ -121,6 +121,6 @@ export const USER_PRAYER_STATUS = {
 
 export const APP_VERSION = '1.0.0';
 export const APP_NAME = 'Faith Frames';
-export const SUPPORT_EMAIL = 'support@faithframes.app';
+export const SUPPORT_EMAIL = 'admin@faithframes.online';
 export const PRIVACY_POLICY_URL = 'https://faithframes.app/privacy-policy';
 export const TERMS_URL = 'https://faithframes.app/terms-and-conditions';

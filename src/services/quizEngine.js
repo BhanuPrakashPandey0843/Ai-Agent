@@ -4,12 +4,16 @@ import { hashString, seededShuffle, toDateKey } from '../utils/quizDates';
 const VALID_CATEGORIES = new Set(['bible', 'jesus', 'old', 'new', 'mixed']);
 
 const CATEGORY_ALIASES = {
+  daily_challenges: 'bible',
+  old_testament_quiz: 'old',
   old_testament: 'old',
   oldtestament: 'old',
   ot: 'old',
+  new_testament_quiz: 'new',
   new_testament: 'new',
   newtestament: 'new',
   nt: 'new',
+  jesus_quiz: 'jesus',
   christ: 'jesus',
   gospel: 'jesus',
   gospels: 'jesus',
@@ -50,7 +54,7 @@ const resolveCorrectIndex = (data, rawOptions, options) => {
     const byText = options.findIndex((option) => option.toLowerCase() === target);
     if (byText >= 0) return byText;
   }
-  return 0;
+  return -1;
 };
 
 export const isValidQuizQuestion = (question) =>
@@ -58,9 +62,10 @@ export const isValidQuizQuestion = (question) =>
   Boolean(String(question?.question || '').trim()) &&
   Array.isArray(question?.options) &&
   question.options.length >= 2 &&
-  typeof question.correctIndex === 'number' &&
-  question.correctIndex >= 0 &&
-  question.correctIndex < question.options.length;
+  (question.correctIndex == null ||
+    (Number.isInteger(question.correctIndex) &&
+      question.correctIndex >= 0 &&
+      question.correctIndex < question.options.length));
 
 export const normalizeQuestion = (doc) => {
   const data = doc.data ? doc.data() : doc;
@@ -71,11 +76,10 @@ export const normalizeQuestion = (doc) => {
   const options = normalizeOptions(data);
   const correctIndex = resolveCorrectIndex(data, rawOptions, options);
 
-  return {
+  const normalized = {
     id,
     question: String(data.question || data.text || '').trim(),
     options,
-    correctIndex,
     category: normalizeCategory(data.category),
     difficulty: String(data.difficulty || 'medium').trim().toLowerCase(),
     reference: String(data.reference || '').trim(),
@@ -84,6 +88,8 @@ export const normalizeQuestion = (doc) => {
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   };
+  if (correctIndex >= 0) normalized.correctIndex = correctIndex;
+  return normalized;
 };
 
 const matchesQuizType = (question, quizType) => {

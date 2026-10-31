@@ -10,22 +10,19 @@ import {
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../context/AuthContext';
 import { useBible } from '../../context/BibleContext';
 import { useBibleTheme } from '../../hooks/useBibleTheme';
-import { getGreeting, READING_PLANS } from '../../constants/bible';
+import { READING_PLANS } from '../../constants/bible';
 import MiniAudioPlayer from '../../components/bible/MiniAudioPlayer';
+import LanguageBibleSection from '../../components/bible/LanguageBibleSection';
 
 export default function BibleHomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const theme = useBibleTheme();
-  const { user, userProfile } = useAuth();
   const { loading, planProgress, loadAll, audio } = useBible();
 
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const name = userProfile?.name || user?.displayName?.split(' ')[0] || 'Friend';
-  const greeting = getGreeting();
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -36,15 +33,18 @@ export default function BibleHomeScreen() {
           <RefreshControl refreshing={loading} onRefresh={loadAll} tintColor={theme.primary} />
         }
       >
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.greeting}>{greeting}, {name}</Text>
-            <Text style={styles.tagline}>Your lamp for today.</Text>
-          </View>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('BibleSearch')}>
-            <Ionicons name="search" size={22} color={theme.text} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Search the Bible"
+          activeOpacity={0.8}
+          style={styles.searchBar}
+          onPress={() => navigation.navigate('BibleSearch')}
+        >
+          <Ionicons name="search" size={19} color={theme.textMuted} />
+          <Text style={styles.searchPlaceholder} numberOfLines={1}>
+            Search books, chapters, or verses
+          </Text>
+        </TouchableOpacity>
 
         <SectionHeader title="Explore Scripture" action="All Books" onAction={() => navigation.navigate('BibleBooks')} />
         <View style={styles.quickGrid}>
@@ -53,6 +53,8 @@ export default function BibleHomeScreen() {
           <QuickTile icon="bookmark" label="Bookmarks" onPress={() => navigation.navigate('BibleBookmarks')} theme={theme} />
           <QuickTile icon="note-text" label="Notes" onPress={() => navigation.navigate('BibleNotes')} theme={theme} />
         </View>
+
+        <LanguageBibleSection />
 
         <SectionHeader title="Reading Plans" action="View All" onAction={() => navigation.navigate('BiblePlans')} />
         {READING_PLANS.map((plan) => {
@@ -82,7 +84,7 @@ export default function BibleHomeScreen() {
 function SectionHeader({ title, action, onAction }) {
   const theme = useBibleTheme();
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, marginBottom: 12, paddingHorizontal: 20 }}>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, marginBottom: 10, paddingHorizontal: 20 }}>
       <Text style={{ fontSize: 18, fontWeight: '800', color: theme.text }}>{title}</Text>
       {action ? (
         <TouchableOpacity onPress={onAction}>
@@ -100,30 +102,30 @@ function QuickTile({ icon, label, onPress, theme }) {
       style={{
         width: '48%',
         backgroundColor: theme.surface,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 12,
+        borderRadius: 14,
+        padding: 14,
+        marginBottom: 10,
         borderWidth: 1,
-        borderColor: theme.isDark ? 'rgba(225,138,58,0.28)' : 'rgba(201,106,27,0.22)',
-        ...theme.shadow,
+        borderColor: theme.border,
+        ...cardShadow(theme.isDark),
       }}
       onPress={onPress}
       activeOpacity={0.88}
     >
       <View
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: 12,
+          width: 36,
+          height: 36,
+          borderRadius: 11,
           backgroundColor: theme.isDark ? 'rgba(225,138,58,0.16)' : 'rgba(201,106,27,0.14)',
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: 10,
+          marginBottom: 8,
         }}
       >
-        <MaterialCommunityIcons name={icon} size={22} color={orange} />
+        <MaterialCommunityIcons name={icon} size={20} color={orange} />
       </View>
-      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>{label}</Text>
+      <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text }} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -131,12 +133,23 @@ function QuickTile({ icon, label, onPress, theme }) {
 function createStyles(theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 8, marginBottom: 16 },
-    greeting: { fontSize: 24, fontWeight: '800', color: theme.text },
-    tagline: { fontSize: 14, color: theme.textMuted, marginTop: 4 },
-    iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center', ...theme.shadow },
+    searchBar: {
+      minHeight: 48,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginHorizontal: 20,
+      marginTop: 8,
+      paddingHorizontal: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 14,
+      backgroundColor: theme.surface,
+      ...cardShadow(theme.isDark),
+    },
+    searchPlaceholder: { flex: 1, fontSize: 14, color: theme.textMuted },
     quickGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20 },
-    planCard: { flexDirection: 'row', gap: 12, marginHorizontal: 20, marginBottom: 12, backgroundColor: theme.surface, borderRadius: 16, padding: 16, ...theme.shadow },
+    planCard: { flexDirection: 'row', gap: 12, marginHorizontal: 20, marginBottom: 10, backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, borderRadius: 14, padding: 14, ...cardShadow(theme.isDark) },
     planDot: { width: 10, height: 10, borderRadius: 5, marginTop: 6 },
     planTitle: { fontSize: 15, fontWeight: '800', color: theme.text },
     planSub: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
@@ -144,4 +157,14 @@ function createStyles(theme) {
     progressFill: { height: 6, borderRadius: 999 },
     planPct: { fontSize: 11, color: theme.textMuted, marginTop: 6 },
   });
+}
+
+function cardShadow(isDark) {
+  return {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.2 : 0.04,
+    shadowRadius: 5,
+    elevation: 2,
+  };
 }

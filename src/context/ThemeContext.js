@@ -1,5 +1,5 @@
 // src/context/ThemeContext.js — Full Premium Dark + Light Theme Support
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getColors, Typography, Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { HomeTheme } from '../theme/homeTheme';
@@ -7,14 +7,8 @@ import { STORAGE_KEYS } from '../constants';
 
 const ThemeContext = createContext(null);
 
-export const ThemeProvider = ({ children }) => {
-  const [isDark, setIsDark] = useState(true);
-
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEYS.THEME).then((val) => {
-      if (val !== null) setIsDark(val === 'dark');
-    });
-  }, []);
+export const ThemeProvider = ({ children, initialTheme = 'dark' }) => {
+  const [isDark, setIsDark] = useState(initialTheme !== 'light');
 
   const toggleTheme = async () => {
     const next = !isDark;

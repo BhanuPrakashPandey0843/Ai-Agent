@@ -4,6 +4,7 @@ import BibleHomeScreen from '../screens/bible/BibleHomeScreen';
 import BibleBooksScreen from '../screens/bible/BibleBooksScreen';
 import BibleChaptersScreen from '../screens/bible/BibleChaptersScreen';
 import BibleReaderScreen from '../screens/bible/BibleReaderScreen';
+import LanguageBibleReaderScreen from '../screens/bible/LanguageBibleReaderScreen';
 import BibleSearchScreen from '../screens/bible/BibleSearchScreen';
 import BibleBookmarksScreen from '../screens/bible/BibleBookmarksScreen';
 import BibleNotesScreen from '../screens/bible/BibleNotesScreen';
@@ -19,6 +20,7 @@ export default function BibleNavigator() {
       <Stack.Screen name="BibleBooks" component={BibleBooksScreen} />
       <Stack.Screen name="BibleChapters" component={BibleChaptersScreen} />
       <Stack.Screen name="BibleReader" component={BibleReaderScreen} options={{ animation: 'fade_from_bottom' }} />
+      <Stack.Screen name="LanguageBibleReader" component={LanguageBibleReaderScreen} options={{ animation: 'fade_from_bottom' }} />
       <Stack.Screen name="BibleSearch" component={BibleSearchScreen} />
       <Stack.Screen name="BibleBookmarks" component={BibleBookmarksScreen} />
       <Stack.Screen name="BibleNotes" component={BibleNotesScreen} />

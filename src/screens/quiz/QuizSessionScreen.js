@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AppState,
   View,
   Text,
   StyleSheet,
@@ -13,13 +14,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { Typography, Spacing, BorderRadius, Shadows } from '../../theme/colors';
 import { QUIZ_TYPES, SECONDS_PER_QUESTION, TIMER_URGENT_THRESHOLD_SECONDS } from '../../constants/quiz';
-import { pointsForQuestion } from '../../utils/quizScoring';
 import QuizProgressBar from '../../components/quiz/QuizProgressBar';
 import QuizOptionButton from '../../components/quiz/QuizOptionButton';
 import GradientButton from '../../components/common/GradientButton';
 import EmptyState from '../../components/common/EmptyState';
 import { saveActiveSession, clearActiveSession } from '../../storage/quizStorage';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
+import { submitQuizAnswer } from '../../services/quizService';
 
 export default function QuizSessionScreen() {
   const { colors, isDark } = useTheme();
@@ -27,6 +29,7 @@ export default function QuizSessionScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const exhausted = route.params?.exhausted;
   const exhaustedMessage = route.params?.message;
@@ -38,14 +41,25 @@ export default function QuizSessionScreen() {
   // the next UNANSWERED question - so this never re-lands on a question
   // that already has an answer recorded for it (see handleSelect).
   const initialQuestions = session?.questions || [];
-  const [index, setIndex] = useState(() =>
-    Math.min(session?.currentIndex || 0, Math.max(initialQuestions.length - 1, 0))
-  );
+  const [index, setIndex] = useState(() => {
+    const answeredIds = new Set((session?.answers || []).map((answer) => answer.questionId));
+    let nextIndex = Math.min(session?.currentIndex || 0, initialQuestions.length);
+    while (nextIndex < initialQuestions.length && answeredIds.has(initialQuestions[nextIndex]?.id)) {
+      nextIndex += 1;
+    }
+    return nextIndex;
+  });
   const [selected, setSelected] = useState(null);
+  const [answerCorrectIndex, setAnswerCorrectIndex] = useState(null);
+  const [answering, setAnswering] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [timeoutFailed, setTimeoutFailed] = useState(false);
   const [answers, setAnswers] = useState(session?.answers || []);
   const [secondsLeft, setSecondsLeft] = useState(SECONDS_PER_QUESTION);
-  const questionStarted = useRef(Date.now());
+  const answeredIdsRef = useRef(new Set((session?.answers || []).map((answer) => answer.questionId)));
+  const deadlineRef = useRef(Number(session?.questionDeadlineAt) || null);
+  const finishLockRef = useRef(false);
+  const advanceLockRef = useRef(false);
   const timerRef = useRef(null);
 
   const questions = session?.questions || [];
@@ -64,13 +78,21 @@ export default function QuizSessionScreen() {
 
   const finishQuiz = useCallback(
     async (finalAnswers) => {
-      await clearActiveSession(user?.uid);
-      navigation.replace('QuizResult', {
-        session: { ...session, answers: finalAnswers },
-        quizTypeId: session.quizTypeId,
-      });
+      if (finishLockRef.current) return;
+      finishLockRef.current = true;
+      clearInterval(timerRef.current);
+      try {
+        await clearActiveSession(user?.uid);
+        navigation.replace('QuizResult', {
+          session: { ...session, answers: finalAnswers },
+          quizTypeId: session.quizTypeId,
+        });
+      } catch (err) {
+        finishLockRef.current = false;
+        showToast(err?.message || 'Could not finish the quiz. Please try again.', 'error');
+      }
     },
-    [session, user?.uid, navigation]
+    [session, user?.uid, navigation, showToast]
   );
 
   // Guards the resume edge case where the app was closed/killed AFTER the
@@ -88,54 +110,47 @@ export default function QuizSessionScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (exhausted || !current || revealed) return undefined;
-    setSecondsLeft(SECONDS_PER_QUESTION);
-    questionStarted.current = Date.now();
-    timerRef.current = setInterval(() => {
-      setSecondsLeft((s) => {
-        if (s <= 1) {
-          clearInterval(timerRef.current);
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timerRef.current);
-  }, [index, exhausted, current, revealed]);
+  const handleSelect = useCallback(async (optionIndex) => {
+    if (finishLockRef.current || revealed || !current || answeredIdsRef.current.has(current.id)) return;
+    const timedOut = deadlineRef.current && Date.now() >= deadlineRef.current;
+    const submittedIndex = optionIndex === -1 || timedOut ? -1 : optionIndex;
+    answeredIdsRef.current.add(current.id);
+    const deadline = deadlineRef.current;
+    const timeMs = deadline
+      ? Math.min(SECONDS_PER_QUESTION * 1000, Math.max(0, SECONDS_PER_QUESTION * 1000 - (deadline - Date.now())))
+      : SECONDS_PER_QUESTION * 1000;
+    setSelected(submittedIndex);
+    setAnswering(true);
 
-  const revealedRef = useRef(false);
-  useEffect(() => {
-    revealedRef.current = revealed;
-  }, [revealed]);
-
-  useEffect(() => {
-    if (secondsLeft === 0 && !revealedRef.current && current) {
-      handleSelect(-1);
+    let answerResult;
+    try {
+      answerResult = await submitQuizAnswer(session.sessionId, current.id, submittedIndex);
+    } catch (err) {
+      answeredIdsRef.current.delete(current.id);
+      setSelected(null);
+      setAnswering(false);
+      if (submittedIndex === -1) setTimeoutFailed(true);
+      showToast(err?.message || 'Could not record your answer. Please try again.', 'error');
+      return;
     }
-  }, [secondsLeft, current]);
 
-  const handleSelect = async (optionIndex) => {
-    if (revealed || !current) return;
     clearInterval(timerRef.current);
-    const timeMs = Date.now() - questionStarted.current;
-    const correct = optionIndex === current.correctIndex;
-    setSelected(optionIndex);
-    setRevealed(true);
-
-    if (correct) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-
+    setTimeoutFailed(false);
+    const correct = answerResult.correct === true;
     const answer = {
       questionId: current.id,
-      selectedIndex: optionIndex,
+      selectedIndex: answerResult.selectedIndex,
       correct,
       timeMs,
-      pointsEarned: correct ? pointsForQuestion(current.difficulty) : 0,
+      pointsEarned: Number(answerResult.pointsEarned) || 0,
     };
+    setSelected(answerResult.selectedIndex);
+    setAnswerCorrectIndex(answerResult.correctIndex);
+    setAnswering(false);
+    setRevealed(true);
+    Haptics.notificationAsync(
+      correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error
+    ).catch((err) => console.warn('[Quiz] Haptic feedback failed:', err?.message));
 
     const nextAnswers = [...answers, answer];
     setAnswers(nextAnswers);
@@ -154,29 +169,84 @@ export default function QuizSessionScreen() {
       ...session,
       currentIndex: Math.min(index + 1, questions.length - 1),
       answers: nextAnswers,
+      questionDeadlineAt: null,
     };
-    await persistSession(nextSession);
-  };
+    try {
+      await persistSession(nextSession);
+    } catch (err) {
+      showToast(err?.message || 'Could not save quiz progress on this device.', 'error');
+    }
+  }, [revealed, current, session, index, questions.length, answers, persistSession, showToast]);
+
+  useEffect(() => {
+    if (exhausted || !current || revealed || finishLockRef.current) return undefined;
+
+    if (!Number.isFinite(deadlineRef.current) || deadlineRef.current <= 0) {
+      deadlineRef.current = Date.now() + SECONDS_PER_QUESTION * 1000;
+      persistSession({ ...session, questionDeadlineAt: deadlineRef.current }).catch((err) => {
+        showToast(err?.message || 'Could not save timer progress on this device.', 'error');
+      });
+    }
+
+    const updateRemaining = () => {
+      const remaining = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining === 0) clearInterval(timerRef.current);
+    };
+
+    updateRemaining();
+    timerRef.current = setInterval(updateRemaining, 200);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') updateRemaining();
+    });
+    return () => {
+      clearInterval(timerRef.current);
+      subscription.remove();
+    };
+  }, [index, current?.id, exhausted, revealed, session, persistSession, showToast]);
+
+  useEffect(() => {
+    if (secondsLeft === 0 && current && !revealed && !finishLockRef.current) {
+      handleSelect(-1);
+    }
+  }, [secondsLeft, current, revealed, handleSelect]);
 
   const goNext = async () => {
+    if (advanceLockRef.current || finishLockRef.current) return;
+    advanceLockRef.current = true;
     if (index >= questions.length - 1) {
       await finishQuiz(answers);
+      advanceLockRef.current = false;
       return;
     }
     const nextIndex = index + 1;
-    setIndex(nextIndex);
-    setSelected(null);
-    setRevealed(false);
-    await persistSession({
+    deadlineRef.current = Date.now() + SECONDS_PER_QUESTION * 1000;
+    try {
+      await persistSession({
       ...session,
       currentIndex: nextIndex,
       answers,
-    });
+      questionDeadlineAt: deadlineRef.current,
+      });
+      setIndex(nextIndex);
+      setSelected(null);
+      setAnswerCorrectIndex(null);
+      setRevealed(false);
+      setTimeoutFailed(false);
+    } catch (err) {
+      showToast(err?.message || 'Could not save quiz progress on this device.', 'error');
+    } finally {
+      advanceLockRef.current = false;
+    }
   };
 
   const quit = async () => {
-    await clearActiveSession(user?.uid);
-    navigation.goBack();
+    try {
+      await clearActiveSession(user?.uid);
+      navigation.goBack();
+    } catch (err) {
+      showToast(err?.message || 'Could not close the quiz. Please try again.', 'error');
+    }
   };
 
   if (exhausted) {
@@ -191,6 +261,15 @@ export default function QuizSessionScreen() {
           actionLabel="Back to Quiz Home"
           onAction={() => navigation.navigate('QuizHome')}
         />
+      </View>
+    );
+  }
+
+  if (session && !current && answers.length >= questions.length) {
+    return (
+      <View style={[styles.root, styles.centered, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
+        <Text style={[styles.muted, { color: colors.textMuted }]}>Quiz complete</Text>
+        <GradientButton title="See Results" onPress={() => finishQuiz(answers)} style={{ marginTop: Spacing.lg }} />
       </View>
     );
   }
@@ -263,7 +342,7 @@ export default function QuizSessionScreen() {
             .map(({ opt, i }, displayIndex) => {
               let state = 'default';
               if (revealed) {
-                if (i === current.correctIndex) state = 'correct';
+                if (i === answerCorrectIndex) state = 'correct';
                 else if (selected === i) state = 'wrong';
               } else if (selected === i) {
                 state = 'selected';
@@ -274,11 +353,25 @@ export default function QuizSessionScreen() {
                   label={opt}
                   letter={String.fromCharCode(65 + displayIndex)}
                   state={state}
-                  disabled={revealed}
+                  disabled={revealed || answering || secondsLeft === 0}
                   onPress={() => handleSelect(i)}
                 />
               );
             })}
+
+          {timeoutFailed ? (
+            <>
+              <Text style={[styles.explanation, { color: colors.error }]}>
+                Time expired, but your unanswered response could not be submitted.
+              </Text>
+              <GradientButton
+                title="Retry submission"
+                onPress={() => handleSelect(-1)}
+                loading={answering}
+                style={{ marginTop: Spacing.sm }}
+              />
+            </>
+          ) : null}
 
           {revealed && current.explanation ? (
             <Text style={[styles.explanation, { color: colors.textMuted }]}>{current.explanation}</Text>

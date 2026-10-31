@@ -2,6 +2,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Translation book metadata is public, but all catalog changes go through
+    // the authenticated admin API.
+    match /bibleBooks/{bookId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Only the published collection is readable by the mobile app. Drafts
+    // live in bibleChapterDrafts and remain denied by the default rule.
+    match /bibleChapters/{chapterId} {
+      allow read: if resource.data.status == 'published';
+      allow write: if false;
+    }
+
+    match /bibleChapterDrafts/{chapterId} {
+      allow read, write: if false;
+    }
+
     // ------------------------------
     // EXISTING CONTENT COLLECTIONS
     // ------------------------------
@@ -22,7 +40,7 @@ service cloud.firestore {
       allow write: if false;
     }
     match /questions/{docId} {
-      allow read: if true;
+      allow read: if request.auth != null && request.auth.token.isAdmin == true;
       allow write: if false;
     }
     match /studyPlans/{docId} {
@@ -80,16 +98,249 @@ service cloud.firestore {
     // ------------------------------
     match /witnessVideos/{docId} {
       allow read: if true;
-      allow write: if false;
+      function interactionPath(uid) {
+        return /databases/$(database)/documents/witnessVideos/$(docId)/userInteractions/$(uid);
+      }
+      function videoCountsMatchInteraction(oldState, newState, oldVideo, newVideo) {
+        let oldLiked = oldState.liked == true;
+        let oldDisliked = oldState.disliked == true;
+        let newLiked = newState.liked == true;
+        let newDisliked = newState.disliked == true;
+        let likesBefore = ('likes' in oldVideo) ? oldVideo.likes : 0;
+        let dislikesBefore = ('dislikes' in oldVideo) ? oldVideo.dislikes : 0;
+        let viewsBefore = ('views' in oldVideo) ? oldVideo.views : 0;
+        let likesAfter = ('likes' in newVideo) ? newVideo.likes : 0;
+        let dislikesAfter = ('dislikes' in newVideo) ? newVideo.dislikes : 0;
+        let viewsAfter = ('views' in newVideo) ? newVideo.views : 0;
+        return newState.liked is bool
+          && newState.disliked is bool
+          && newState.viewed is bool
+          && !(newLiked && newDisliked)
+          && newVideo.updatedAt == request.time
+          && (
+            (newLiked != oldLiked
+              && newDisliked == false
+              && likesAfter - likesBefore == (newLiked ? 1 : -1)
+              && dislikesAfter - dislikesBefore == (oldDisliked ? -1 : 0)
+              && viewsAfter == viewsBefore
+              && newState.viewed == (oldState.viewed == true))
+            || (newDisliked != oldDisliked
+              && newLiked == false
+              && likesAfter - likesBefore == (oldLiked ? -1 : 0)
+              && dislikesAfter - dislikesBefore == (newDisliked ? 1 : -1)
+              && viewsAfter == viewsBefore
+              && newState.viewed == (oldState.viewed == true))
+            || (oldState.viewed != true
+              && newState.viewed == true
+              && newLiked == oldLiked
+              && newDisliked == oldDisliked
+              && likesAfter == likesBefore
+              && dislikesAfter == dislikesBefore
+              && viewsAfter - viewsBefore == 1)
+          );
+      }
+      function videoCountersMatchNewState(newState, oldVideo, newVideo) {
+        let newLiked = newState.liked == true;
+        let newDisliked = newState.disliked == true;
+        let likesBefore = ('likes' in oldVideo) ? oldVideo.likes : 0;
+        let dislikesBefore = ('dislikes' in oldVideo) ? oldVideo.dislikes : 0;
+        let viewsBefore = ('views' in oldVideo) ? oldVideo.views : 0;
+        let likesAfter = ('likes' in newVideo) ? newVideo.likes : 0;
+        let dislikesAfter = ('dislikes' in newVideo) ? newVideo.dislikes : 0;
+        let viewsAfter = ('views' in newVideo) ? newVideo.views : 0;
+        return newState.liked is bool
+          && newState.disliked is bool
+          && newState.viewed is bool
+          && !(newLiked && newDisliked)
+          && newState.updatedAt == request.time
+          && newVideo.updatedAt == request.time
+          && (
+            (newLiked
+              && likesAfter - likesBefore == 1
+              && dislikesAfter - dislikesBefore in [-1, 0]
+              && viewsAfter == viewsBefore)
+            || (newDisliked
+              && dislikesAfter - dislikesBefore == 1
+              && likesAfter - likesBefore in [-1, 0]
+              && viewsAfter == viewsBefore)
+            || (!newLiked && !newDisliked
+              && (
+                (likesAfter - likesBefore == -1
+                  && dislikesAfter == dislikesBefore
+                  && viewsAfter == viewsBefore)
+                || (dislikesAfter - dislikesBefore == -1
+                  && likesAfter == likesBefore
+                  && viewsAfter == viewsBefore)
+                || (newState.viewed
+                  && likesAfter == likesBefore
+                  && dislikesAfter == dislikesBefore
+                  && viewsAfter - viewsBefore == 1)
+              ))
+          );
+      }
+      function validVideoInteractionUpdate() {
+        let path = request.auth != null
+          ? interactionPath(request.auth.uid)
+          : interactionPath('');
+        return request.auth != null
+          && existsAfter(path)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'dislikes', 'views', 'updatedAt'])
+          && request.resource.data.likes is number
+          && request.resource.data.dislikes is number
+          && request.resource.data.views is number
+          && request.resource.data.likes >= 0
+          && request.resource.data.dislikes >= 0
+          && request.resource.data.views >= 0
+          && videoCountersMatchNewState(
+            getAfter(path).data, resource.data, request.resource.data
+          );
+      }
+      function validCommentCountUpdate() {
+        let commentId = ('commentMutationId' in request.resource.data)
+          ? request.resource.data.commentMutationId
+          : '';
+        let commentPath = /databases/$(database)/documents/witnessVideos/$(docId)/comments/$(commentId);
+        let oldCount = ('commentCount' in resource.data) ? resource.data.commentCount : 0;
+        return request.auth != null
+          && commentId is string
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount', 'commentMutationId'])
+          && request.resource.data.commentCount is number
+          && (
+            (!exists(commentPath)
+              && existsAfter(commentPath)
+              && getAfter(commentPath).data.userId == request.auth.uid
+              && request.resource.data.commentCount == oldCount + 1)
+            || (exists(commentPath)
+              && get(commentPath).data.userId == request.auth.uid
+              && !existsAfter(commentPath)
+              && request.resource.data.commentCount == oldCount - 1
+              && oldCount > 0)
+          );
+      }
+      allow create, delete: if false;
+      allow update: if validVideoInteractionUpdate() || validCommentCountUpdate();
 
       match /userInteractions/{uid} {
-        allow read, create, update: if request.auth != null && request.auth.uid == uid
+        function hasMatchingExistingVideoCounters() {
+          let videoPath = /databases/$(database)/documents/witnessVideos/$(docId);
+          return request.auth != null
+            && request.auth.uid == uid
+            && getAfter(videoPath).data.diff(get(videoPath).data).affectedKeys().hasOnly(['likes', 'dislikes', 'views', 'updatedAt'])
+            && videoCountsMatchInteraction(resource.data, request.resource.data, get(videoPath).data, getAfter(videoPath).data);
+        }
+        function hasMatchingNewVideoCounters() {
+          let videoPath = /databases/$(database)/documents/witnessVideos/$(docId);
+          return request.auth != null
+            && request.auth.uid == uid
+            && getAfter(videoPath).data.diff(get(videoPath).data).affectedKeys().hasOnly(['likes', 'dislikes', 'views', 'updatedAt'])
+            && videoCountsMatchInteraction(
+              { 'liked': false, 'disliked': false, 'viewed': false },
+              request.resource.data,
+              get(videoPath).data,
+              getAfter(videoPath).data
+            );
+        }
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null && request.auth.uid == uid
           && request.resource.data.keys().hasOnly(['liked', 'disliked', 'viewed', 'updatedAt'])
           && request.resource.data.liked is bool
           && request.resource.data.disliked is bool
           && request.resource.data.viewed is bool
-          && !(request.resource.data.liked == true && request.resource.data.disliked == true);
+          && !(request.resource.data.liked == true && request.resource.data.disliked == true)
+          && request.resource.data.updatedAt == request.time
+          && hasMatchingNewVideoCounters();
+        allow update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['liked', 'disliked', 'viewed', 'updatedAt'])
+          && request.resource.data.liked is bool
+          && request.resource.data.disliked is bool
+          && request.resource.data.viewed is bool
+          && !(request.resource.data.liked == true && request.resource.data.disliked == true)
+          && request.resource.data.updatedAt == request.time
+          && hasMatchingExistingVideoCounters();
         allow delete: if false;
+      }
+
+      match /comments/{commentId} {
+        function matchesVideoCommentCount(delta) {
+          let videoPath = /databases/$(database)/documents/witnessVideos/$(docId);
+          let oldVideo = get(videoPath).data;
+          let newVideo = getAfter(videoPath).data;
+          let oldCount = ('commentCount' in oldVideo) ? oldVideo.commentCount : 0;
+          return newVideo.diff(oldVideo).affectedKeys().hasOnly(['commentCount', 'commentMutationId'])
+            && newVideo.commentMutationId == commentId
+            && newVideo.commentCount == oldCount + delta;
+        }
+        function matchesCommentLikeCount(delta) {
+          let commentPath = /databases/$(database)/documents/witnessVideos/$(docId)/comments/$(commentId);
+          let oldComment = get(commentPath).data;
+          let newComment = getAfter(commentPath).data;
+          let oldCount = ('likeCount' in oldComment) ? oldComment.likeCount : 0;
+          return newComment.diff(oldComment).affectedKeys().hasOnly(['likeCount'])
+            && newComment.likeCount == oldCount + delta;
+        }
+        allow read: if true;
+        allow create: if request.auth != null
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.username is string
+          && request.resource.data.username.size() > 0
+          && request.resource.data.username.size() <= 80
+          && request.resource.data.photoURL is string
+          && request.resource.data.text is string
+          && request.resource.data.text.matches('.*\\S.*')
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.likeCount == 0
+          && request.resource.data.createdAt == request.time
+          && matchesVideoCommentCount(1)
+          && request.resource.data.keys().hasOnly([
+            'userId', 'username', 'photoURL', 'text', 'likeCount', 'createdAt'
+          ]);
+        allow update: if request.auth != null
+          && (
+            (resource.data.userId == request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+              && request.resource.data.text is string
+              && request.resource.data.text.matches('.*\\S.*')
+              && request.resource.data.text.size() <= 500
+              && request.resource.data.editedAt == request.time)
+            || validCommentLikeCountUpdate()
+          );
+        allow delete: if request.auth != null
+          && resource.data.userId == request.auth.uid
+          && matchesVideoCommentCount(-1);
+
+        function validCommentLikeCountUpdate() {
+          let uid = request.auth.uid;
+          let likePath = /databases/$(database)/documents/witnessVideos/$(docId)/comments/$(commentId)/likes/$(uid);
+          let oldCount = ('likeCount' in resource.data) ? resource.data.likeCount : 0;
+          return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount'])
+            && request.resource.data.likeCount is number
+            && (
+              (!exists(likePath)
+                && existsAfter(likePath)
+                && getAfter(likePath).data.userId == uid
+                && request.resource.data.likeCount == oldCount + 1)
+              || (exists(likePath)
+                && get(likePath).data.userId == uid
+                && !existsAfter(likePath)
+                && request.resource.data.likeCount == oldCount - 1
+                && oldCount > 0)
+            );
+        }
+
+        match /likes/{uid} {
+          allow read: if true;
+          allow create: if request.auth != null
+            && request.auth.uid == uid
+            && request.resource.data.userId == uid
+            && request.resource.data.createdAt == request.time
+            && matchesCommentLikeCount(1)
+            && request.resource.data.keys().hasOnly(['userId', 'createdAt']);
+          allow update: if false;
+          allow delete: if request.auth != null
+            && request.auth.uid == uid
+            && resource.data.userId == uid
+            && matchesCommentLikeCount(-1);
+        }
       }
     }
     match /witnessCarousel/{docId} {
@@ -267,17 +518,27 @@ service cloud.firestore {
 
       match /entries/{entryId} {
         allow read: if true;
-        allow create, update: if request.auth != null
-          && request.auth.uid == entryId
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.score is number
-          && request.resource.data.score >= 0
-          && request.resource.data.score <= 50000
-          && request.resource.data.accuracy is number
-          && request.resource.data.accuracy >= 0
-          && request.resource.data.accuracy <= 100;
-        allow delete: if false;
+        allow write: if false;
       }
+    }
+
+    match /publicProfiles/{userId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['name', 'photoURL', 'updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.photoURL is string
+        && request.resource.data.photoURL.size() <= 2048;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'photoURL', 'updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.photoURL is string
+        && request.resource.data.photoURL.size() <= 2048;
+      allow delete: if false;
     }
 
     // ------------------------------
@@ -287,44 +548,38 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == userId;
       // Create: new signup docs only contain profile fields (no resource.* compares).
       allow create: if request.auth != null && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly(['name', 'email', 'address', 'photoURL', 'updatedAt', 'isPremium', 'coins', 'lastScore', 'lastPlayed', 'createdAt', 'quizProfile'])
+        && request.resource.data.keys().hasOnly(['name', 'email', 'address', 'photoURL', 'updatedAt', 'isPremium', 'coins', 'lastScore', 'lastPlayed', 'createdAt'])
         && (!('name' in request.resource.data) || request.resource.data.name is string)
         && (!('email' in request.resource.data) || request.resource.data.email is string)
         && (!('address' in request.resource.data) || request.resource.data.address is string)
-        && (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string)
-        && (!('quizProfile' in request.resource.data) || request.resource.data.quizProfile is map);
-      // Update: only allow the client to touch profile/quiz fields. Extra keys
-      // written by Cloud Functions (subscription, auditTrail, etc.) must be
-      // preserved — keys().hasOnly() on the FULL post-write document was
-      // denying every quiz submit (and therefore every leaderboard write)
-      // for any user who had ever subscribed.
+        && (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string);
+      // Quiz results and profile stats are written only by trusted Cloud Functions.
       allow update: if request.auth != null && request.auth.uid == userId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'name', 'email', 'address', 'photoURL', 'updatedAt',
-          'lastScore', 'lastPlayed', 'quizProfile'
+          'name', 'email', 'address', 'photoURL', 'updatedAt'
         ])
         && (!('name' in request.resource.data) || request.resource.data.name is string)
         && (!('email' in request.resource.data) || request.resource.data.email is string)
         && (!('address' in request.resource.data) || request.resource.data.address is string)
-        && (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string)
-        && (!('quizProfile' in request.resource.data) || request.resource.data.quizProfile is map);
+        && (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string);
 
       match /attemptedQuestions/{questionId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+      match /notifications/{notificationId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if false;
+        allow update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'read', 'readAt', 'opened', 'openedAt'
+          ]);
+        allow delete: if request.auth != null && request.auth.uid == userId;
       }
       match /quizSessions/{sessionId} {
         allow read: if request.auth != null && request.auth.uid == userId;
-        allow create: if request.auth != null && request.auth.uid == userId
-          && request.resource.data.status == 'completed'
-          && request.resource.data.sessionId == sessionId;
-        // Idempotent retry of the same completed payload (merge set after a
-        // dropped connection). Must not change identity or inflate stats.
-        allow update: if request.auth != null && request.auth.uid == userId
-          && resource.data.status == 'completed'
-          && request.resource.data.status == 'completed'
-          && request.resource.data.sessionId == sessionId
-          && request.resource.data.score == resource.data.score;
-        allow delete: if false;
+        allow write: if false;
       }
       match /favorites/{wallpaperId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -430,6 +685,83 @@ service cloud.firestore {
     match /systemSettings/{settingId} {
       allow read: if true;
       allow write: if false;
+    }
+
+    // ------------------------------
+    // NOTIFICATIONS
+    // ------------------------------
+    // Written only by the admin panel (Admin SDK, bypasses rules). Each document is
+    // addressed to one user via `userId`; users can read their own, mark them read
+    // (only the `read` field may change) and delete them.
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow create: if false;
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // Per-user switches from Notifications -> Preferences. The admin reminder sender
+    // honours `premium` ("Premium Content"); an explicit false means opted out.
+    match /notification_preferences/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'version', 'pushEnabled', 'push', 'inApp', 'updatedAt',
+          'dailyVerse', 'prayerReminder', 'bibleReading', 'quizReminder', 'newWallpaper',
+          'community', 'appUpdates', 'promo', 'premium'
+        ])
+        && (!('pushEnabled' in request.resource.data) || request.resource.data.pushEnabled is bool)
+        && (!('push' in request.resource.data) || request.resource.data.push is map)
+        && (!('inApp' in request.resource.data) || request.resource.data.inApp is map);
+      allow delete: if false;
+    }
+
+    match /pushTokens/{tokenId} {
+      allow read: if request.auth != null
+        && (!exists(/databases/$(database)/documents/pushTokens/$(tokenId))
+          || resource.data.ownerUid == request.auth.uid);
+      allow create: if request.auth != null
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.token == tokenId
+        && request.resource.data.token is string
+        && request.resource.data.token.size() <= 200
+        && request.resource.data.active is bool
+        && request.resource.data.platform in ['android', 'ios']
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'token', 'active', 'platform', 'createdAt', 'updatedAt'
+        ]);
+      allow update: if request.auth != null
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.token == tokenId
+        && request.resource.data.token is string
+        && request.resource.data.token.size() <= 200
+        && request.resource.data.active is bool
+        && request.resource.data.platform in ['android', 'ios']
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'token', 'active', 'platform', 'createdAt', 'updatedAt'
+        ]);
+      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+    }
+
+    match /notificationCampaigns/{campaignId} {
+      allow read, write: if false;
+    }
+    match /notificationDeliveries/{deliveryId} {
+      allow read, write: if false;
+    }
+    match /notificationSettings/{settingId} {
+      allow read, write: if false;
+    }
+    match /notificationRateLimits/{limitId} {
+      allow read, write: if false;
+    }
+    match /notificationIdempotency/{requestId} {
+      allow read, write: if false;
     }
 
     // ------------------------------

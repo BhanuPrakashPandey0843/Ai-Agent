@@ -194,7 +194,7 @@ export default function ContactUsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + Spacing.lg, paddingBottom: insets.bottom + Spacing.huge },
+          { paddingBottom: insets.bottom + Spacing.huge },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -420,4 +420,3 @@ const styles = StyleSheet.create({
     lineHeight: Typography.lineHeightMD,
   },
 });
-

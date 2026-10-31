@@ -23,15 +23,14 @@ export default function QuizResultScreen() {
   const answers = session?.answers || [];
   const questions = session?.questions || [];
   const startedAt = session?.startedAt || Date.now();
-  const completionTimeMs = Date.now() - startedAt;
-
-  const correctCount = answers.filter((a) => a.correct).length;
-  const localScore = computeSessionScore(answers);
-  const localAccuracy = computeAccuracy(correctCount, answers.length);
-
   const [submitting, setSubmitting] = useState(!!user?.uid);
   const [submitFailed, setSubmitFailed] = useState(false);
   const [result, setResult] = useState(null);
+  const completionTimeMs = result?.completionTimeMs ?? Date.now() - startedAt;
+  const correctCount = answers.filter((a) => a.correct).length;
+  const localScore = computeSessionScore(answers);
+  const localAccuracy = computeAccuracy(correctCount, answers.length);
+  const displayedCorrectCount = result?.correctCount ?? correctCount;
 
   const attemptSubmit = useCallback(async () => {
     if (!user?.uid) {
@@ -110,7 +109,7 @@ export default function QuizResultScreen() {
         </View>
         <View style={[styles.stat, { backgroundColor: colors.bgCard }, Shadows.card(isDark)]}>
           <Text style={[styles.statVal, { color: colors.textPrimary }]}>
-            {correctCount}/{answers.length}
+            {displayedCorrectCount}/{result?.totalQuestions ?? answers.length}
           </Text>
           <Text style={[styles.statLbl, { color: colors.textMuted }]}>Correct</Text>
         </View>

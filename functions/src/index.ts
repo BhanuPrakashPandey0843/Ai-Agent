@@ -5,3 +5,9 @@ export { verifyAndActivateSubscription } from './payments/verifyAndActivateSubsc
 export { initiateRefund } from './payments/initiateRefund';
 export { finalizeRefund } from './payments/finalizeRefund';
 export { processDailyExpirations } from './scheduled/processDailyExpirations';
+export {
+  getQuizQuestions,
+  startQuizSession,
+  answerQuizQuestion,
+  submitQuizSession,
+} from './quiz/quizSessions';

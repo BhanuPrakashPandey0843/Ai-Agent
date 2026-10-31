@@ -20,12 +20,12 @@ export default function LeaderboardScreen() {
   const navigation = useNavigation();
   const [period, setPeriod] = useState('daily');
   const { entries, loading, error, refresh } = useLeaderboard(period);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
 
-  // useLeaderboard already fetches on mount and whenever `period` changes,
-  // so the first focus of this screen instance is always covered. This ref
-  // just skips THAT first, already-covered focus so re-entering the screen
-  // later (e.g. Achievements -> back) triggers exactly one extra fetch
-  // instead of a duplicate one stacked on top of the hook's own mount fetch.
+  // useLeaderboard already fetches on mount and whenever `period` changes.
+  // Keep this callback stable so changing periods does not trigger a second
+  // fetch; use the ref to call the latest period-specific refresh on focus.
   const skippedFirstFocus = useRef(false);
 
   // Standings can change any time another player finishes a quiz, so a
@@ -41,9 +41,9 @@ export default function LeaderboardScreen() {
         skippedFirstFocus.current = true;
         return;
       }
-      refresh();
+      refreshRef.current();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [period])
+    }, [])
   );
 
   const top3 = entries.filter((e) => e.rank <= 3);

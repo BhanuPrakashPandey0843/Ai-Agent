@@ -259,14 +259,14 @@ export default function AboutScreen() {
           <TouchableOpacity
             style={styles.contactCard}
             activeOpacity={0.75}
-            onPress={() => Linking.openURL('https://faithframes.app')}
+            onPress={() => Linking.openURL('https://www.faithframes.online/')}
           >
             <View style={styles.contactIconWrap}>
               <Ionicons name="globe-outline" size={22} color={colors.primary} />
             </View>
             <View style={styles.contactInfo}>
               <Text style={styles.contactLabel}>Website</Text>
-              <Text style={styles.contactValue}>faithframes.app</Text>
+              <Text style={styles.contactValue}>www.faithframes.online</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
@@ -282,13 +282,13 @@ export default function AboutScreen() {
             <View style={styles.infoSeparator} />
             <InfoRow label="Platform" value={Platform.OS === 'ios' ? 'iOS' : 'Android'} styles={styles} />
             <View style={styles.infoSeparator} />
-            <InfoRow label="Last Updated" value="June 2025" styles={styles} />
+            <InfoRow label="Last Updated" value="1 November" styles={styles} />
           </View>
         </Animated.View>
 
         {/* Footer */}
         <Text style={styles.footerText}>
-          © 2025 {APP_NAME}. Made with ❤️ for the Kingdom.
+          © 2026 {APP_NAME}. Made with ❤️ for the Kingdom.
         </Text>
       </ScrollView>
     </View>

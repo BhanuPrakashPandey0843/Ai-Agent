@@ -3,7 +3,7 @@ import React, { useRef, useEffect } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import { Colors, BorderRadius } from '../../theme/colors';
 
-const SkeletonLoader = ({ width = '100%', height = 200, borderRadius = BorderRadius.lg, style }) => {
+const SkeletonLoader = ({ width = '100%', height = 200, borderRadius = BorderRadius.lg, style, backgroundColor = Colors.bgCardLight }) => {
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -23,18 +23,21 @@ const SkeletonLoader = ({ width = '100%', height = 200, borderRadius = BorderRad
     <Animated.View
       style={[
         styles.skeleton,
-        { width, height, borderRadius, opacity },
+        { width, height, borderRadius, opacity, backgroundColor },
         style,
       ]}
     />
   );
 };
 
-export const WallpaperCardSkeleton = () => (
-  <View style={styles.cardSkeleton}>
-    <SkeletonLoader height={180} borderRadius={16} />
-    <SkeletonLoader width="70%" height={14} borderRadius={8} style={{ marginTop: 10 }} />
-    <SkeletonLoader width="40%" height={11} borderRadius={8} style={{ marginTop: 6 }} />
+export const WallpaperCardSkeleton = ({ width, imageHeight = 180, colors }) => (
+  <View style={[styles.cardSkeleton, width ? { width } : styles.defaultCardSkeleton]}>
+    <SkeletonLoader
+      width="100%"
+      height={imageHeight}
+      borderRadius={16}
+      backgroundColor={colors?.bgCardSoft || Colors.bgCardLight}
+    />
   </View>
 );
 
@@ -43,6 +46,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgCardLight,
   },
   cardSkeleton: {
+    marginBottom: 12,
+  },
+  defaultCardSkeleton: {
     flex: 1,
     margin: 6,
     padding: 4,

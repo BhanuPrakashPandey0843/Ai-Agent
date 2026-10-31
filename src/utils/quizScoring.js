@@ -25,9 +25,13 @@ export const computeAccuracy = (correctCount, total) => {
  * Leaderboard ranking: higher score wins; ties → higher accuracy; then faster time.
  */
 export const compareLeaderboardEntries = (a, b) => {
-  if (b.score !== a.score) return b.score - a.score;
-  if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
-  return (a.completionTimeMs || 0) - (b.completionTimeMs || 0);
+  const scoreDiff = (Number(b.score) || 0) - (Number(a.score) || 0);
+  if (scoreDiff) return scoreDiff;
+  const accuracyDiff = (Number(b.accuracy) || 0) - (Number(a.accuracy) || 0);
+  if (accuracyDiff) return accuracyDiff;
+  const timeDiff = (Number(a.completionTimeMs) || 0) - (Number(b.completionTimeMs) || 0);
+  if (timeDiff) return timeDiff;
+  return String(a.uid || a.id || '').localeCompare(String(b.uid || b.id || ''));
 };
 
 export const levelFromXp = (xp) => Math.max(1, Math.floor(xp / 200) + 1);

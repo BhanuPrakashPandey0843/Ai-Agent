@@ -26,6 +26,14 @@ export const Env = {
     cloudName: process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || extra.cloudinaryCloudName || '',
     uploadPreset: process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || extra.cloudinaryUploadPreset || '',
   },
+  quizApiBaseUrl:
+    process.env.EXPO_PUBLIC_QUIZ_API_BASE_URL ||
+    extra.quizApiBaseUrl ||
+    'https://www.faithframes.online',
+  // Opt-in: force Firestore long-polling instead of the streaming WebChannel.
+  // Set EXPO_PUBLIC_FIRESTORE_FORCE_LONG_POLLING=true if the browser/network
+  // closes firestore.googleapis.com .../Listen/channel connections.
+  firestoreForceLongPolling: process.env.EXPO_PUBLIC_FIRESTORE_FORCE_LONG_POLLING === 'true',
 };
 
 export function assertFirebaseConfig() {

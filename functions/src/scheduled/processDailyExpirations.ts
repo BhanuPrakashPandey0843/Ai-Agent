@@ -8,9 +8,9 @@ const GRACE_PERIOD_DAYS = parseInt(process.env.GRACE_PERIOD_DAYS || '3');
 /**
  * Scheduled function to process daily expirations
  */
-export const processDailyExpirations = functions.schedule
+export const processDailyExpirations = functions.pubsub
+  .schedule('every 24 hours')
   .timeZone('UTC')
-  .every('1 days')
   .onRun(async () => {
     try {
       console.log('Starting processDailyExpirations...');

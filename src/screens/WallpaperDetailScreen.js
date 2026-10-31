@@ -8,6 +8,7 @@ import {
   ScrollView,
   Platform,
   Alert,
+  Linking,
   StatusBar,
   Animated,
   ActivityIndicator,
@@ -17,7 +18,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as MediaLibrary from 'expo-media-library';
-import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
 import { useToast } from '../context/ToastContext';
 import useFavorites from '../hooks/useFavorites';
@@ -26,7 +26,18 @@ import CompactActionButton from '../components/common/CompactActionButton';
 import CircleIconButton from '../components/common/CircleIconButton';
 import { useTheme } from '../context/ThemeContext';
 import { Spacing, Typography } from '../theme/colors';
-import { getOrDownloadWallpaper, mapErrorToMessage } from '../utils/wallpaperFile';
+import {
+  downloadWallpaperOnWeb,
+  getOrDownloadWallpaper,
+  isPermissionError,
+  mapErrorToMessage,
+  resolveWallpaperUri,
+} from '../utils/wallpaperFile';
+import {
+  ensureGallerySavePermission,
+  getGallerySavePermissionState,
+  requestGallerySavePermission,
+} from '../utils/mediaPermissions';
 import {
   isNativeWallpaperAvailable,
   isLockScreenSupported,
@@ -34,9 +45,12 @@ import {
 } from '../native/WallpaperManager';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.faithframes.official';
 
 export default function WallpaperDetailScreen({ route }) {
-  const { wallpaper } = route.params;
+  const wallpaper = route?.params?.wallpaper || {};
+  const wallpaperUri = resolveWallpaperUri(wallpaper);
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
   const { toggle, isFavorite } = useFavorites();
@@ -47,6 +61,9 @@ export default function WallpaperDetailScreen({ route }) {
   const [settingWallpaper, setSettingWallpaper] = useState(false);
   const [wallpaperProgress, setWallpaperProgress] = useState(0);
   const [sharing, setSharing] = useState(false);
+  const [imageLoadError, setImageLoadError] = useState(false);
+  const actionInProgress = useRef(false);
+  const sharingInProgress = useRef(false);
 
   const fav = isFavorite(wallpaper.id);
 
@@ -72,27 +89,103 @@ export default function WallpaperDetailScreen({ route }) {
   };
 
   // ─── Download ─────────────────────────────────────────────────────────────
-  const handleDownload = async () => {
-    if (downloading || settingWallpaper) return;
-    try {
-      setDownloading(true);
-      setDownloadProgress(0);
+  const openAppSettings = () => {
+    Linking.openSettings().catch(() =>
+      showToast('Open Settings → Apps → Faith Frames to allow storage access.', 'info', 5000)
+    );
+  };
 
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        showToast('Permission needed to save wallpapers', 'error');
+  // Retry when the system dialog can still be shown; Settings when it was
+  // permanently denied (Android will not show the dialog again).
+  const showPermissionAlert = (canAskAgain) => {
+    if (canAskAgain) {
+      Alert.alert(
+        'Storage access needed',
+        'Faith Frames needs permission to save this wallpaper to your gallery.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Try again', onPress: () => handleDownload() },
+        ]
+      );
+    } else {
+      Alert.alert(
+        'Storage access is turned off',
+        'To save wallpapers, allow storage access for Faith Frames in your device Settings.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open Settings', onPress: openAppSettings },
+        ]
+      );
+    }
+  };
+
+  // Explains *why* before the system dialog appears, at the moment it is needed.
+  const confirmStorageRationale = () =>
+    new Promise((resolve) => {
+      Alert.alert(
+        'Save to your gallery',
+        'To save this wallpaper, your device needs your permission to store the image in your gallery. Only this one image is saved; your other photos are never read.',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Continue', onPress: () => resolve(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) }
+      );
+    });
+
+  const handleDownload = async () => {
+    if (actionInProgress.current || downloading || settingWallpaper || !wallpaperUri) return;
+    actionInProgress.current = true;
+    try {
+      // expo-media-library does not exist in a browser, so this is not a
+      // permission problem there: just hand the image to the browser.
+      if (Platform.OS === 'web') {
+        setDownloading(true);
+        const outcome = await downloadWallpaperOnWeb(wallpaperUri, wallpaper.id);
+        showToast(
+          outcome === 'downloaded'
+            ? 'Download started.'
+            : 'Opened the image in a new tab. Save it from there.',
+          'success'
+        );
         return;
       }
 
-      const localUri = await getOrDownloadWallpaper(wallpaper.uri, wallpaper.id, setDownloadProgress);
+      // Ask only when the OS requires it for this Android version, and only
+      // if it can still be asked (never loop on a permanent denial).
+      const permission = await getGallerySavePermissionState();
+      if (permission.required && !permission.granted) {
+        if (!permission.canAskAgain) {
+          showPermissionAlert(false);
+          return;
+        }
+        const proceed = await confirmStorageRationale();
+        if (!proceed) return;
+        const requested = await requestGallerySavePermission();
+        if (!requested.granted) {
+          showPermissionAlert(requested.canAskAgain);
+          return;
+        }
+      }
+
+      setDownloading(true);
+      setDownloadProgress(0);
+
+      const localUri = await getOrDownloadWallpaper(wallpaperUri, wallpaper.id, setDownloadProgress);
       await MediaLibrary.saveToLibraryAsync(localUri);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('Wallpaper saved to gallery!', 'success');
     } catch (err) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showToast(mapErrorToMessage(err), 'error');
+      console.warn('[Wallpaper] download failed:', err?.code || err?.message);
+      if (isPermissionError(err)) {
+        showPermissionAlert(false);
+      } else {
+        showToast(mapErrorToMessage(err), 'error');
+      }
     } finally {
+      actionInProgress.current = false;
       setDownloading(false);
       setDownloadProgress(0);
     }
@@ -100,39 +193,61 @@ export default function WallpaperDetailScreen({ route }) {
 
   // ─── Share ────────────────────────────────────────────────────────────────
   const handleShare = async () => {
-    if (sharing) return;
+    if (sharingInProgress.current || actionInProgress.current) return;
+    sharingInProgress.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       setSharing(true);
-      const localUri = await getOrDownloadWallpaper(wallpaper.uri, wallpaper.id);
-      const canShareFiles = await Sharing.isAvailableAsync();
+      const title =
+        typeof wallpaper.title === 'string' && wallpaper.title.trim()
+          ? wallpaper.title.trim()
+          : 'Faith Frames Wallpaper';
+      let imageUrl = '';
 
-      if (canShareFiles) {
-        await Sharing.shareAsync(localUri, {
-          dialogTitle: wallpaper.title || 'Faith Frames Wallpaper',
-        });
-      } else {
-        await Share.share({
-          message: `Check out "${wallpaper.title}" on Faith Frames!`,
-          url: wallpaper.uri,
-        });
+      if (wallpaperUri) {
+        try {
+          const parsedUri = new URL(wallpaperUri);
+          if (parsedUri.protocol === 'https:' || parsedUri.protocol === 'http:') {
+            imageUrl = parsedUri.toString();
+          }
+        } catch {
+          // Omit malformed wallpaper links but still allow sharing the app listing.
+        }
       }
-    } catch (err) {
-      if (err?.message !== 'User did not share') {
-        showToast(mapErrorToMessage(err), 'error');
-      }
+
+      const details = [wallpaper.category, wallpaper.location, wallpaper.country]
+        .filter((value) => typeof value === 'string' && value.trim())
+        .map((value) => value.trim());
+      const message = [
+        `Check out "${title}" on Faith Frames!`,
+        details.length ? details.join(' · ') : '',
+        imageUrl ? `View this wallpaper: ${imageUrl}` : '',
+        `Get Faith Frames: ${PLAY_STORE_URL}`,
+      ]
+        .filter(Boolean)
+        .join('\n\n');
+
+      await Share.share(
+        { title, message },
+        { dialogTitle: 'Share wallpaper' }
+      );
+    } catch {
+      showToast('Could not open the sharing options. Please try again.', 'error');
     } finally {
+      sharingInProgress.current = false;
       setSharing(false);
     }
   };
 
   // ─── Set as Wallpaper ─────────────────────────────────────────────────────
   const applyWallpaper = async (target) => {
+    if (actionInProgress.current || !wallpaperUri) return;
+    actionInProgress.current = true;
     try {
       setSettingWallpaper(true);
       setWallpaperProgress(0);
 
-      const localUri = await getOrDownloadWallpaper(wallpaper.uri, wallpaper.id, setWallpaperProgress);
+      const localUri = await getOrDownloadWallpaper(wallpaperUri, wallpaper.id, setWallpaperProgress);
 
       if (Platform.OS === 'android') {
         await setNativeWallpaper(localUri, target);
@@ -146,8 +261,8 @@ export default function WallpaperDetailScreen({ route }) {
           'success'
         );
       } else {
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status !== 'granted') {
+        const canSave = await ensureGallerySavePermission();
+        if (!canSave) {
           showToast('Photo library permission is needed to save this wallpaper.', 'error');
           return;
         }
@@ -159,14 +274,22 @@ export default function WallpaperDetailScreen({ route }) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showToast(mapErrorToMessage(err), 'error');
     } finally {
+      actionInProgress.current = false;
       setSettingWallpaper(false);
       setWallpaperProgress(0);
     }
   };
 
   const showSetWallpaperOptions = async () => {
-    if (settingWallpaper || downloading) return;
+    if (actionInProgress.current || settingWallpaper || downloading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // No wallpaper API exists in a browser; say so instead of a misleading
+    // "update required" prompt (Alert.alert is also a no-op on web).
+    if (Platform.OS === 'web') {
+      showToast('Setting a wallpaper works in the Android app. Use Download to save this image.', 'info', 4500);
+      return;
+    }
 
     if (Platform.OS === 'ios') {
       Alert.alert(
@@ -213,18 +336,30 @@ export default function WallpaperDetailScreen({ route }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.imageWrap}>
-          <Image
-            source={{ uri: wallpaper.uri }}
-            style={styles.image}
-            contentFit="cover"
-            transition={500}
-            cachePolicy="memory-disk"
-            placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.82)']}
-            style={styles.imageOverlay}
-          />
+          {wallpaperUri && !imageLoadError ? (
+            <>
+              <Image
+                source={{ uri: wallpaperUri }}
+                style={styles.image}
+                contentFit="cover"
+                transition={500}
+                cachePolicy="memory-disk"
+                placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+                onError={() => setImageLoadError(true)}
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.82)']}
+                style={styles.imageOverlay}
+              />
+            </>
+          ) : (
+            <View style={[styles.imageFallback, { backgroundColor: colors.bgCard }]}>
+              <Ionicons name="image-outline" size={44} color={colors.textMuted} />
+              <Text style={[styles.imageFallbackText, { color: colors.textMuted }]}>
+                Wallpaper image unavailable
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={[styles.infoSection, { paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg }]}>
@@ -321,7 +456,7 @@ export default function WallpaperDetailScreen({ route }) {
             onPress={showSetWallpaperOptions}
             loading={settingWallpaper}
             progress={settingWallpaper ? wallpaperProgress : undefined}
-            disabled={downloading}
+            disabled={downloading || !wallpaperUri}
             colors={colors.gradientPrimary}
             style={{ flex: 1 }}
           />
@@ -331,7 +466,7 @@ export default function WallpaperDetailScreen({ route }) {
             onPress={handleDownload}
             loading={downloading}
             progress={downloading ? downloadProgress : undefined}
-            disabled={settingWallpaper}
+            disabled={settingWallpaper || !wallpaperUri}
             colors={colors.gradientWallpaper}
             style={{ flex: 1 }}
           />
@@ -356,6 +491,15 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   image: { width: '100%', height: '100%' },
+  imageFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  imageFallbackText: {
+    fontSize: Typography.fontSizeMD,
+  },
   imageOverlay: {
     position: 'absolute',
     bottom: 0,

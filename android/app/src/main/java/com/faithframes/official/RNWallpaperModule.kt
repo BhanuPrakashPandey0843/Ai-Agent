@@ -3,6 +3,7 @@ package com.faithframes.official
 import android.app.WallpaperManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -19,6 +20,8 @@ import java.io.FileNotFoundException
 class RNWallpaperModule(reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
 
+  private class InvalidWallpaperImageException(message: String) : Exception(message)
+
   override fun getName(): String = "RNWallpaperManager"
 
   /**
@@ -27,7 +30,11 @@ class RNWallpaperModule(reactContext: ReactApplicationContext) :
    * a bare filesystem path or a file:// URI.
    */
   private fun decodeSampledBitmap(path: String): Bitmap {
-    val cleanPath = if (path.startsWith("file://")) path.removePrefix("file://") else path
+    val cleanPath = if (path.startsWith("file://")) {
+      Uri.parse(path).path ?: throw FileNotFoundException("Invalid wallpaper file URI")
+    } else {
+      path
+    }
     val file = File(cleanPath)
     if (!file.exists() || file.length() <= 0L) {
       throw FileNotFoundException("Wallpaper file not found: $cleanPath")
@@ -41,7 +48,7 @@ class RNWallpaperModule(reactContext: ReactApplicationContext) :
     val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(cleanPath, boundsOptions)
     if (boundsOptions.outWidth <= 0 || boundsOptions.outHeight <= 0) {
-      throw IllegalStateException("Could not read image dimensions for $cleanPath")
+      throw InvalidWallpaperImageException("Could not read image dimensions")
     }
 
     var sampleSize = 1
@@ -54,7 +61,7 @@ class RNWallpaperModule(reactContext: ReactApplicationContext) :
 
     val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
     return BitmapFactory.decodeFile(cleanPath, decodeOptions)
-      ?: throw IllegalStateException("Failed to decode wallpaper image at $cleanPath")
+      ?: throw InvalidWallpaperImageException("Failed to decode wallpaper image")
   }
 
   private fun flagsForTarget(target: String?): Int {
@@ -78,6 +85,12 @@ class RNWallpaperModule(reactContext: ReactApplicationContext) :
         promise.reject("WALLPAPER_NOT_SUPPORTED", "This device does not support wallpapers.")
         return
       }
+      // Device policy / restricted profiles can forbid wallpaper changes even
+      // when the API exists; report that distinctly instead of a generic failure.
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !wallpaperManager.isSetWallpaperAllowed) {
+        promise.reject("WALLPAPER_NOT_ALLOWED", "Changing the wallpaper is disabled on this device.")
+        return
+      }
 
       bitmap = decodeSampledBitmap(path)
 
@@ -91,6 +104,8 @@ class RNWallpaperModule(reactContext: ReactApplicationContext) :
       promise.resolve(true)
     } catch (e: FileNotFoundException) {
       promise.reject("FILE_NOT_FOUND", e.message, e)
+    } catch (e: InvalidWallpaperImageException) {
+      promise.reject("INVALID_IMAGE_FORMAT", "The downloaded file is not a supported image.", e)
     } catch (e: OutOfMemoryError) {
       promise.reject("OUT_OF_MEMORY", "Not enough memory to set this wallpaper.", RuntimeException(e))
     } catch (e: Exception) {

@@ -3,28 +3,18 @@ import {
   doc,
   getDoc,
   getDocs,
-  setDoc,
-  writeBatch,
   query,
   orderBy,
   limit,
   where,
   Timestamp,
-  serverTimestamp,
-  runTransaction,
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, auth } from '../config/firebase';
+import { Env } from '../config/env';
 import { COLLECTIONS } from '../constants';
-import { QUIZ_COLLECTIONS, QUIZ_TYPES, XP_PER_CORRECT, XP_PER_QUIZ_COMPLETE } from '../constants/quiz';
+import { QUIZ_COLLECTIONS, QUIZ_TYPES } from '../constants/quiz';
 import { isValidQuizQuestion, normalizeQuestion, selectQuestionsForSession } from './quizEngine';
-import {
-  computeAccuracy,
-  computeSessionScore,
-  compareLeaderboardEntries,
-  dedupeAnswers,
-  levelFromXp,
-} from '../utils/quizScoring';
-import { evaluateAchievements } from '../utils/achievements';
+import { compareLeaderboardEntries } from '../utils/quizScoring';
 import { getLeaderboardPeriodKey, toDateKey } from '../utils/quizDates';
 import {
   saveQuestionCache,
@@ -38,6 +28,43 @@ import {
 } from '../storage/quizStorage';
 
 const QUESTIONS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
+
+const QUIZ_API_TIMEOUT_MS = 20000;
+
+const callQuizApi = async (action, data = {}) => {
+  const token = await auth.currentUser?.getIdToken();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), QUIZ_API_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(`${Env.quizApiBaseUrl}/api/quiz`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ action, data }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    // fetch() rejects (no HTTP status at all) on timeouts, offline, DNS/TLS
+    // failures, and - in browsers - CORS/preflight rejections. Surface a
+    // readable message instead of the bare "Failed to fetch"/"Network request failed".
+    console.warn(`[Quiz] ${action} request to ${Env.quizApiBaseUrl}/api/quiz failed:`, err?.name, err?.message);
+    throw new Error(
+      err?.name === 'AbortError'
+        ? 'The quiz server took too long to respond. Please try again.'
+        : 'Could not reach the quiz server. Check your connection and try again.'
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.message || `Quiz request failed (${response.status}).`);
+  }
+  return result;
+};
 
 // In-memory catalogs so Quiz Home → Start quiz doesn't re-read AsyncStorage
 // or hit Firestore again within the same app session.
@@ -61,30 +88,13 @@ const uniqueQuestions = (questions) => {
 // missing a doc because of skew.
 const ATTEMPTED_SYNC_SKEW_BUFFER_MS = 5 * 60 * 1000;
 
-const mapQuestionDocs = (docs) =>
-  uniqueQuestions(
-    docs
-      .map((d) => normalizeQuestion({ id: d.id, ...d.data() }))
+export const fetchAllQuestionsFromFirestore = async () => {
+  const result = await callQuizApi('getQuizQuestions');
+  return uniqueQuestions(
+    (result.questions || [])
+      .map((question) => normalizeQuestion(question))
       .filter(isValidQuizQuestion)
   );
-
-export const fetchAllQuestionsFromFirestore = async () => {
-  const ref = collection(db, COLLECTIONS.QUESTIONS);
-  try {
-    const snap = await getDocs(query(ref, orderBy('createdAt', 'desc'), limit(500)));
-    return mapQuestionDocs(snap.docs);
-  } catch (err) {
-    if (err?.code === 'failed-precondition') {
-      const snap = await getDocs(query(ref, limit(500)));
-      const items = mapQuestionDocs(snap.docs);
-      return items.sort((a, b) => {
-        const ta = a.createdAt?.toMillis?.() ?? 0;
-        const tb = b.createdAt?.toMillis?.() ?? 0;
-        return tb - ta;
-      });
-    }
-    throw err;
-  }
 };
 
 export const getQuestionsCatalog = async (uid, { forceRefresh = false } = {}) => {
@@ -96,7 +106,12 @@ export const getQuestionsCatalog = async (uid, { forceRefresh = false } = {}) =>
     }
     const cached = await getQuestionCache(uid);
     if (cached?.questions?.length && Date.now() - cached.cachedAt < QUESTIONS_CACHE_TTL_MS) {
-      const valid = uniqueQuestions(cached.questions.filter(isValidQuizQuestion));
+      const valid = uniqueQuestions(
+        cached.questions
+          .map((question) => normalizeQuestion(question))
+          .filter(isValidQuizQuestion)
+          .map(({ correctIndex, correctAnswer, ...question }) => question)
+      );
       memQuestions.set(cacheUid, { questions: valid, cachedAt: cached.cachedAt });
       return valid;
     }
@@ -182,7 +197,14 @@ export const prepareQuizSession = async (uid, quizTypeId) => {
     };
   }
 
-  const sessionId = `${uid || 'guest'}_${quizTypeId}_${Date.now()}`;
+  const sessionId = `${uid || 'guest'}_${quizTypeId}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  let startedAt = Date.now();
+  const started = await callQuizApi('startQuizSession', {
+    sessionId,
+    quizTypeId,
+    questionIds: questions.map((question) => question.id),
+  });
+  startedAt = Number(started.startedAt) || startedAt;
   const session = {
     sessionId,
     quizTypeId,
@@ -190,11 +212,43 @@ export const prepareQuizSession = async (uid, quizTypeId) => {
     questions,
     currentIndex: 0,
     answers: [],
-    startedAt: Date.now(),
+    startedAt,
     status: 'active',
+    serverRegistered: true,
   };
 
   return { session };
+};
+
+export const ensureQuizSessionStarted = async (session) => {
+  if (!session?.sessionId || !session?.quizTypeId || !session?.questionIds?.length) {
+    throw new Error('The saved quiz session is incomplete.');
+  }
+  const started = await callQuizApi('startQuizSession', {
+    sessionId: session.sessionId,
+    quizTypeId: session.quizTypeId,
+    questionIds: session.questionIds,
+  });
+  let answers = session.answers || [];
+  if (!session.serverRegistered) {
+    answers = [];
+    for (const savedAnswer of session.answers || []) {
+      const recorded = await submitQuizAnswer(
+        session.sessionId,
+        savedAnswer.questionId,
+        savedAnswer.selectedIndex
+      );
+      answers.push({ ...savedAnswer, ...recorded });
+    }
+  }
+  return {
+    startedAt: Number(started.startedAt) || session.startedAt || Date.now(),
+    answers,
+  };
+};
+
+export const submitQuizAnswer = async (sessionId, questionId, selectedIndex) => {
+  return callQuizApi('answerQuizQuestion', { sessionId, questionId, selectedIndex });
 };
 
 const defaultQuizProfile = () => ({
@@ -222,239 +276,20 @@ export const getQuizProfile = async (uid) => {
   return { ...defaultQuizProfile(), ...(snap.data()?.quizProfile || {}) };
 };
 
-const mergeCategoryStats = (prev, category, correct) => {
-  const cat = prev[category] || { correct: 0, total: 0 };
-  return {
-    ...prev,
-    [category]: {
-      correct: cat.correct + (correct ? 1 : 0),
-      total: cat.total + 1,
-    },
-  };
-};
-
-const updateStreak = (profile, todayKey) => {
-  const last = profile.lastPlayedDate;
-  let current = profile.currentStreak || 0;
-  if (last === todayKey) {
-    return { currentStreak: current, longestStreak: profile.longestStreak || 0 };
-  }
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yKey = toDateKey(yesterday);
-  if (last === yKey) {
-    current += 1;
-  } else {
-    current = 1;
-  }
-  const longest = Math.max(profile.longestStreak || 0, current);
-  return { currentStreak: current, longestStreak: longest, lastPlayedDate: todayKey };
-};
-
 export const submitQuizSession = async (uid, sessionPayload, userDisplay) => {
   if (!uid) throw new Error('Sign in to save quiz progress');
-
-  const {
-    sessionId,
-    quizTypeId,
-    answers,
-    completionTimeMs,
-    questions,
-  } = sessionPayload;
-
-  const correctCount = answers.filter((a) => a.correct).length;
-  const wrongCount = answers.length - correctCount;
-  const score = computeSessionScore(answers);
-  const accuracy = computeAccuracy(correctCount, answers.length);
-  const todayKey = toDateKey();
-
-  const sessionRef = doc(db, COLLECTIONS.USERS, uid, QUIZ_COLLECTIONS.SESSIONS, sessionId);
-  const displayName = userDisplay?.name || 'Player';
-  const photoURL = userDisplay?.photoURL || '';
-
-  let resultProfile;
-  let newlyUnlocked = [];
-  let rankContext = { reachedTop10: false };
-  // Set inside the transaction if this exact sessionId was already marked
-  // completed — by an earlier successful call, OR by a concurrent call that
-  // committed first. The read of sessionRef and the write to it both happen
-  // inside this single transaction, so two near-simultaneous submits of the
-  // same session (double-tap, a retried failed request that actually landed,
-  // a background pending-submission flush racing a live one) can no longer
-  // both observe "not completed yet" and both award XP/streak/leaderboard
-  // credit. Firestore serializes conflicting transactions: whichever commits
-  // second re-runs and sees the first one's write, landing in this branch
-  // instead of double-crediting the user.
-  let alreadyCompletedData = null;
-
-  await runTransaction(db, async (tx) => {
-    const sessionSnap = await tx.get(sessionRef);
-    if (sessionSnap.exists() && sessionSnap.data()?.status === 'completed') {
-      alreadyCompletedData = sessionSnap.data();
-      return;
-    }
-
-    const userRef = doc(db, COLLECTIONS.USERS, uid);
-    const userSnap = await tx.get(userRef);
-    const userData = userSnap.exists() ? userSnap.data() : {};
-    const profile = { ...defaultQuizProfile(), ...(userData.quizProfile || {}) };
-
-    const streakUpdate = updateStreak(profile, todayKey);
-    let categoryStats = { ...profile.categoryStats };
-    answers.forEach((a) => {
-      const q = questions.find((item) => item.id === a.questionId);
-      if (q) categoryStats = mergeCategoryStats(categoryStats, q.category, a.correct);
-    });
-
-    const xpGain =
-      correctCount * XP_PER_CORRECT + XP_PER_QUIZ_COMPLETE;
-    const nextProfile = {
-      ...profile,
-      ...streakUpdate,
-      xp: (profile.xp || 0) + xpGain,
-      totalQuizzes: (profile.totalQuizzes || 0) + 1,
-      totalQuestions: (profile.totalQuestions || 0) + answers.length,
-      totalCorrect: (profile.totalCorrect || 0) + correctCount,
-      totalWrong: (profile.totalWrong || 0) + wrongCount,
-      categoryStats,
-      bestScore: Math.max(profile.bestScore || 0, score),
-      bestAccuracy: Math.max(profile.bestAccuracy || 0, accuracy),
-      fastestTimeMs:
-        profile.fastestTimeMs == null
-          ? completionTimeMs
-          : Math.min(profile.fastestTimeMs, completionTimeMs),
-    };
-
-    const achievementEval = evaluateAchievements(nextProfile, rankContext);
-    nextProfile.achievements = achievementEval.achievements;
-    newlyUnlocked = achievementEval.newlyUnlocked;
-
-    tx.set(
-      sessionRef,
-      {
-        sessionId,
-        quizTypeId,
-        score,
-        accuracy,
-        completionTimeMs,
-        correctCount,
-        wrongCount,
-        totalQuestions: answers.length,
-        answers,
-        status: 'completed',
-        submittedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    tx.set(
-      userRef,
-      {
-        quizProfile: nextProfile,
-        lastScore: score,
-        lastPlayed: new Date().toISOString(),
-        updatedAt: Date.now(),
-      },
-      { merge: true }
-    );
-
-    resultProfile = nextProfile;
+  const result = await callQuizApi('submitQuizSession', {
+    sessionId: sessionPayload?.sessionId,
+    quizTypeId: sessionPayload?.quizTypeId,
   });
-
-  if (alreadyCompletedData) {
-    // Return the SAME shape as a fresh submission (score/accuracy/profile at
-    // the top level, not nested under `result`) so callers like
-    // QuizResultScreen don't need special-case handling for a duplicate
-    // resubmit, and show the actual saved score instead of falling back to
-    // a client-estimated one.
-    const profile = await getQuizProfile(uid);
-    return {
-      score: alreadyCompletedData.score,
-      accuracy: alreadyCompletedData.accuracy,
-      completionTimeMs: alreadyCompletedData.completionTimeMs,
-      correctCount: alreadyCompletedData.correctCount,
-      wrongCount: alreadyCompletedData.wrongCount,
-      totalQuestions: alreadyCompletedData.totalQuestions,
-      profile,
-      newlyUnlocked: [],
-      duplicate: true,
-    };
-  }
-
-  const batch = writeBatch(db);
-  answers.forEach((a) => {
-    const ref = doc(db, COLLECTIONS.USERS, uid, QUIZ_COLLECTIONS.ATTEMPTED, a.questionId);
-    batch.set(
-      ref,
-      {
-        questionId: a.questionId,
-        quizTypeId,
-        correct: a.correct,
-        attemptedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-  });
-  await batch.commit();
-
-  const attempted = await getAttemptedCache(uid);
-  answers.forEach((a) => attempted.add(a.questionId));
-  await saveAttemptedCache(uid, attempted);
-
-  const leaderboardEntry = {
-    uid,
-    displayName,
-    photoURL,
-    score,
-    accuracy,
-    completionTimeMs,
-    correctCount,
-    wrongCount,
-    totalQuestions: answers.length,
-    streak: resultProfile.currentStreak || 0,
-    quizTypeId,
-    sessionId,
-    submittedAt: Date.now(),
-  };
-
-  // The leaderboard upsert (across all 4 periods) IS awaited here, unlike
-  // the rest of this function's Firestore writes: it's the one write that
-  // directly determines what the Leaderboard screen shows, so the screen
-  // the user lands on next (or the Leaderboard they tap into from the
-  // Result screen) must never race ahead of it. A failure here is still
-  // swallowed rather than surfaced as a failed quiz submission — the score
-  // itself is already safely saved above — but we no longer return before
-  // the write we know the very next screen depends on has settled, and the
-  // failure is now LOGGED (not silently dropped) so a permission or index
-  // problem is visible in device/Metro logs instead of just "leaderboard
-  // looks wrong" with no trace of why.
   try {
-    await upsertLeaderboardEntries(uid, leaderboardEntry);
+    const attempted = await getAttemptedCache(uid);
+    (sessionPayload?.answers || []).forEach((answer) => attempted.add(answer.questionId));
+    await saveAttemptedCache(uid, attempted);
   } catch (err) {
-    console.error(
-      '❌ [Leaderboard] upsertLeaderboardEntries failed — this quiz result will NOT appear on the leaderboard. code:',
-      err?.code,
-      'message:',
-      err?.message
-    );
+    console.warn('[Quiz] Saved result but could not refresh the local attempted-question cache:', err?.message);
   }
-
-  // The top-10 "reachedTop10" achievement flag is a secondary side effect —
-  // it doesn't affect what the leaderboard itself displays, so it's safe to
-  // resolve in the background without delaying the Result screen further.
-  syncTop10AchievementInBackground(uid, resultProfile);
-
-  return {
-    score,
-    accuracy,
-    completionTimeMs,
-    correctCount,
-    wrongCount,
-    totalQuestions: answers.length,
-    profile: resultProfile,
-    newlyUnlocked,
-    duplicate: false,
-  };
+  return result;
 };
 
 // ─── Durable submission (survives lost network / killed app) ───────────────
@@ -506,79 +341,6 @@ export const flushPendingQuizSubmission = async (uid) => {
   }
 };
 
-const syncTop10AchievementInBackground = (uid, resultProfile) => {
-  fetchUserLeaderboardRank(uid, 'daily')
-    .then(async (dailyRank) => {
-      if (dailyRank && dailyRank <= 10 && !resultProfile.reachedTop10) {
-        await setDoc(
-          doc(db, COLLECTIONS.USERS, uid),
-          { quizProfile: { ...resultProfile, reachedTop10: true } },
-          { merge: true }
-        );
-        resultProfile.reachedTop10 = true;
-      }
-    })
-    .catch(() => {
-      /* non-blocking background sync; safe to ignore, matches previous behavior */
-    });
-};
-
-const shouldReplaceEntry = (existing, next) => {
-  if (!existing) return true;
-  return compareLeaderboardEntries(next, existing) < 0;
-};
-
-export const upsertLeaderboardEntries = async (uid, entry) => {
-  const periods = ['daily', 'weekly', 'monthly', 'alltime'];
-  const results = await Promise.allSettled(
-    periods.map(async (period) => {
-      const periodKey = getLeaderboardPeriodKey(period);
-      const ref = doc(
-        db,
-        QUIZ_COLLECTIONS.LEADERBOARDS,
-        `${period}_${periodKey}`,
-        'entries',
-        uid
-      );
-      const snap = await getDoc(ref);
-      const existing = snap.exists() ? snap.data() : null;
-      if (!shouldReplaceEntry(existing, entry)) return;
-      await setDoc(
-        ref,
-        {
-          ...entry,
-          period,
-          periodKey,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-    })
-  );
-  // Promise.all would reject on the first failing period and abort silently
-  // for the rest; Promise.allSettled lets every period attempt independently
-  // (a 'daily' failure shouldn't stop 'alltime' from writing) while still
-  // logging exactly which period(s) failed and why, instead of one opaque
-  // rejection with no indication of which of the 4 writes was the problem.
-  results.forEach((result, i) => {
-    if (result.status === 'rejected') {
-      const err = result.reason;
-      console.error(
-        `\u274c [Leaderboard] upsert failed for period "${periods[i]}". code:`,
-        err?.code,
-        'message:',
-        err?.message
-      );
-    }
-  });
-  if (results.every((r) => r.status === 'rejected')) {
-    // Every period failed the same way (e.g. all permission-denied) —
-    // surface one representative error so the caller's catch block (and
-    // its own logging) still fires.
-    throw results[0].reason;
-  }
-};
-
 // How many docs the single-field fallback pulls before ranking client-side.
 // Needs to comfortably exceed any realistic limitCount so tie-breaking
 // (accuracy, then time) never gets truncated away from the real top scorers.
@@ -590,6 +352,23 @@ const rankEntries = (docs, limitCount) => {
   return entries.slice(0, limitCount).map((e, i) => ({ ...e, rank: i + 1 }));
 };
 
+const resolveLeaderboardProfiles = async (entries) => Promise.all(
+  entries.map(async (entry) => {
+    if (!entry.uid) return { ...entry, displayName: 'Player', photoURL: '' };
+    const profile = await getDoc(doc(db, 'publicProfiles', entry.uid));
+    const data = profile.exists() ? profile.data() : {};
+    return {
+      ...entry,
+      displayName: typeof data.name === 'string' && data.name.trim()
+        ? data.name.trim()
+        : typeof entry.displayName === 'string' && entry.displayName.trim()
+        ? entry.displayName.trim()
+        : 'Player',
+      photoURL: typeof data.photoURL === 'string' ? data.photoURL : entry.photoURL || '',
+    };
+  })
+);
+
 export const fetchLeaderboard = async (period = 'daily', limitCount = 50) => {
   const periodKey = getLeaderboardPeriodKey(period);
   const boardId = `${period}_${periodKey}`;
@@ -600,10 +379,17 @@ export const fetchLeaderboard = async (period = 'daily', limitCount = 50) => {
   // collection group — see firestore.indexes.json.
   try {
     const snap = await getDocs(
-      query(ref, orderBy('score', 'desc'), orderBy('accuracy', 'desc'), limit(limitCount))
+      query(
+        ref,
+        orderBy('score', 'desc'),
+        orderBy('accuracy', 'desc'),
+        orderBy('completionTimeMs', 'asc'),
+        limit(limitCount)
+      )
     );
-    return rankEntries(snap.docs, limitCount);
+    return resolveLeaderboardProfiles(rankEntries(snap.docs, limitCount));
   } catch (err) {
+    if (err?.code !== 'failed-precondition') throw err;
     console.warn(
       `\u26a0\ufe0f [Leaderboard] indexed query failed for board "${boardId}", falling back. code:`,
       err?.code,
@@ -620,8 +406,9 @@ export const fetchLeaderboard = async (period = 'daily', limitCount = 50) => {
     const snap = await getDocs(
       query(ref, orderBy('score', 'desc'), limit(LEADERBOARD_FALLBACK_SAMPLE_SIZE))
     );
-    return rankEntries(snap.docs, limitCount);
+    return resolveLeaderboardProfiles(rankEntries(snap.docs, limitCount));
   } catch (err) {
+    if (err?.code !== 'failed-precondition') throw err;
     console.warn(
       `\u26a0\ufe0f [Leaderboard] single-field fallback failed for board "${boardId}", falling back further. code:`,
       err?.code,
@@ -634,7 +421,7 @@ export const fetchLeaderboard = async (period = 'daily', limitCount = 50) => {
   // entries than the sample size, but better than surfacing a hard error.
   try {
     const snap = await getDocs(query(ref, limit(LEADERBOARD_FALLBACK_SAMPLE_SIZE)));
-    return rankEntries(snap.docs, limitCount);
+    return resolveLeaderboardProfiles(rankEntries(snap.docs, limitCount));
   } catch (err) {
     // If even a plain, unordered, un-filtered read of the collection fails,
     // this is almost certainly NOT a missing-index problem (that only

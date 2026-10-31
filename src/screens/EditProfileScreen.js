@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
   StatusBar,
   TextInput as RNTextInput,
 } from 'react-native';
@@ -65,12 +64,13 @@ export default function EditProfileScreen() {
 
   const handleImagePick = useCallback(async () => {
     try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'We need access to your photos to set a profile picture.');
-        return;
-      }
-
+      // No permission request on purpose. launchImageLibraryAsync opens the system
+      // photo picker, which hands back only the photo the user selects and needs no
+      // storage/media permission on any Android or iOS version. Requesting
+      // READ_MEDIA_IMAGES here is what Google Play's Photo and Video Permissions
+      // policy rejects, so do not add ImagePicker.requestMediaLibraryPermissionsAsync()
+      // (or any MediaLibrary read permission) back. scripts/check-android-permissions.js
+      // fails the build if it comes back.
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,

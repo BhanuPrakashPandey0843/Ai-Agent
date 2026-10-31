@@ -504,3 +504,29 @@ It helps others discover the project and supports future development.
 Made with ❤️ and Faith by **Bhanu Prakash Pandey**
 
 </div>
+
+## Push notifications
+
+Admin campaigns are stored in Firestore and dispatched through Expo Push. The Netlify scheduled
+function runs once per minute; each invocation processes at most 50 users from a campaign, and
+delayed campaigns are sent only while that worker is deployed and configured.
+
+Before enabling campaigns in production:
+
+1. Deploy the mobile project's Firestore rules and indexes from `app/` with
+   `npm run deploy:firestore` (using the intended Firebase CLI project). The canonical deployment
+   configuration is `app/firebase.json`.
+2. Configure the existing Firebase Admin credentials on the Next.js/Netlify site:
+   `FIREBASE_SERVICE_ACCOUNT_JSON`, or all three of `FIREBASE_ADMIN_PROJECT_ID`,
+   `FIREBASE_ADMIN_CLIENT_EMAIL`, and `FIREBASE_ADMIN_PRIVATE_KEY`.
+3. Set a high-entropy `NOTIFICATION_CRON_SECRET` in Netlify. The scheduled function uses it to
+   authenticate its request to `/api/cron/notifications`; do not expose it as a `NEXT_PUBLIC_*`
+   variable.
+4. For authenticated Expo Push API requests, optionally set `EXPO_ACCESS_TOKEN` on the server.
+5. Configure Android FCM and iOS APNs credentials through EAS, then install a native development
+   or production build. Push notifications cannot be verified in Expo Go or a web browser.
+
+Users must enable push notifications in the app before their devices are eligible for push
+delivery. Expo acceptance tickets are not proof that a notification was displayed; delivery
+receipts are checked later. Device credentials, Firebase deployments, Netlify environment
+variables, and real-device delivery must be configured and tested separately.

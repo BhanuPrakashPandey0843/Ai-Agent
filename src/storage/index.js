@@ -98,6 +98,11 @@ export const isOnboardingDone = async () => {
   return val === 'true';
 };
 
+export const getThemePreference = async () => {
+  const theme = await AsyncStorage.getItem(STORAGE_KEYS.THEME);
+  return theme === 'light' ? 'light' : 'dark';
+};
+
 // ─── Library bookmarks ────────────────────────────────────────────────────────
 export const getBookmarkIds = async (storageKey) =>
   (await getJSON(storageKey)) || [];

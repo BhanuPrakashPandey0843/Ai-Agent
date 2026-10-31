@@ -29,7 +29,8 @@ import BackHeader from '../components/common/BackHeader';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
-import { createUserPrayer } from '../services/firebaseService';
+import { auth } from '../config/firebase';
+import { createUserPrayer, USER_PRAYER_LIMITS } from '../services/firebaseService';
 import {
   clearPrayerDraft,
   getPrayerDraft,
@@ -38,12 +39,65 @@ import {
 import { STORAGE_KEYS } from '../constants';
 
 const MAX_WORDS = 500;
-const MAX_TITLE_CHARS = 120;
-const MAX_DESCRIPTION_CHARS = 300;
+const MAX_TITLE_CHARS = USER_PRAYER_LIMITS.title;
+const MAX_DESCRIPTION_CHARS = USER_PRAYER_LIMITS.description;
+// Server-side cap (firestore.rules). Word count alone cannot guarantee this.
+const MAX_CONTENT_CHARS = USER_PRAYER_LIMITS.content;
+const SUBMIT_TIMEOUT_MS = 20000;
 
 const countWords = (text) => {
   if (!text || !text.trim()) return 0;
   return text.trim().split(/\s+/).length;
+};
+
+/** Rejects with a coded error if `promise` doesn't settle in time (e.g. offline). */
+const withTimeout = (promise, ms) =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const err = new Error('Submission timed out');
+      err.code = 'app/timeout';
+      reject(err);
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+
+/** Turn a Firebase/app error into a message that says what actually went wrong. */
+const describeSubmitError = (err) => {
+  const code = err?.code || '';
+  switch (code) {
+    case 'app/validation':
+      return err.message;
+    case 'app/no-session':
+    case 'unauthenticated':
+    case 'auth/user-token-expired':
+    case 'auth/id-token-expired':
+    case 'auth/user-not-found':
+    case 'auth/user-disabled':
+    case 'auth/requires-recent-login':
+      return 'Your session has expired. Please sign out and sign in again, then send your prayer. Your draft is saved.';
+    case 'app/timeout':
+    case 'unavailable':
+    case 'deadline-exceeded':
+    case 'auth/network-request-failed':
+      return 'Could not reach the server. Check your internet connection and try again. Your draft is saved. If it keeps spinning, check My Prayers before resending.';
+    case 'resource-exhausted':
+      return 'Too many requests right now. Please wait a moment and try again.';
+    case 'permission-denied':
+      // The user IS signed in at this point (checked before the write), so this
+      // is a server-side rejection, not a missing session.
+      return 'Your account is signed in, but the server rejected this prayer. Please try again later; if it keeps happening, contact support. Your draft is saved.';
+    default:
+      return 'Could not send your prayer. Please try again. Your draft is saved.';
+  }
 };
 
 export default function WritePrayerScreen() {
@@ -131,6 +185,10 @@ export default function WritePrayerScreen() {
     if (!content.trim()) errors.push('Please write your prayer');
     else if (overWordLimit)
       errors.push(`Prayer exceeds the ${MAX_WORDS} word limit by ${-wordsRemaining} word(s)`);
+    else if (content.trim().length > MAX_CONTENT_CHARS)
+      errors.push(
+        `Prayer is ${content.trim().length - MAX_CONTENT_CHARS} character(s) over the ${MAX_CONTENT_CHARS} character limit`
+      );
     return errors;
   }, [title, description, content, overWordLimit, wordsRemaining]);
 
@@ -178,15 +236,32 @@ export default function WritePrayerScreen() {
     Keyboard.dismiss();
     setSubmitting(true);
     try {
-      const username = anonymous ? 'Anonymous' : (userProfile?.name || user?.displayName || user?.email?.split('@')[0] || 'Believer');
-      await createUserPrayer({
-        userId: user.uid,
-        title: title.trim(),
-        description: description.trim(),
-        content: content.trim(),
-        anonymous,
-        username,
-      });
+      // Use Firebase Auth as the source of truth. Context state can briefly lag
+      // behind auth after a session change; getIdToken() refreshes an expiring
+      // token before Firestore evaluates the write.
+      const sessionUser = auth.currentUser;
+      if (!sessionUser) {
+        const noSession = new Error('No active session');
+        noSession.code = 'app/no-session';
+        throw noSession;
+      }
+      await sessionUser.getIdToken();
+
+      const profileName = sessionUser.uid === user?.uid ? userProfile?.name : null;
+      const username = anonymous
+        ? 'Anonymous'
+        : (profileName || sessionUser.displayName || sessionUser.email?.split('@')[0] || 'Believer');
+      await withTimeout(
+        createUserPrayer({
+          userId: sessionUser.uid,
+          title: title.trim(),
+          description: description.trim(),
+          content: content.trim(),
+          anonymous,
+          username,
+        }),
+        SUBMIT_TIMEOUT_MS
+      );
       try {
         await clearPrayerDraft(STORAGE_KEYS.PRAYER_DRAFT);
       } catch {
@@ -201,10 +276,8 @@ export default function WritePrayerScreen() {
         if (navigation.canGoBack()) navigation.goBack();
       }, 500);
     } catch (err) {
-      const msg = err?.message?.includes('permission') || err?.message?.includes('PERMISSION_DENIED')
-        ? 'You need to be signed in to submit a prayer.'
-        : err?.message || 'Could not send prayer. Please try again.';
-      showToast(msg, 'error', 4000);
+      console.error('[WritePrayer] submit failed:', err?.code, err?.message);
+      showToast(describeSubmitError(err), 'error', 5000);
     } finally {
       setSubmitting(false);
     }

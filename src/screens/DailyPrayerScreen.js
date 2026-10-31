@@ -21,6 +21,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -195,6 +196,7 @@ export default function DailyPrayerScreen() {
           item={item}
           colors={colors}
           accent={accent}
+          isDark={isDark}
           isBookmarked={!!bookmarked[item.id]}
           onBookmark={() => handleBookmark(item.id)}
           onShare={() => handleShare(item)}
@@ -202,7 +204,7 @@ export default function DailyPrayerScreen() {
         />
       </View>
     ),
-    [colors, accent, bookmarked, handleBookmark, handleShare, handleCopy]
+    [colors, accent, isDark, bookmarked, handleBookmark, handleShare, handleCopy]
   );
 
   const selectedDateLabel = useMemo(() => {
@@ -352,6 +354,7 @@ export default function DailyPrayerScreen() {
                 item={item}
                 colors={colors}
                 accent={accent}
+                isDark={isDark}
                 isBookmarked={!!bookmarked[item.id]}
                 onBookmark={() => handleBookmark(item.id)}
                 onShare={() => handleShare(item)}
@@ -370,10 +373,11 @@ export default function DailyPrayerScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-
-      {/* subtle premium background glow — never distracts from reading */}
-      <View pointerEvents="none" style={[styles.glow, { backgroundColor: accent, top: -80, right: -60 }]} />
-      <View pointerEvents="none" style={[styles.glow, { backgroundColor: accent, bottom: 40, left: -80 }]} />
+      <LinearGradient
+        colors={[colors.bg, colors.bgSecondary]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
 
       <BackHeader title="Prayer Room" />
 
@@ -389,9 +393,9 @@ export default function DailyPrayerScreen() {
           accessibilityLabel="Daily Prayers tab"
           accessibilityState={{ selected: activeTab === 'daily' }}
         >
-          <Text style={[styles.tabBtnText, { color: activeTab === 'daily' ? '#fff' : colors.textSecondary }]}>Daily</Text>
+          <Text style={[styles.tabBtnText, { color: activeTab === 'daily' ? colors.white : colors.textSecondary }]}>Daily</Text>
           {myPendingOrRejected.some((p) => p.status === 'rejected') ? (
-            <View style={[styles.tabDot, { backgroundColor: activeTab === 'daily' ? '#fff' : '#EF4444' }]} />
+            <View style={[styles.tabDot, { backgroundColor: activeTab === 'daily' ? colors.white : colors.error }]} />
           ) : null}
         </TouchableOpacity>
         <TouchableOpacity
@@ -405,7 +409,7 @@ export default function DailyPrayerScreen() {
           accessibilityLabel="Community Prayers tab"
           accessibilityState={{ selected: activeTab === 'community' }}
         >
-          <Text style={[styles.tabBtnText, { color: activeTab === 'community' ? '#fff' : colors.textSecondary }]}>Community</Text>
+          <Text style={[styles.tabBtnText, { color: activeTab === 'community' ? colors.white : colors.textSecondary }]}>Community</Text>
         </TouchableOpacity>
       </View>
 
@@ -422,13 +426,6 @@ export default function DailyPrayerScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  glow: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    opacity: 0.06,
-  },
   cacheBanner: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -13,8 +13,12 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { QUIZ_TYPE_LIST } from '../../constants/quiz';
-import { prepareQuizSession, flushPendingQuizSubmission } from '../../services/quizService';
-import { getActiveSession } from '../../storage/quizStorage';
+import {
+  prepareQuizSession,
+  flushPendingQuizSubmission,
+  ensureQuizSessionStarted,
+} from '../../services/quizService';
+import { getActiveSession, saveActiveSession } from '../../storage/quizStorage';
 import useQuizCatalog from '../../hooks/useQuizCatalog';
 import useQuizProfile from '../../hooks/useQuizProfile';
 import QuizTypeCard from '../../components/quiz/QuizTypeCard';
@@ -32,6 +36,7 @@ export default function QuizHomeScreen() {
   const { loading, error, questionCount, attemptedCount, refresh } = useQuizCatalog();
   const { profile } = useQuizProfile();
   const [starting, setStarting] = React.useState(false);
+  const startLockRef = useRef(false);
 
   const xp = xpProgressInLevel(profile?.xp || 0);
 
@@ -55,11 +60,33 @@ export default function QuizHomeScreen() {
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
-      getActiveSession(user?.uid).then((s) => {
-        if (!mounted) return;
-        if (s?.status === 'active' && s.questions?.length) setSavedSession(s);
-        else setSavedSession(null);
-      });
+      getActiveSession(user?.uid)
+        .then(async (saved) => {
+          if (!mounted) return;
+          if (saved?.status !== 'active' || !saved.questions?.length) {
+            setSavedSession(null);
+            return;
+          }
+          try {
+            const registration = await ensureQuizSessionStarted(saved);
+            saved.startedAt = registration.startedAt;
+            saved.answers = registration.answers;
+            saved.serverRegistered = true;
+            await saveActiveSession(user?.uid, saved);
+          } catch (err) {
+            if (mounted) {
+              setSavedSession(null);
+              showToast(err?.message || 'Could not verify the saved quiz session.', 'error');
+            }
+            return;
+          }
+          if (mounted) setSavedSession(saved);
+        })
+        .catch((err) => {
+          if (mounted) {
+            showToast(err?.message || 'Could not load your saved quiz.', 'error');
+          }
+        });
 
       // Opportunistically finish any quiz result that failed to save last
       // time (dropped connection, app killed on the Result screen, etc.).
@@ -94,8 +121,10 @@ export default function QuizHomeScreen() {
   );
 
   const startQuiz = async (quizTypeId) => {
-    if (!user?.uid) {
-      showToast('Sign in to track progress and leaderboards', 'info');
+      if (startLockRef.current) return;
+      startLockRef.current = true;
+      if (!user?.uid) {
+        showToast('Sign in to track progress and leaderboards', 'info');
     }
     setStarting(true);
     try {
@@ -115,6 +144,7 @@ export default function QuizHomeScreen() {
     } catch (err) {
       showToast(err?.message || 'Could not start quiz', 'error');
     } finally {
+      startLockRef.current = false;
       setStarting(false);
     }
   };

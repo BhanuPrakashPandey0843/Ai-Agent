@@ -1,12 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Alert } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Share,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import * as Speech from 'expo-speech';
 
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import BackHeader from '../components/common/BackHeader';
 import useFirestoreSubscription from '../hooks/useFirestoreSubscription';
 import useStoryBookmarks from '../hooks/useStoryBookmarks';
@@ -17,6 +28,27 @@ import { STORAGE_KEYS } from '../constants';
 
 const IMAGE_HEIGHT = 320;
 
+function splitSpeechText(text) {
+  const maxLength = Number.isFinite(Speech.maxSpeechInputLength) && Speech.maxSpeechInputLength > 0
+    ? Speech.maxSpeechInputLength
+    : text.length;
+  const chunks = [];
+  let start = 0;
+
+  while (start < text.length) {
+    let end = Math.min(start + maxLength, text.length);
+    if (end < text.length) {
+      const wordBoundary = text.lastIndexOf(' ', end);
+      if (wordBoundary > start) end = wordBoundary;
+    }
+    chunks.push(text.slice(start, end).trim());
+    start = end;
+    while (text[start] === ' ') start += 1;
+  }
+
+  return chunks.filter(Boolean);
+}
+
 export default function ProphetStoryDetailsScreen({ route }) {
   const { storyId } = route.params || {};
   const { colors, isDark, Spacing, Typography } = useTheme();
@@ -24,6 +56,12 @@ export default function ProphetStoryDetailsScreen({ route }) {
   const { isBookmarked, toggleBookmark } = useStoryBookmarks();
   const { isLiked, toggleLike } = useStoryLikes();
   const { isRead, markRead } = useStoryRead();
+  const { showToast } = useToast();
+  const [speechState, setSpeechState] = useState('idle');
+  const speechActiveRef = useRef(false);
+  const speechMountedRef = useRef(true);
+  const speechSessionRef = useRef(0);
+  const speechQueueRef = useRef([]);
 
   const { items: regularStories, loading: loadingRegular, error: errorRegular } = useFirestoreSubscription(
     subscribeToStories,
@@ -70,6 +108,102 @@ export default function ProphetStoryDetailsScreen({ route }) {
     }
   };
 
+  const finishSpeech = useCallback((session) => {
+    if (session !== speechSessionRef.current) return;
+    speechActiveRef.current = false;
+    speechQueueRef.current = [];
+    setSpeechState('idle');
+  }, []);
+
+  const speakNextChunk = useCallback((session) => {
+    if (!speechMountedRef.current || !speechActiveRef.current || session !== speechSessionRef.current) {
+      return;
+    }
+
+    const chunk = speechQueueRef.current.shift();
+    if (!chunk) {
+      finishSpeech(session);
+      return;
+    }
+
+    try {
+      Speech.speak(chunk, {
+        onStart: () => {
+          if (session === speechSessionRef.current) setSpeechState('speaking');
+        },
+        onDone: () => speakNextChunk(session),
+        onStopped: () => finishSpeech(session),
+        onError: (speechError) => {
+          finishSpeech(session);
+          if (speechMountedRef.current) {
+            showToast(speechError?.message || 'Could not read this story aloud.', 'error');
+          }
+        },
+      });
+    } catch (error) {
+      finishSpeech(session);
+      showToast(error?.message || 'Could not read this story aloud.', 'error');
+    }
+  }, [finishSpeech, showToast]);
+
+  const handleReadStory = useCallback(async () => {
+    if (speechActiveRef.current) {
+      speechActiveRef.current = false;
+      speechQueueRef.current = [];
+      speechSessionRef.current += 1;
+      setSpeechState('idle');
+      try {
+        await Speech.stop();
+      } catch (error) {
+        showToast(error?.message || 'Could not stop story playback.', 'error');
+      }
+      return;
+    }
+
+    const storyText = [story?.title, story?.description, story?.content]
+      .filter((part) => typeof part === 'string' && part.trim())
+      .map((part) => part.trim())
+      .join('.\n\n');
+
+    if (!storyText) {
+      showToast('There is no story content available to read.', 'error');
+      return;
+    }
+
+    const session = speechSessionRef.current + 1;
+    speechSessionRef.current = session;
+    speechActiveRef.current = true;
+    speechQueueRef.current = splitSpeechText(storyText);
+    setSpeechState('starting');
+
+    try {
+      await Speech.stop();
+      if (!speechMountedRef.current || session !== speechSessionRef.current) return;
+      speakNextChunk(session);
+    } catch (error) {
+      finishSpeech(session);
+      if (speechMountedRef.current) {
+        showToast(error?.message || 'Could not start reading this story.', 'error');
+      }
+    }
+  }, [finishSpeech, showToast, speakNextChunk, story?.content, story?.description, story?.title]);
+
+  useEffect(() => {
+    speechMountedRef.current = true;
+    return () => {
+      speechMountedRef.current = false;
+      const wasSpeaking = speechActiveRef.current;
+      speechActiveRef.current = false;
+      speechSessionRef.current += 1;
+      speechQueueRef.current = [];
+      if (wasSpeaking) {
+        Speech.stop().catch((error) => {
+          console.warn('Could not stop story speech when leaving the screen.', error);
+        });
+      }
+    };
+  }, []);
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background || colors.bg }]}>
@@ -87,6 +221,17 @@ export default function ProphetStoryDetailsScreen({ route }) {
         <BackHeader title="Story" />
         <View style={styles.loadingContent}>
           <Text style={{ color: colors.textPrimary || colors.text }}>Error loading story</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!story) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background || colors.bg }]}>
+        <BackHeader title="Story" />
+        <View style={styles.loadingContent}>
+          <Text style={{ color: colors.textPrimary || colors.text }}>Story unavailable</Text>
         </View>
       </View>
     );
@@ -193,22 +338,33 @@ export default function ProphetStoryDetailsScreen({ route }) {
           />
         </TouchableOpacity>
 
-        <View style={[
+        <TouchableOpacity
+          style={[
           styles.readIndicator,
           { 
             backgroundColor: colors.accentSoft,
             borderColor: colors.border,
           }
-        ]}>
-          <Ionicons 
-            name="checkmark-done-circle" 
-            size={20} 
-            color={colors.primary} 
-          />
+          ]}
+          onPress={handleReadStory}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel={speechState === 'idle' ? 'Read story aloud' : 'Stop reading story'}
+          accessibilityState={{ busy: speechState === 'starting' }}
+        >
+          {speechState === 'starting' ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Ionicons
+              name={speechState === 'idle' ? 'volume-high' : 'stop-circle'}
+              size={20}
+              color={colors.primary}
+            />
+          )}
           <Text style={[styles.readText, { color: colors.primary }]}>
-            {isRead(story.id) ? 'Read' : 'Marked as Read'}
+            {speechState === 'idle' ? 'Read' : speechState === 'starting' ? 'Starting…' : 'Stop'}
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   );

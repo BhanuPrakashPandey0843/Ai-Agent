@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import {
   View,
@@ -14,10 +14,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { APP_NAME } from '../constants';
-import { Typography, BorderRadius } from '../theme/colors';
+import { Colors, Typography, BorderRadius } from '../theme/colors';
 import { STORY_CATEGORIES } from '../theme/homeTheme';
 import { useAuth } from '../context/AuthContext';
-import CategoryBowl from '../components/home/CategoryBowl';
+import { collection, limit, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import CategoryBowl, { useCategoryRowLayout } from '../components/home/CategoryBowl';
 import FeaturedStoriesSection from '../components/home/FeaturedStoriesSection';
 import ProphetStoriesSection from '../components/home/ProphetStoriesSection';
 
@@ -39,6 +41,38 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const { user, userProfile } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
+  const categoryLayout = useCategoryRowLayout(STORY_CATEGORIES.length, 20);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setUnreadCount(0);
+      return undefined;
+    }
+    let inboxUnread = 0;
+    let legacyUnread = 0;
+    const updateCount = () => setUnreadCount(inboxUnread + legacyUnread);
+    const unsubscribeInbox = onSnapshot(
+      query(collection(db, 'users', user.uid, 'notifications'), where('read', '==', false), limit(100)),
+      (snapshot) => {
+        inboxUnread = snapshot.size;
+        updateCount();
+      },
+      (error) => console.warn('[Notifications] Could not load unread count:', error?.message)
+    );
+    const unsubscribeLegacy = onSnapshot(
+      query(collection(db, 'notifications'), where('userId', '==', user.uid), where('read', '==', false), limit(100)),
+      (snapshot) => {
+        legacyUnread = snapshot.size;
+        updateCount();
+      },
+      (error) => console.warn('[Notifications] Could not load legacy unread count:', error?.message)
+    );
+    return () => {
+      unsubscribeInbox();
+      unsubscribeLegacy();
+    };
+  }, [user?.uid]);
 
   const handleSearchSubmit = useCallback(() => {
     navigation.navigate('Search', { initialQuery: searchQuery.trim() });
@@ -73,6 +107,19 @@ export default function HomeScreen() {
         <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
           <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>{APP_NAME}</Text>
           <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.notificationButton}
+              onPress={() => navigation.navigate('Notifications')}
+              accessibilityRole="button"
+              accessibilityLabel={unreadCount ? `${unreadCount} unread notifications` : 'Notifications'}
+            >
+              <Ionicons name="notifications-outline" size={23} color={colors.textPrimary} />
+              {unreadCount > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
             <ProfileAvatar
               photoURL={userProfile?.photoURL || user?.photoURL}
               onPress={() => navigation.navigate('Settings')}
@@ -108,14 +155,25 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Explore Faith</Text>
+        <Text
+          style={[styles.sectionHeading, { color: colors.textPrimary }]}
+          numberOfLines={1}
+          maxFontSizeMultiplier={1.3}
+        >
+          Explore Faith
+        </Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.catRow}
+          contentContainerStyle={[styles.catRow, { gap: categoryLayout.gap }]}
         >
           {STORY_CATEGORIES.map((cat) => (
-            <CategoryBowl key={cat.id} item={cat} onPress={goCategory} />
+            <CategoryBowl
+              key={cat.id}
+              item={cat}
+              onPress={goCategory}
+              itemWidth={categoryLayout.itemWidth}
+            />
           ))}
         </ScrollView>
 
@@ -147,6 +205,30 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 14,
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadBadge: {
+    position: 'absolute',
+    top: 0,
+    right: -2,
+    minWidth: 17,
+    height: 17,
+    paddingHorizontal: 3,
+    borderRadius: 9,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
   },
   avatarWrap: {
     width: 40,
@@ -208,8 +290,9 @@ const styles = StyleSheet.create({
   },
   catRow: {
     paddingHorizontal: 20,
-    gap: 16,
     paddingBottom: 8,
+    flexGrow: 1,
+    justifyContent: 'space-between',
   },
   historyRow: {
     paddingHorizontal: 20,

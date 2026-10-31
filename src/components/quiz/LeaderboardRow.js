@@ -1,16 +1,22 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function LeaderboardRow({ entry }) {
   const { colors, isDark } = useTheme();
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => setImageFailed(false), [entry.photoURL]);
+  const showImage = Boolean(entry.photoURL) && !imageFailed;
   return (
     <View style={[styles.row, { backgroundColor: colors.bgCard }]}>
       <Text style={[styles.rank, { color: colors.textMuted }]}>{entry.rank}</Text>
-      {entry.photoURL ? (
-        <Image source={{ uri: entry.photoURL }} style={styles.avatar} />
+      {showImage ? (
+        <Image source={{ uri: entry.photoURL }} style={styles.avatar} onError={() => setImageFailed(true)} />
       ) : (
-        <View style={[styles.avatar, styles.placeholder, { backgroundColor: isDark ? '#1A1A33' : '#EDE8DC' }]} />
+        <View style={[styles.avatar, styles.placeholder, { backgroundColor: isDark ? '#1A1A33' : '#EDE8DC' }]}>
+          <MaterialCommunityIcons name="account" size={22} color={colors.textMuted} />
+        </View>
       )}
       <View style={styles.info}>
         <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -41,7 +47,7 @@ const styles = StyleSheet.create({
   },
   rank: { width: 28, fontWeight: '800', textAlign: 'center' },
   avatar: { width: 40, height: 40, borderRadius: 20 },
-  placeholder: { },
+  placeholder: { alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1 },
   name: { fontSize: 15, fontWeight: '700' },
   meta: { fontSize: 12, marginTop: 2 },

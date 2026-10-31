@@ -11,16 +11,17 @@ import * as Font from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { enableScreens } from 'react-native-screens';
+import { getColors } from './src/theme/colors';
 
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import { AuthProvider } from './src/context/AuthContext';
 import { BibleProvider } from './src/context/BibleContext';
-import { ThemeProvider } from './src/context/ThemeContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { SubscriptionProvider } from './src/context/SubscriptionContext';
 import RootNavigator from './src/navigation/RootNavigator';
-import { Colors } from './src/theme/colors';
-import { isOnboardingDone } from './src/storage';
+import NotificationRuntime from './src/components/notifications/NotificationRuntime';
+import { isOnboardingDone, getThemePreference } from './src/storage';
 
 // Must run before any navigator mounts. This switches React Navigation's
 // bottom-tabs and native-stack from plain View-based screens to native,
@@ -42,20 +43,6 @@ LogBox.ignoreLogs([
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-const navTheme = {
-  ...DefaultTheme,
-  dark: true,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: Colors.primary,
-    background: Colors.bgDark,
-    card: Colors.bgCard,
-    text: Colors.textPrimary,
-    border: 'rgba(255,255,255,0.08)',
-    notification: Colors.primary,
-  },
-};
-
 // Images that appear on screen before any network round-trip completes —
 // the AppLoader mark and the Onboarding carousel's first slide. Warming
 // these into the image cache during startup means the first React-rendered
@@ -65,6 +52,29 @@ const CRITICAL_IMAGES = [
   require('./assets/welcome.png'),
 ];
 
+function AppNavigation({ initialAuthRoute }) {
+  const { colors, isDark, navTheme } = useTheme();
+
+  return (
+    <NavigationContainer
+      theme={{
+        ...DefaultTheme,
+        ...navTheme,
+        colors: { ...DefaultTheme.colors, ...navTheme.colors },
+      }}
+    >
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.bg}
+      />
+      <View style={[styles.root, { backgroundColor: colors.bg }]}>
+        <NotificationRuntime />
+        <RootNavigator initialAuthRoute={initialAuthRoute} />
+      </View>
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
   const [appReady, setAppReady] = useState(false);
   // Resolved once, up front, alongside font/asset preloading — so the
@@ -72,24 +82,31 @@ export default function App() {
   // second screen re-deciding (and re-waiting on) the same AsyncStorage
   // lookup that used to live in the now-retired auth-flow Splash screen.
   const [initialAuthRoute, setInitialAuthRoute] = useState('Login');
+  const [initialTheme, setInitialTheme] = useState('dark');
 
   useEffect(() => {
     const prepare = async () => {
       try {
-        const [, , onboarded] = await Promise.all([
+        const [onboarded, theme] = await Promise.all([
+          isOnboardingDone(),
+          getThemePreference(),
+        ]);
+        setInitialAuthRoute(onboarded ? 'Login' : 'Onboarding');
+        setInitialTheme(theme);
+      } catch (error) {
+        console.warn('Unable to load saved app preferences; using defaults.', error);
+      }
+
+      try {
+        await Promise.all([
           // Vector icons render as a custom font glyph — loading it up
           // front avoids the classic "tofu box then icon pops in" flash
           // the very first time an Ionicons glyph is drawn.
           Font.loadAsync(Ionicons.font),
           Asset.loadAsync(CRITICAL_IMAGES),
-          isOnboardingDone(),
         ]);
-        setInitialAuthRoute(onboarded ? 'Login' : 'Onboarding');
-      } catch (e) {
-        // Preloading is a nice-to-have, not a gate — if a font, image, or
-        // the onboarding lookup fails (offline install, stripped asset,
-        // corrupted storage, etc.) the app still boots normally, defaulting
-        // to the safe Login route and loading anything missing lazily.
+      } catch (error) {
+        console.warn('Unable to preload startup assets; continuing startup.', error);
       } finally {
         setAppReady(true);
       }
@@ -108,20 +125,18 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
+    <GestureHandlerRootView
+      style={[styles.root, { backgroundColor: getColors(initialTheme !== 'light').bg }]}
+      onLayout={onLayoutRootView}
+    >
       <ErrorBoundary>
         <SafeAreaProvider>
-          <ThemeProvider>
+          <ThemeProvider initialTheme={initialTheme}>
             <ToastProvider>
               <AuthProvider>
                 <SubscriptionProvider>
                   <BibleProvider>
-                    <NavigationContainer theme={navTheme}>
-                      <StatusBar barStyle="light-content" backgroundColor={Colors.bgDark} />
-                      <View style={styles.root}>
-                        <RootNavigator initialAuthRoute={initialAuthRoute} />
-                      </View>
-                    </NavigationContainer>
+                    <AppNavigation initialAuthRoute={initialAuthRoute} />
                   </BibleProvider>
                 </SubscriptionProvider>
               </AuthProvider>
@@ -134,5 +149,5 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.bgDark },
+  root: { flex: 1 },
 });

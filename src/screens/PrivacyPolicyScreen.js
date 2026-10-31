@@ -1,5 +1,5 @@
 // src/screens/PrivacyPolicyScreen.js
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,22 +8,24 @@ import {
   Animated,
   TouchableOpacity,
   Linking,
+  StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Typography, Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { APP_NAME, SUPPORT_EMAIL } from '../constants';
+import { useTheme } from '../context/ThemeContext';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function SectionBlock({ icon, title, children }) {
+function SectionBlock({ icon, title, children, styles, colors }) {
   return (
     <View style={styles.sectionBlock}>
       <View style={styles.sectionBlockHeader}>
         <View style={styles.sectionIconWrap}>
-          <Ionicons name={icon} size={18} color={Colors.primary} />
+          <Ionicons name={icon} size={18} color={colors.primary} />
         </View>
         <Text style={styles.sectionBlockTitle}>{title}</Text>
       </View>
@@ -32,11 +34,11 @@ function SectionBlock({ icon, title, children }) {
   );
 }
 
-function DataPoint({ icon, label, description }) {
+function DataPoint({ icon, label, description, styles, colors }) {
   return (
     <View style={styles.dataPoint}>
       <View style={styles.dataPointIconWrap}>
-        <Ionicons name={icon} size={16} color={Colors.primary} />
+        <Ionicons name={icon} size={16} color={colors.primary} />
       </View>
       <View style={styles.dataPointText}>
         <Text style={styles.dataPointLabel}>{label}</Text>
@@ -46,20 +48,20 @@ function DataPoint({ icon, label, description }) {
   );
 }
 
-function RightItem({ text }) {
+function RightItem({ text, styles, colors }) {
   return (
     <View style={styles.rightItem}>
-      <Ionicons name="checkmark-circle" size={16} color={Colors.success} style={styles.rightIcon} />
+      <Ionicons name="checkmark-circle" size={16} color={colors.success} style={styles.rightIcon} />
       <Text style={styles.rightText}>{text}</Text>
     </View>
   );
 }
 
-function ThirdPartyCard({ icon, name, purpose }) {
+function ThirdPartyCard({ icon, name, purpose, styles, colors }) {
   return (
     <View style={styles.thirdPartyCard}>
       <View style={styles.thirdPartyIconWrap}>
-        <Ionicons name={icon} size={20} color={Colors.primary} />
+        <Ionicons name={icon} size={20} color={colors.primary} />
       </View>
       <View style={styles.thirdPartyInfo}>
         <Text style={styles.thirdPartyName}>{name}</Text>
@@ -69,7 +71,7 @@ function ThirdPartyCard({ icon, name, purpose }) {
   );
 }
 
-function BodyText({ children }) {
+function BodyText({ children, styles }) {
   return <Text style={styles.bodyText}>{children}</Text>;
 }
 
@@ -78,6 +80,10 @@ function BodyText({ children }) {
 export default function PrivacyPolicyScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
+  const themedProps = { styles, colors };
+  const linkColor = isDark ? colors.primary : colors.primaryDark;
 
   const heroFade = useRef(new Animated.Value(0)).current;
   const heroSlide = useRef(new Animated.Value(24)).current;
@@ -94,20 +100,27 @@ export default function PrivacyPolicyScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={Colors.gradientDark} style={StyleSheet.absoluteFill} />
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.bg}
+      />
+      <LinearGradient
+        colors={[colors.bg, colors.bgSecondary]}
+        style={StyleSheet.absoluteFill}
+      />
 
       {/* Header */}
       <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
-          style={styles.backBtn}
+          style={[styles.backBtn, { backgroundColor: colors.bgCard }]}
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Privacy Policy</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Privacy Policy</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -123,20 +136,20 @@ export default function PrivacyPolicyScreen() {
           ]}
         >
           <LinearGradient
-            colors={['rgba(255,107,0,0.15)', 'rgba(255,107,0,0.03)']}
+            colors={[colors.accentSoft, colors.bgCard]}
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.heroIconCircle}>
-            <Ionicons name="shield-checkmark" size={32} color={Colors.white} />
+            <Ionicons name="shield-checkmark" size={32} color={colors.white} />
           </View>
-          <Text style={styles.heroTitle}>Your Privacy Matters</Text>
-          <Text style={styles.heroSubtitle}>
+          <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>Your Privacy Matters</Text>
+          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             {APP_NAME} is committed to protecting your personal information. We collect only what
             we need and never sell your data.
           </Text>
           <View style={styles.heroPill}>
-            <Ionicons name="calendar-outline" size={12} color={Colors.primary} />
-            <Text style={styles.heroPillText}>Last updated: June 2025</Text>
+            <Ionicons name="calendar-outline" size={12} color={colors.primary} />
+            <Text style={[styles.heroPillText, { color: colors.primary }]}>Last updated: June 2026</Text>
           </View>
         </Animated.View>
 
@@ -144,8 +157,8 @@ export default function PrivacyPolicyScreen() {
         <Animated.View style={{ opacity: bodyFade }}>
 
           {/* Introduction */}
-          <SectionBlock icon="information-circle-outline" title="Introduction">
-            <BodyText>
+          <SectionBlock {...themedProps} icon="information-circle-outline" title="Introduction">
+            <BodyText {...themedProps}>
               This Privacy Policy explains how {APP_NAME} ("we", "our", or "us") collects, uses,
               and safeguards your information when you use our mobile application and related
               services. By using FaithFrames, you agree to the collection and use of information
@@ -154,29 +167,29 @@ export default function PrivacyPolicyScreen() {
           </SectionBlock>
 
           {/* Information We Collect */}
-          <SectionBlock icon="document-text-outline" title="Information We Collect">
-            <BodyText>We collect the following types of information to deliver and improve our service:</BodyText>
+          <SectionBlock {...themedProps} icon="document-text-outline" title="Information We Collect">
+            <BodyText {...themedProps}>We collect the following types of information to deliver and improve our service:</BodyText>
 
-            <Text style={styles.subHeading}>Account Information</Text>
-            <DataPoint icon="person-outline" label="Name &amp; Email" description="Used to create and manage your FaithFrames account." />
-            <DataPoint icon="key-outline" label="Authentication Data" description="Securely managed via Firebase Authentication." />
+            <Text style={[styles.subHeading, { color: colors.textAccent }]}>Account Information</Text>
+            <DataPoint {...themedProps} icon="person-outline" label="Name &amp; Email" description="Used to create and manage your FaithFrames account." />
+            <DataPoint {...themedProps} icon="key-outline" label="Authentication Data" description="Securely managed via Firebase Authentication." />
 
-            <Text style={styles.subHeading}>User Profile Information</Text>
-            <DataPoint icon="settings-outline" label="Preferences &amp; Settings" description="Dark mode, notification preferences, language." />
-            <DataPoint icon="heart-outline" label="Bookmarks &amp; Favorites" description="Saved verses, prayers, and wallpapers." />
+            <Text style={[styles.subHeading, { color: colors.textAccent }]}>User Profile Information</Text>
+            <DataPoint {...themedProps} icon="settings-outline" label="Preferences &amp; Settings" description="Dark mode, notification preferences, language." />
+            <DataPoint {...themedProps} icon="heart-outline" label="Bookmarks &amp; Favorites" description="Saved verses, prayers, and wallpapers." />
 
-            <Text style={styles.subHeading}>App Usage Information</Text>
-            <DataPoint icon="bar-chart-outline" label="Feature Interactions" description="Which features you use and how frequently." />
-            <DataPoint icon="time-outline" label="Session Duration" description="Time spent in-app to improve content recommendations." />
+            <Text style={[styles.subHeading, { color: colors.textAccent }]}>App Usage Information</Text>
+            <DataPoint {...themedProps} icon="bar-chart-outline" label="Feature Interactions" description="Which features you use and how frequently." />
+            <DataPoint {...themedProps} icon="time-outline" label="Session Duration" description="Time spent in-app to improve content recommendations." />
 
-            <Text style={styles.subHeading}>Device &amp; Technical Information</Text>
-            <DataPoint icon="phone-portrait-outline" label="Device Type &amp; OS" description="Used for compatibility and performance optimization." />
-            <DataPoint icon="wifi-outline" label="Crash &amp; Error Logs" description="Anonymous data to identify and fix technical issues." />
+            <Text style={[styles.subHeading, { color: colors.textAccent }]}>Device &amp; Technical Information</Text>
+            <DataPoint {...themedProps} icon="phone-portrait-outline" label="Device Type &amp; OS" description="Used for compatibility and performance optimization." />
+            <DataPoint {...themedProps} icon="wifi-outline" label="Crash &amp; Error Logs" description="Anonymous data to identify and fix technical issues." />
           </SectionBlock>
 
           {/* How We Use Your Information */}
-          <SectionBlock icon="flash-outline" title="How We Use Your Information">
-            <BodyText>Your information enables us to deliver a meaningful, personalized faith experience:</BodyText>
+          <SectionBlock {...themedProps} icon="flash-outline" title="How We Use Your Information">
+            <BodyText {...themedProps}>Your information enables us to deliver a meaningful, personalized faith experience:</BodyText>
 
             {[
               { icon: 'person-circle-outline', label: 'Provide and personalize your experience' },
@@ -186,23 +199,23 @@ export default function PrivacyPolicyScreen() {
               { icon: 'mail-outline', label: 'Respond to your support requests' },
               { icon: 'checkmark-done-outline', label: 'Ensure compliance with our community guidelines' },
             ].map((item) => (
-              <DataPoint key={item.label} icon={item.icon} label={item.label} />
+              <DataPoint {...themedProps} key={item.label} icon={item.icon} label={item.label} />
             ))}
           </SectionBlock>
 
           {/* Data Security */}
-          <SectionBlock icon="lock-closed-outline" title="Data Security">
-            <BodyText>
+          <SectionBlock {...themedProps} icon="lock-closed-outline" title="Data Security">
+            <BodyText {...themedProps}>
               We implement industry-standard security measures to protect your personal information
               against unauthorized access, alteration, disclosure, or destruction.
             </BodyText>
             <View style={styles.securityBanner}>
               <LinearGradient
-                colors={['rgba(76,175,80,0.15)', 'rgba(76,175,80,0.04)']}
+                colors={[`${colors.success}26`, `${colors.success}0A`]}
                 style={StyleSheet.absoluteFill}
               />
-              <Ionicons name="lock-closed" size={22} color={Colors.success} />
-              <Text style={styles.securityText}>
+              <Ionicons name="lock-closed" size={22} color={colors.success} />
+              <Text style={[styles.securityText, { color: colors.textSecondary }]}>
                 All data is encrypted in transit using TLS/SSL and stored securely via Firebase's
                 enterprise-grade infrastructure. We never store plaintext passwords.
               </Text>
@@ -210,26 +223,26 @@ export default function PrivacyPolicyScreen() {
           </SectionBlock>
 
           {/* Third-Party Services */}
-          <SectionBlock icon="cube-outline" title="Third-Party Services">
-            <BodyText>
+          <SectionBlock {...themedProps} icon="cube-outline" title="Third-Party Services">
+            <BodyText {...themedProps}>
               We use the following trusted third-party services to operate FaithFrames:
             </BodyText>
             <View style={styles.thirdPartyList}>
-              <ThirdPartyCard icon="flame-outline" name="Firebase Authentication" purpose="Secure sign-in &amp; account management" />
-              <ThirdPartyCard icon="server-outline" name="Firebase Firestore" purpose="Cloud database for content and user data" />
-              <ThirdPartyCard icon="analytics-outline" name="Firebase Analytics" purpose="Anonymous usage analytics to improve the app" />
-              <ThirdPartyCard icon="notifications-outline" name="Firebase Cloud Messaging" purpose="Push notifications for daily content" />
-              <ThirdPartyCard icon="image-outline" name="Cloudinary" purpose="Secure image storage and delivery" />
+              <ThirdPartyCard {...themedProps} icon="flame-outline" name="Firebase Authentication" purpose="Secure sign-in &amp; account management" />
+              <ThirdPartyCard {...themedProps} icon="server-outline" name="Firebase Firestore" purpose="Cloud database for content and user data" />
+              <ThirdPartyCard {...themedProps} icon="analytics-outline" name="Firebase Analytics" purpose="Anonymous usage analytics to improve the app" />
+              <ThirdPartyCard {...themedProps} icon="notifications-outline" name="Firebase Cloud Messaging" purpose="Push notifications for daily content" />
+              <ThirdPartyCard {...themedProps} icon="image-outline" name="Cloudinary" purpose="Secure image storage and delivery" />
             </View>
-            <BodyText>
+            <BodyText {...themedProps}>
               Each third-party service operates under its own privacy policy. We encourage you
               to review them. We do not share your identifiable data with advertisers.
             </BodyText>
           </SectionBlock>
 
           {/* User Rights */}
-          <SectionBlock icon="person-outline" title="Your Rights">
-            <BodyText>You have the following rights regarding your personal data:</BodyText>
+          <SectionBlock {...themedProps} icon="person-outline" title="Your Rights">
+            <BodyText {...themedProps}>You have the following rights regarding your personal data:</BodyText>
             <View style={styles.rightsGrid}>
               {[
                 'Access your personal data at any time',
@@ -239,17 +252,17 @@ export default function PrivacyPolicyScreen() {
                 'Opt out of non-essential communications',
                 'Withdraw consent where applicable',
               ].map((r) => (
-                <RightItem key={r} text={r} />
+                <RightItem {...themedProps} key={r} text={r} />
               ))}
             </View>
-            <BodyText>
+            <BodyText {...themedProps}>
               To exercise any of these rights, please contact us at {SUPPORT_EMAIL}.
             </BodyText>
           </SectionBlock>
 
           {/* Children's Privacy */}
-          <SectionBlock icon="people-outline" title="Children's Privacy">
-            <BodyText>
+          <SectionBlock {...themedProps} icon="people-outline" title="Children's Privacy">
+            <BodyText {...themedProps}>
               FaithFrames is not directed at children under the age of 13. We do not knowingly
               collect personal information from children under 13. If you believe a child has
               provided us personal information, please contact us immediately and we will promptly
@@ -258,8 +271,8 @@ export default function PrivacyPolicyScreen() {
           </SectionBlock>
 
           {/* Updates */}
-          <SectionBlock icon="refresh-outline" title="Updates to This Policy">
-            <BodyText>
+          <SectionBlock {...themedProps} icon="refresh-outline" title="Updates to This Policy">
+            <BodyText {...themedProps}>
               We may update this Privacy Policy periodically. We will notify you of significant
               changes via in-app notification or email. Your continued use of FaithFrames after
               changes become effective constitutes acceptance of the updated policy. We recommend
@@ -268,31 +281,31 @@ export default function PrivacyPolicyScreen() {
           </SectionBlock>
 
           {/* Contact */}
-          <SectionBlock icon="mail-outline" title="Contact Us">
-            <BodyText>
+          <SectionBlock {...themedProps} icon="mail-outline" title="Contact Us">
+            <BodyText {...themedProps}>
               If you have questions, concerns, or requests about this Privacy Policy or your data,
               please reach out to our privacy team:
             </BodyText>
             <TouchableOpacity
-              style={styles.contactCard}
+              style={[styles.contactCard, { backgroundColor: colors.bgCard }]}
               activeOpacity={0.75}
               onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
             >
               <View style={styles.contactIconWrap}>
-                <Ionicons name="mail" size={20} color={Colors.primary} />
+                <Ionicons name="mail" size={20} color={colors.primary} />
               </View>
               <View style={styles.contactTextWrap}>
-                <Text style={styles.contactLabel}>Privacy Inquiries</Text>
-                <Text style={styles.contactValue}>{SUPPORT_EMAIL}</Text>
+                <Text style={[styles.contactLabel, { color: colors.textMuted }]}>Privacy Inquiries</Text>
+                <Text style={[styles.contactValue, { color: linkColor }]}>{SUPPORT_EMAIL}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </SectionBlock>
 
         </Animated.View>
 
-        <Text style={styles.footerText}>
-          {APP_NAME} · Privacy Policy · © 2025
+        <Text style={[styles.footerText, { color: colors.textMuted }]}>
+          {APP_NAME} · Privacy Policy · © 2026
         </Text>
       </ScrollView>
     </View>
@@ -301,8 +314,8 @@ export default function PrivacyPolicyScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgDark },
+const getStyles = (colors, isDark) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
 
   headerBar: {
     flexDirection: 'row',
@@ -315,7 +328,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.bgCard,
+    backgroundColor: colors.bgCard,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -324,7 +337,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: Typography.fontSizeXL,
     fontWeight: Typography.fontWeightBold,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   headerSpacer: { width: 40 },
 
@@ -333,35 +346,35 @@ const styles = StyleSheet.create({
   // Hero
   heroBanner: {
     alignItems: 'center',
-    backgroundColor: Colors.bgCard,
+    backgroundColor: colors.bgCard,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xxxl,
     marginTop: Spacing.lg,
     marginBottom: Spacing.xxxl,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   heroIconCircle: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
-    ...Shadows.glow,
+    ...Shadows.glow(isDark),
   },
   heroTitle: {
     fontSize: Typography.fontSize2XL,
     fontWeight: Typography.fontWeightExtraBold,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: Spacing.sm,
   },
   heroSubtitle: {
     fontSize: Typography.fontSizeSM,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: Typography.lineHeightMD,
     marginBottom: Spacing.lg,
@@ -370,23 +383,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: Colors.accentSoft,
+    backgroundColor: colors.accentSoft,
     paddingHorizontal: Spacing.md,
     paddingVertical: 5,
     borderRadius: BorderRadius.round,
   },
   heroPillText: {
     fontSize: Typography.fontSizeSM,
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: Typography.fontWeightSemiBold,
   },
 
   // Section block
   sectionBlock: {
-    backgroundColor: Colors.bgCard,
+    backgroundColor: colors.bgCard,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     padding: Spacing.xl,
     marginBottom: Spacing.lg,
   },
@@ -400,28 +413,28 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.accentSoft,
+    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sectionBlockTitle: {
     fontSize: Typography.fontSizeLG,
     fontWeight: Typography.fontWeightBold,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     flex: 1,
   },
   sectionBlockBody: { gap: 0 },
 
   bodyText: {
     fontSize: Typography.fontSizeSM,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: Typography.lineHeightMD,
     marginBottom: Spacing.sm,
   },
   subHeading: {
     fontSize: Typography.fontSizeSM,
     fontWeight: Typography.fontWeightBold,
-    color: Colors.textAccent,
+    color: colors.textAccent,
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
     textTransform: 'uppercase',
@@ -439,7 +452,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.accentSoft,
+    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -449,11 +462,11 @@ const styles = StyleSheet.create({
   dataPointLabel: {
     fontSize: Typography.fontSizeSM,
     fontWeight: Typography.fontWeightSemiBold,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   dataPointDesc: {
     fontSize: Typography.fontSizeXS,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 1,
   },
 
@@ -462,10 +475,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.sm,
-    backgroundColor: 'rgba(76,175,80,0.08)',
+    backgroundColor: `${colors.success}14`,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: 'rgba(76,175,80,0.2)',
+    borderColor: `${colors.success}33`,
     padding: Spacing.md,
     overflow: 'hidden',
     marginTop: Spacing.sm,
@@ -473,7 +486,7 @@ const styles = StyleSheet.create({
   securityText: {
     flex: 1,
     fontSize: Typography.fontSizeSM,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: Typography.lineHeightMD,
   },
 
@@ -482,7 +495,7 @@ const styles = StyleSheet.create({
   thirdPartyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgCardLight,
+    backgroundColor: colors.bgCard,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     gap: Spacing.sm,
@@ -491,7 +504,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.accentSoft,
+    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -499,11 +512,11 @@ const styles = StyleSheet.create({
   thirdPartyName: {
     fontSize: Typography.fontSizeSM,
     fontWeight: Typography.fontWeightSemiBold,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   thirdPartyPurpose: {
     fontSize: Typography.fontSizeXS,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 1,
   },
 
@@ -518,7 +531,7 @@ const styles = StyleSheet.create({
   rightText: {
     flex: 1,
     fontSize: Typography.fontSizeSM,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: Typography.lineHeightMD,
   },
 
@@ -526,7 +539,7 @@ const styles = StyleSheet.create({
   contactCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgCardLight,
+    backgroundColor: colors.bgCard,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     gap: Spacing.sm,
@@ -536,25 +549,25 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.accentSoft,
+    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   contactTextWrap: { flex: 1 },
   contactLabel: {
     fontSize: Typography.fontSizeXS,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontWeight: Typography.fontWeightMedium,
   },
   contactValue: {
     fontSize: Typography.fontSizeSM,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: Typography.fontWeightSemiBold,
   },
 
   footerText: {
     textAlign: 'center',
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontSize: Typography.fontSizeSM,
     marginTop: Spacing.md,
     marginBottom: Spacing.xxl,

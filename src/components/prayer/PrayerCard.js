@@ -8,6 +8,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-nati
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { Shadows } from '../../theme/colors';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 export const PRAYER_CARD_W = SCREEN_W - 40;
@@ -17,7 +18,7 @@ function prayerImageUrl(item) {
   return String(url).trim();
 }
 
-export default function PrayerCard({ item, colors, accent, isBookmarked, onBookmark, onShare, onCopy }) {
+export default function PrayerCard({ item, colors, accent, isDark, isBookmarked, onBookmark, onShare, onCopy }) {
   const paragraphs = (item?.verse || '').split(/\n\s*\n/).filter(Boolean);
   const imageUrl = prayerImageUrl(item);
   const [imageError, setImageError] = useState(false);
@@ -28,8 +29,16 @@ export default function PrayerCard({ item, colors, accent, isBookmarked, onBookm
   const badgeColor = onImage ? '#FFFFFF' : accent;
 
   return (
-    <View style={styles.shadowWrap}>
-    <View style={[styles.outer, { shadowColor: '#000' }]}>
+    <View style={[styles.shadowWrap, Shadows.card(isDark)]}>
+    <View
+      style={[
+        styles.outer,
+        {
+          backgroundColor: colors.bgCard,
+          borderColor: onImage ? 'rgba(255,255,255,0.16)' : colors.border,
+        },
+      ]}
+    >
       {showImage ? (
         <>
           <Image
@@ -55,13 +64,19 @@ export default function PrayerCard({ item, colors, accent, isBookmarked, onBookm
             end={{ x: 0.5, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <View pointerEvents="none" style={[styles.blobTop, { backgroundColor: accent }]} />
-          <View pointerEvents="none" style={[styles.blobBottom, { backgroundColor: accent }]} />
         </>
       )}
 
       <View style={styles.content}>
-        <View style={[styles.badge, { borderColor: badgeColor }]}>
+        <View
+          style={[
+            styles.badge,
+            {
+              backgroundColor: onImage ? 'rgba(255,255,255,0.12)' : colors.accentSoft,
+              borderColor: onImage ? 'rgba(255,255,255,0.35)' : colors.borderAccent,
+            },
+          ]}
+        >
           <Ionicons name="hand-left-outline" size={12} color={badgeColor} />
           <Text style={[styles.badgeText, { color: badgeColor }]}>
             {item?.source === 'community' ? 'COMMUNITY PRAYER' : 'DAILY PRAYER'}
@@ -90,9 +105,9 @@ export default function PrayerCard({ item, colors, accent, isBookmarked, onBookm
 
         {item?.reference ? (
           <View style={styles.refRow}>
-            <View style={[styles.refLine, { backgroundColor: onImage ? 'rgba(255,255,255,0.35)' : accent + '40' }]} />
+            <View style={[styles.refLine, { backgroundColor: onImage ? 'rgba(255,255,255,0.35)' : colors.borderAccent }]} />
             <Text style={[styles.refText, { color: onImage ? '#FFFFFF' : accent }]}>{item.reference}</Text>
-            <View style={[styles.refLine, { backgroundColor: onImage ? 'rgba(255,255,255,0.35)' : accent + '40' }]} />
+            <View style={[styles.refLine, { backgroundColor: onImage ? 'rgba(255,255,255,0.35)' : colors.borderAccent }]} />
           </View>
         ) : null}
 
@@ -100,8 +115,8 @@ export default function PrayerCard({ item, colors, accent, isBookmarked, onBookm
           <TouchableOpacity
             style={[
               styles.actionBtn,
-              { backgroundColor: onImage ? 'rgba(255,255,255,0.14)' : colors.bg, borderColor: onImage ? 'rgba(255,255,255,0.28)' : colors.border },
-              isBookmarked && { backgroundColor: accent + '20', borderColor: accent },
+              { backgroundColor: onImage ? 'rgba(255,255,255,0.14)' : colors.bgSecondary, borderColor: onImage ? 'rgba(255,255,255,0.28)' : colors.border },
+              isBookmarked && { backgroundColor: colors.accentSoft, borderColor: accent },
             ]}
             onPress={onBookmark}
             activeOpacity={0.8}
@@ -115,7 +130,7 @@ export default function PrayerCard({ item, colors, accent, isBookmarked, onBookm
           <TouchableOpacity
             style={[
               styles.actionBtn,
-              { backgroundColor: onImage ? 'rgba(255,255,255,0.14)' : colors.bg, borderColor: onImage ? 'rgba(255,255,255,0.28)' : colors.border },
+              { backgroundColor: onImage ? 'rgba(255,255,255,0.14)' : colors.bgSecondary, borderColor: onImage ? 'rgba(255,255,255,0.28)' : colors.border },
             ]}
             onPress={onShare}
             activeOpacity={0.8}
@@ -125,7 +140,7 @@ export default function PrayerCard({ item, colors, accent, isBookmarked, onBookm
           <TouchableOpacity
             style={[
               styles.actionBtn,
-              { backgroundColor: onImage ? 'rgba(255,255,255,0.14)' : colors.bg, borderColor: onImage ? 'rgba(255,255,255,0.28)' : colors.border },
+              { backgroundColor: onImage ? 'rgba(255,255,255,0.14)' : colors.bgSecondary, borderColor: onImage ? 'rgba(255,255,255,0.28)' : colors.border },
             ]}
             onPress={onCopy}
             activeOpacity={0.8}
@@ -143,36 +158,14 @@ const styles = StyleSheet.create({
   shadowWrap: {
     width: PRAYER_CARD_W,
     borderRadius: 26,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
-    elevation: 6,
   },
   outer: {
     width: PRAYER_CARD_W,
     borderRadius: 26,
+    borderWidth: 1,
     overflow: 'hidden',
     minHeight: 280,
     position: 'relative',
-  },
-  blobTop: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    top: -60,
-    right: -50,
-    opacity: 0.05,
-  },
-  blobBottom: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    bottom: -50,
-    left: -40,
-    opacity: 0.05,
   },
   content: { padding: 28 },
   badge: {

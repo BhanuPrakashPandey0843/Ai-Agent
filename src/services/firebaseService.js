@@ -24,12 +24,24 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { COLLECTIONS, PAGE_SIZE } from '../constants';
+import { resolveWallpaperUri } from '../utils/wallpaperFile';
 import { fetchAllQuestionsFromFirestore } from './quizService';
 
 console.log('🔍 [Firebase Service] DB initialized, project info:', db.app.options);
 
 const mapWallpaperDocs = (snapshot) =>
-  snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  snapshot.docs.map((d) => {
+    const data = d.data?.() || {};
+    const uri = resolveWallpaperUri(data);
+    return {
+      id: d.id,
+      ...data,
+      uri,
+      image: data.image || uri,
+      imageUrl: data.imageUrl || uri,
+      bgurl: data.bgurl || uri,
+    };
+  });
 
 const wallpaperTimestamp = (item) => {
   const t = item?.uploadedAt;
@@ -572,14 +584,6 @@ export const togglePublished = async (id, currentPublished) => {
   });
 };
 
-export const updateUserScore = async (uid, score) => {
-  await updateDoc(doc(db, COLLECTIONS.USERS, uid), {
-    lastScore: score,
-    lastPlayed: new Date(),
-    updatedAt: Date.now(),
-  });
-};
-
 // ─── Meet Sessions ────────────────────────────────────────────────────────────
 
 export const fetchMeetSessions = async () => {
@@ -961,6 +965,162 @@ export const registerVideoView = async (videoId, uid) => {
   } catch (err) {
     console.warn('[registerVideoView] failed:', err?.message);
   }
+};
+
+// ─── Shared Scripture video comments ────────────────────────────────────────
+const VIDEO_COMMENT_LIMIT = 500;
+export const VIDEO_COMMENT_PAGE_SIZE = 20;
+
+export const subscribeToWitnessVideoStats = (videoId, onData, onError) => {
+  if (!videoId) {
+    onData(null);
+    return () => {};
+  }
+  return onSnapshot(
+    doc(db, COLLECTIONS.WITNESS_VIDEOS, videoId),
+    (snap) => onData(snap.exists()
+      ? {
+          likes: Number(snap.data().likes || 0),
+          dislikes: Number(snap.data().dislikes || 0),
+          views: Number(snap.data().views || 0),
+          commentCount: Number(snap.data().commentCount || 0),
+        }
+      : null),
+    (err) => {
+      console.error('[subscribeToWitnessVideoStats] failed:', err?.code, err?.message);
+      onError?.(err);
+    }
+  );
+};
+
+export const subscribeToVideoComments = (videoId, onData, onError) => {
+  if (!videoId) {
+    onData([], null, false);
+    return () => {};
+  }
+  const commentsRef = collection(db, COLLECTIONS.WITNESS_VIDEOS, videoId, 'comments');
+  const commentsQuery = query(commentsRef, orderBy('createdAt', 'desc'), limit(VIDEO_COMMENT_PAGE_SIZE));
+  return onSnapshot(
+    commentsQuery,
+    (snapshot) => {
+      const items = snapshot.docs.map((commentDoc) => ({
+        id: commentDoc.id,
+        ...commentDoc.data(),
+      }));
+      onData(items, snapshot.docs[snapshot.docs.length - 1] || null, snapshot.docs.length === VIDEO_COMMENT_PAGE_SIZE);
+    },
+    (err) => {
+      console.error('[subscribeToVideoComments] failed:', err?.code, err?.message);
+      onError?.(err);
+    }
+  );
+};
+
+export const fetchMoreVideoComments = async (videoId, cursor) => {
+  if (!videoId || !cursor) return { items: [], cursor: null, hasMore: false };
+  const pageQuery = query(
+    collection(db, COLLECTIONS.WITNESS_VIDEOS, videoId, 'comments'),
+    orderBy('createdAt', 'desc'),
+    startAfter(cursor),
+    limit(VIDEO_COMMENT_PAGE_SIZE)
+  );
+  const snapshot = await getDocs(pageQuery);
+  return {
+    items: snapshot.docs.map((commentDoc) => ({ id: commentDoc.id, ...commentDoc.data() })),
+    cursor: snapshot.docs[snapshot.docs.length - 1] || cursor,
+    hasMore: snapshot.docs.length === VIDEO_COMMENT_PAGE_SIZE,
+  };
+};
+
+export const addVideoComment = async (videoId, { userId, username, photoURL, text } = {}) => {
+  const trimmed = String(text || '').trim();
+  if (!videoId || !userId) throw new Error('Sign in to post a comment.');
+  if (!trimmed) throw new Error('Please write a comment.');
+  if (trimmed.length > VIDEO_COMMENT_LIMIT) {
+    throw new Error(`Comments must be ${VIDEO_COMMENT_LIMIT} characters or fewer.`);
+  }
+
+  const videoRef = doc(db, COLLECTIONS.WITNESS_VIDEOS, videoId);
+  const commentsRef = collection(videoRef, 'comments');
+  const commentRef = doc(commentsRef);
+  await runTransaction(db, async (tx) => {
+    const videoSnap = await tx.get(videoRef);
+    if (!videoSnap.exists()) throw new Error('This video is no longer available.');
+    tx.set(commentRef, {
+      userId: String(userId),
+      username: String(username || 'Believer').trim().slice(0, 80) || 'Believer',
+      photoURL: String(photoURL || ''),
+      text: trimmed,
+      likeCount: 0,
+      createdAt: serverTimestamp(),
+    });
+    tx.update(videoRef, {
+      commentCount: Number(videoSnap.data().commentCount || 0) + 1,
+      commentMutationId: commentRef.id,
+    });
+  });
+  return commentRef.id;
+};
+
+export const updateVideoComment = async (videoId, commentId, userId, text) => {
+  const trimmed = String(text || '').trim();
+  if (!videoId || !commentId || !userId) throw new Error('Sign in to edit your comment.');
+  if (!trimmed) throw new Error('Please write a comment.');
+  if (trimmed.length > VIDEO_COMMENT_LIMIT) {
+    throw new Error(`Comments must be ${VIDEO_COMMENT_LIMIT} characters or fewer.`);
+  }
+  const commentRef = doc(db, COLLECTIONS.WITNESS_VIDEOS, videoId, 'comments', commentId);
+  await runTransaction(db, async (tx) => {
+    const commentSnap = await tx.get(commentRef);
+    if (!commentSnap.exists() || commentSnap.data().userId !== userId) {
+      throw new Error('You can only edit your own comments.');
+    }
+    tx.update(commentRef, { text: trimmed, editedAt: serverTimestamp() });
+  });
+};
+
+export const deleteVideoComment = async (videoId, commentId, userId) => {
+  if (!videoId || !commentId || !userId) throw new Error('Sign in to delete your comment.');
+  const videoRef = doc(db, COLLECTIONS.WITNESS_VIDEOS, videoId);
+  const commentRef = doc(db, COLLECTIONS.WITNESS_VIDEOS, videoId, 'comments', commentId);
+  await runTransaction(db, async (tx) => {
+    const [videoSnap, commentSnap] = await Promise.all([tx.get(videoRef), tx.get(commentRef)]);
+    if (!commentSnap.exists() || commentSnap.data().userId !== userId) {
+      throw new Error('You can only delete your own comments.');
+    }
+    if (!videoSnap.exists()) throw new Error('This video is no longer available.');
+    tx.delete(commentRef);
+    tx.update(videoRef, {
+      commentCount: Math.max(0, Number(videoSnap.data().commentCount || 0) - 1),
+      commentMutationId: commentRef.id,
+    });
+  });
+};
+
+export const getMyVideoCommentLike = async (videoId, commentId, userId) => {
+  if (!videoId || !commentId || !userId) return false;
+  const likeRef = doc(db, COLLECTIONS.WITNESS_VIDEOS, videoId, 'comments', commentId, 'likes', userId);
+  const snap = await getDoc(likeRef);
+  return snap.exists();
+};
+
+export const toggleVideoCommentLike = async (videoId, commentId, userId) => {
+  if (!videoId || !commentId || !userId) throw new Error('Sign in to like a comment.');
+  const commentRef = doc(db, COLLECTIONS.WITNESS_VIDEOS, videoId, 'comments', commentId);
+  const likeRef = doc(db, COLLECTIONS.WITNESS_VIDEOS, videoId, 'comments', commentId, 'likes', userId);
+  return runTransaction(db, async (tx) => {
+    const [commentSnap, likeSnap] = await Promise.all([tx.get(commentRef), tx.get(likeRef)]);
+    if (!commentSnap.exists()) throw new Error('This comment is no longer available.');
+    const nextLiked = !likeSnap.exists();
+    const likeCount = Math.max(0, Number(commentSnap.data().likeCount || 0) + (nextLiked ? 1 : -1));
+    if (nextLiked) {
+      tx.set(likeRef, { userId, createdAt: serverTimestamp() });
+    } else {
+      tx.delete(likeRef);
+    }
+    tx.update(commentRef, { likeCount });
+    return nextLiked;
+  });
 };
 
 // ─── Saved Witness Videos (Favorites) ─────────────────────────────────────────
@@ -1706,13 +1866,24 @@ export const subscribeToMyUserPrayers = (uid, onData, onError) => {
   return safeOnSnapshot(q, onData, onError);
 };
 
+// Limits mirror the `userPrayers` create rule in firebase/firestore.rules exactly.
+// A write that exceeds them is rejected by the server as `permission-denied`,
+// which is indistinguishable from a real auth problem, so catch it client-side.
+export const USER_PRAYER_LIMITS = { title: 120, description: 300, content: 5000 };
+
+const prayerValidationError = (message) => {
+  const err = new Error(message);
+  err.code = 'app/validation';
+  return err;
+};
+
 /** Submit a new user prayer. Returns the new doc with id. */
 export const createUserPrayer = async (payload) => {
-  if (!payload?.userId) throw new Error('Missing user id');
-  if (!payload?.title?.trim()) throw new Error('Prayer title is required');
-  if (!payload?.content?.trim()) throw new Error('Prayer content is required');
+  if (!payload?.userId) throw prayerValidationError('Missing user id');
+  if (!payload?.title?.trim()) throw prayerValidationError('Prayer title is required');
+  if (!payload?.content?.trim()) throw prayerValidationError('Prayer content is required');
 
-  const docRef = await addDoc(collection(db, COLLECTIONS.USER_PRAYERS), {
+  const data = {
     title: String(payload.title).trim(),
     description: String(payload.description || '').trim(),
     content: String(payload.content).trim(),
@@ -1724,9 +1895,40 @@ export const createUserPrayer = async (payload) => {
     commentCount: 0,
     createdAt: serverTimestamp(),
     deviceTimestamp: Date.now(),
-  });
-  const snap = await getDoc(docRef);
-  return { id: docRef.id, ...snap.data() };
+  };
+
+  if (data.title.length > USER_PRAYER_LIMITS.title) {
+    throw prayerValidationError(`Title must be ${USER_PRAYER_LIMITS.title} characters or fewer`);
+  }
+  if (data.description.length > USER_PRAYER_LIMITS.description) {
+    throw prayerValidationError(`Description must be ${USER_PRAYER_LIMITS.description} characters or fewer`);
+  }
+  if (data.content.length > USER_PRAYER_LIMITS.content) {
+    throw prayerValidationError(
+      `Prayer must be ${USER_PRAYER_LIMITS.content} characters or fewer (currently ${data.content.length})`
+    );
+  }
+
+  let docRef;
+  try {
+    docRef = await addDoc(collection(db, COLLECTIONS.USER_PRAYERS), data);
+  } catch (err) {
+    // Surface the real Firestore code in Metro/device logs for diagnosis.
+    console.error('[createUserPrayer] write failed:', err?.code, err?.message);
+    throw err;
+  }
+
+  // The prayer is already saved at this point. Reading it back is only a
+  // convenience for the caller, so a failure here must never be reported to
+  // the user as a failed submission (they would retry and create a duplicate).
+  try {
+    const snap = await getDoc(docRef);
+    return { id: docRef.id, ...snap.data() };
+  } catch (readErr) {
+    console.warn('[createUserPrayer] saved, read-back failed:', readErr?.code, readErr?.message);
+    const { createdAt: _pending, ...rest } = data;
+    return { id: docRef.id, ...rest };
+  }
 };
 
 /** Delete one of my own prayers (owner-only on the server via rules). */

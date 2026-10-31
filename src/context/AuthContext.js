@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { COLLECTIONS } from '../constants';
+import { deactivatePushToken } from '../services/notificationService';
 
 const AuthContext = createContext(null);
 
@@ -38,6 +39,18 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
 
+  const syncPublicProfile = useCallback(async (uid, profile) => {
+    await setDoc(
+      doc(db, 'publicProfiles', uid),
+      {
+        name: typeof profile?.name === 'string' ? profile.name.trim().slice(0, 120) : '',
+        photoURL: typeof profile?.photoURL === 'string' ? profile.photoURL : '',
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }, []);
+
   // Profile from Auth first; enrich from Firestore when rules allow
   const fetchUserProfile = useCallback(async (uid, firebaseUser = auth.currentUser) => {
     if (!firebaseUser) return;
@@ -49,11 +62,21 @@ export const AuthProvider = ({ children }) => {
         const data = docSnap.data();
         setUserProfile(data);
         setIsPremium(data.isPremium === true);
+        await syncPublicProfile(uid, {
+          name: data.name || firebaseUser.displayName,
+          photoURL: data.photoURL || firebaseUser.photoURL,
+        });
+      } else {
+        await syncPublicProfile(uid, {
+          name: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+        });
       }
-    } catch {
+    } catch (err) {
       /* keep auth-based fallback profile */
+      console.warn('[Auth] Could not refresh profile data:', err?.code, err?.message);
     }
-  }, []);
+  }, [syncPublicProfile]);
 
   // Listen to Firebase auth state
   useEffect(() => {
@@ -106,6 +129,7 @@ export const AuthProvider = ({ children }) => {
         updatedAt: Date.now(),
         createdAt: serverTimestamp(),
       });
+      await syncPublicProfile(firebaseUser.uid, { name, photoURL: firebaseUser.photoURL || '' });
     } catch (err) {
       profileError = err.message;
     }
@@ -118,16 +142,23 @@ export const AuthProvider = ({ children }) => {
       return { success: true, profileError: 'Profile creation failed temporarily. Your account was created.' };
     }
     return { success: true };
-  }, [fetchUserProfile]);
+  }, [fetchUserProfile, syncPublicProfile]);
 
   // Logout
   const logout = useCallback(async () => {
+    if (user?.uid) {
+      try {
+        await deactivatePushToken(user.uid);
+      } catch (err) {
+        console.warn('[Auth] Could not deactivate notification token before logout:', err?.message);
+      }
+    }
     try {
       await signOut(auth);
     } catch {
       // ignore logout errors
     }
-  }, []);
+  }, [user?.uid]);
 
   // Forgot password
   const forgotPassword = useCallback(async (email) => {
@@ -147,15 +178,22 @@ export const AuthProvider = ({ children }) => {
         ...updates,
         updatedAt: Date.now(),
       });
-      if (updates.name) {
-        await updateProfile(user, { displayName: updates.name });
-      }
+      await updateProfile(user, {
+        displayName: typeof updates.name === 'string' ? updates.name : user.displayName,
+        photoURL: typeof updates.photoURL === 'string' ? updates.photoURL : user.photoURL,
+      });
+      setUserProfile((prev) => ({ ...(prev || buildFallbackProfile(user)), ...updates }));
+      await syncPublicProfile(user.uid, {
+        name: typeof updates.name === 'string' ? updates.name : user.displayName,
+        photoURL: typeof updates.photoURL === 'string' ? updates.photoURL : user.photoURL,
+      });
       await fetchUserProfile(user.uid, user);
       return { success: true };
     } catch (err) {
+      console.error('[Auth] Could not update profile:', err?.code, err?.message);
       return { success: false, error: err.message };
     }
-  }, [user, fetchUserProfile]);
+  }, [user, fetchUserProfile, syncPublicProfile]);
 
   // Social login stubs — wire up @react-native-google-signin or expo-apple-authentication
   const signInWithGoogle = useCallback(async () => ({
