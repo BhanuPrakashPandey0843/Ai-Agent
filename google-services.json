@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "704605252889",
+    "project_id": "wallpaper-c74a3",
+    "storage_bucket": "wallpaper-c74a3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:704605252889:android:2441eac01025265aeda988",
+        "android_client_info": {
+          "package_name": "com.faith.faithframes"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "704605252889-u79hlf297t0lac4ch7ido6i1p0cv8iaj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFjnf8F7kyBO-3jEhftn4F-b9d-aA5HyE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "704605252889-u79hlf297t0lac4ch7ido6i1p0cv8iaj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "704605252889-3aa8n4c1frj01f15i325ughcmk031t4d.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.faithframes.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

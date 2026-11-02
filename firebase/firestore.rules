@@ -9,10 +9,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Only the published collection is readable by the mobile app. Drafts
-    // live in bibleChapterDrafts and remain denied by the default rule.
+    // Only published chapters are readable by the mobile app. A direct read
+    // for a chapter that has not been published yet should return "not found"
+    // rather than fail rule evaluation because resource is null. Drafts live
+    // in bibleChapterDrafts and remain denied by the default rule.
     match /bibleChapters/{chapterId} {
-      allow read: if resource.data.status == 'published';
+      allow read: if resource == null || resource.data.status == 'published';
       allow write: if false;
     }
 
@@ -734,8 +736,12 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'ownerUid', 'token', 'active', 'platform', 'createdAt', 'updatedAt'
         ]);
+      // A device token is unguessable and only ever known to the device that generated it, and one
+      // device can be signed in to one account at a time. So whoever presents it is its current
+      // holder: signing in as another account on the same phone must be able to re-point the token
+      // at itself, otherwise the previous account keeps receiving this phone's notifications and the
+      // new account never gets any. Reads and deletes stay owner-only.
       allow update: if request.auth != null
-        && resource.data.ownerUid == request.auth.uid
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.token == tokenId
         && request.resource.data.token is string

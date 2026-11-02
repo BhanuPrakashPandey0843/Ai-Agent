@@ -32,6 +32,7 @@ export default function LanguageBibleReaderScreen() {
   const [testament, setTestament] = useState("OT");
   const [chapter, setChapter] = useState(1);
   const [availableChapters, setAvailableChapters] = useState([]);
+  const [chapterListVersion, setChapterListVersion] = useState(null);
   const [chapterData, setChapterData] = useState(null);
   const [picker, setPicker] = useState(null);
   const [bookLoading, setBookLoading] = useState(true);
@@ -42,6 +43,7 @@ export default function LanguageBibleReaderScreen() {
   const [reloadKey, setReloadKey] = useState(0);
   const previousLanguage = useRef(languageId);
   const activeChapter = useRef(chapter);
+  const chapterListKey = `${languageId}:${bookId}:${reloadKey}`;
   const styles = useMemo(() => createStyles(theme), [theme]);
   const book = books.find((item) => item.id === bookId);
   const visibleBooks = books.filter((item) => item.testament === testament);
@@ -61,6 +63,7 @@ export default function LanguageBibleReaderScreen() {
       setTestament("OT");
       setChapter(1);
       setAvailableChapters([]);
+      setChapterListVersion(null);
       setChapterData(null);
     }
 
@@ -93,6 +96,7 @@ export default function LanguageBibleReaderScreen() {
     if (!language || !bookId) return undefined;
     let active = true;
     setChapterListLoading(true);
+    setChapterListVersion(null);
     setAvailableChapters([]);
     setChapterData(null);
     setError("");
@@ -100,6 +104,7 @@ export default function LanguageBibleReaderScreen() {
     fetchPublishedLanguageChapters(languageId, bookId)
       .then((records) => {
         if (!active) return;
+        setChapterListVersion(chapterListKey);
         setAvailableChapters(records);
         if (records.length && !records.some((record) => record.chapter === activeChapter.current)) {
           setChapter(records[0].chapter);
@@ -115,10 +120,20 @@ export default function LanguageBibleReaderScreen() {
     return () => {
       active = false;
     };
-  }, [language, languageId, bookId, reloadKey]);
+  }, [language, languageId, bookId, reloadKey, chapterListKey]);
 
   useEffect(() => {
-    if (!language || !bookId) return undefined;
+    if (!language || !bookId || chapterListLoading || chapterListVersion !== chapterListKey) {
+      return undefined;
+    }
+    if (!availableChapters.some((record) => Number(record.chapter) === Number(chapter))) {
+      setReaderLoading(false);
+      setChapterData(null);
+      setIsUnavailable(true);
+      setError("");
+      return undefined;
+    }
+
     let active = true;
     setReaderLoading(true);
     setChapterData(null);
@@ -145,7 +160,17 @@ export default function LanguageBibleReaderScreen() {
     return () => {
       active = false;
     };
-  }, [language, languageId, bookId, chapter, reloadKey]);
+  }, [
+    language,
+    languageId,
+    bookId,
+    chapter,
+    chapterListLoading,
+    chapterListVersion,
+    chapterListKey,
+    availableChapters,
+    reloadKey,
+  ]);
 
   const selectBook = (nextBook) => {
     setBookId(nextBook.id);

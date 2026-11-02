@@ -2,6 +2,17 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+// Android push notifications (Expo push -> FCM) need the Firebase client configuration
+// (google-services.json, downloaded from Firebase console > Project settings > Your apps >
+// com.faithframes.official). Without it expo-notifications cannot create a push token on Android
+// ("Default FirebaseApp is not initialized"). The plugin is applied only when the file is present,
+// so builds keep working until it is added.
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+} else {
+    logger.warn('android/app/google-services.json not found: Android push notifications will not work in this build.')
+}
+
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 /**
@@ -92,7 +103,7 @@ android {
         applicationId 'com.faithframes.official'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 28
+        versionCode 29
         versionName "1.0.2"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""

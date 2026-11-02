@@ -13,15 +13,17 @@ import { db, auth } from '../config/firebase';
 import { Env } from '../config/env';
 import { COLLECTIONS } from '../constants';
 import { QUIZ_COLLECTIONS, QUIZ_TYPES } from '../constants/quiz';
-import { isValidQuizQuestion, normalizeQuestion, selectQuestionsForSession } from './quizEngine';
+import { isValidQuizQuestion, normalizeQuestion } from './quizEngine';
 import { compareLeaderboardEntries } from '../utils/quizScoring';
-import { getLeaderboardPeriodKey, toDateKey } from '../utils/quizDates';
+import { getLeaderboardPeriodKey } from '../utils/quizDates';
 import {
   saveQuestionCache,
   getQuestionCache,
   saveAttemptedCache,
   getAttemptedCache,
   getAttemptedCacheMeta,
+  getGuestQuizHistory,
+  saveGuestQuizHistory,
   savePendingSubmission,
   getPendingSubmission,
   clearPendingSubmission,
@@ -159,52 +161,27 @@ export const prepareQuizSession = async (uid, quizTypeId) => {
   const quizType = QUIZ_TYPES[quizTypeId];
   if (!quizType) throw new Error('Unknown quiz type');
 
-  const [allQuestions, attemptedIds] = await Promise.all([
-    getQuestionsCatalog(uid),
-    fetchAttemptedQuestionIds(uid),
-  ]);
-
-  const activeQuestions = allQuestions.filter((q) => q.active !== false && isValidQuizQuestion(q));
-  if (!activeQuestions.length) {
-    return {
-      error: 'no_questions',
-      message: 'No quiz questions available yet. Upload questions in the admin panel, then pull to refresh.',
-    };
-  }
-
-  const matchingCount = activeQuestions.filter((q) =>
-    quizType.categories.includes(q.category)
-  ).length;
-
-  const { questions, exhausted } = selectQuestionsForSession({
-    allQuestions: activeQuestions,
-    attemptedIds,
-    quizTypeId,
-    count: quizType.questionsCount,
-    dateKey: toDateKey(),
-  });
-
-  if (exhausted || !questions.length) {
-    if (matchingCount === 0) {
-      return {
-        error: 'no_questions',
-        message: `No questions match "${quizType.label}" yet. Upload with categories: ${quizType.categories.join(', ')}.`,
-      };
-    }
-    return {
-      error: 'exhausted',
-      message: 'You have completed all available questions for this quiz type.',
-    };
-  }
-
   const sessionId = `${uid || 'guest'}_${quizTypeId}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   let startedAt = Date.now();
+  const clientHistory = uid ? null : await getGuestQuizHistory(quizTypeId);
   const started = await callQuizApi('startQuizSession', {
     sessionId,
     quizTypeId,
-    questionIds: questions.map((question) => question.id),
+    ...(clientHistory ? { clientHistory } : {}),
   });
   startedAt = Number(started.startedAt) || startedAt;
+  const questions = uniqueQuestions(
+    (Array.isArray(started.questions) ? started.questions : [])
+      .map((question) => normalizeQuestion(question))
+      .filter(isValidQuizQuestion)
+  );
+  if (!questions.length) {
+    throw new Error('The quiz server did not return any playable questions. Please try again.');
+  }
+  if (!uid && started.history) {
+    await saveGuestQuizHistory(quizTypeId, started.history);
+  }
+
   const session = {
     sessionId,
     quizTypeId,

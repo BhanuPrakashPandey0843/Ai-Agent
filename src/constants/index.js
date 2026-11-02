@@ -70,6 +70,7 @@ export const STORAGE_KEYS = {
   NOTIFICATION_TOKEN: 'faithframes_notif_token',
   QUIZ_QUESTION_CACHE: 'faithframes_quiz_question_cache',
   QUIZ_ATTEMPTED_CACHE: 'faithframes_quiz_attempted_cache',
+  QUIZ_GUEST_HISTORY: 'faithframes_quiz_guest_history',
   QUIZ_ACTIVE_SESSION: 'faithframes_quiz_active_session',
   QUIZ_PENDING_SUBMISSION: 'faithframes_quiz_pending_submission',
   VERSE_BOOKMARKS: 'faithframes_verse_bookmarks',

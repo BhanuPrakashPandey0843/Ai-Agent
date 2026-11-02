@@ -12,6 +12,35 @@ import { BIBLE_BOOKS } from "../constants/bible";
 
 const LANGUAGES = new Set(["hindi", "telugu"]);
 const chapterId = (language, bookId, chapter) => `${language}_${bookId}_${chapter}`;
+const NETWORK_ERROR_CODES = new Set([
+  "unavailable",
+  "deadline-exceeded",
+  "network-request-failed",
+]);
+
+function explainReadError(error, contentName) {
+  if (error?.code === "permission-denied") {
+    return Object.assign(
+      new Error(`Firestore denied access to ${contentName}. Check the deployed Bible read rules and try again.`),
+      { code: error.code }
+    );
+  }
+  if (NETWORK_ERROR_CODES.has(error?.code)) {
+    return Object.assign(
+      new Error(`Could not connect to load ${contentName}. Check your connection and retry.`),
+      { code: error.code }
+    );
+  }
+  return error;
+}
+
+async function readBibleContent(read, contentName) {
+  try {
+    return await read();
+  } catch (error) {
+    throw explainReadError(error, contentName);
+  }
+}
 
 function assertLanguage(language) {
   if (!LANGUAGES.has(language)) throw new Error("Choose Hindi or Telugu.");
@@ -19,7 +48,10 @@ function assertLanguage(language) {
 
 export async function fetchLanguageBibleBooks(language) {
   assertLanguage(language);
-  const snapshot = await getDocsFromServer(query(collection(db, "bibleBooks"), orderBy("order", "asc")));
+  const snapshot = await readBibleContent(
+    () => getDocsFromServer(query(collection(db, "bibleBooks"), orderBy("order", "asc"))),
+    "Bible books"
+  );
   if (snapshot.empty) {
     throw new Error("The Bible catalog is not available yet. Please try again later.");
   }
@@ -47,13 +79,16 @@ export async function fetchLanguageBibleBooks(language) {
 
 export async function fetchPublishedLanguageChapters(language, bookId) {
   assertLanguage(language);
-  const snapshot = await getDocsFromServer(query(
-    collection(db, "bibleChapters"),
-    where("language", "==", language),
-    where("bookId", "==", bookId),
-    where("status", "==", "published"),
-    orderBy("chapter", "asc")
-  ));
+  const snapshot = await readBibleContent(
+    () => getDocsFromServer(query(
+      collection(db, "bibleChapters"),
+      where("language", "==", language),
+      where("bookId", "==", bookId),
+      where("status", "==", "published"),
+      orderBy("chapter", "asc")
+    )),
+    "published Bible chapters"
+  );
 
   return snapshot.docs.map((item) => {
     const data = item.data();
@@ -67,11 +102,14 @@ export async function fetchPublishedLanguageChapters(language, bookId) {
 
 export async function fetchPublishedLanguageChapter(language, bookId, chapter) {
   assertLanguage(language);
-  const snapshot = await getDocFromServer(doc(
-    db,
-    "bibleChapters",
-    chapterId(language, bookId, chapter)
-  ));
+  const snapshot = await readBibleContent(
+    () => getDocFromServer(doc(
+      db,
+      "bibleChapters",
+      chapterId(language, bookId, chapter)
+    )),
+    "this published Bible chapter"
+  );
   if (!snapshot.exists() || snapshot.get("status") !== "published") {
     const unavailable = new Error("This chapter is not available yet.");
     unavailable.code = "chapter/not-published";

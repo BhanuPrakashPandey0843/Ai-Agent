@@ -109,6 +109,11 @@ functions/.env
 !.env.example
 !functions/.env.example
 
+# Firebase service-account credentials (never commit private keys)
+*firebase-adminsdk*.json
+*service-account*.json
+*serviceAccount*.json
+
 # Firebase functions build output
 functions/lib/
 functions/node_modules/

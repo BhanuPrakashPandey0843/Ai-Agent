@@ -3,6 +3,7 @@ import { storeJSON, getJSON, removeItem } from './index';
 
 const cacheKey = (uid) => `${STORAGE_KEYS.QUIZ_QUESTION_CACHE}_${uid || 'guest'}`;
 const attemptedKey = (uid) => `${STORAGE_KEYS.QUIZ_ATTEMPTED_CACHE}_${uid || 'guest'}`;
+const guestHistoryKey = (quizTypeId) => `${STORAGE_KEYS.QUIZ_GUEST_HISTORY}_${quizTypeId}`;
 // Active session is split into two records so that resuming/crash-recovery
 // stays fully self-contained (the "shell" always carries the full question
 // payload) while the frequently-written part of the session stays small:
@@ -28,6 +29,12 @@ export const saveQuestionCache = async (uid, payload) => {
 };
 
 export const getQuestionCache = async (uid) => getJSON(cacheKey(uid));
+
+export const getGuestQuizHistory = async (quizTypeId) => getJSON(guestHistoryKey(quizTypeId));
+
+export const saveGuestQuizHistory = async (quizTypeId, history) => {
+  await storeJSON(guestHistoryKey(quizTypeId), history);
+};
 
 export const saveAttemptedCache = async (uid, attemptedIds) => {
   await storeJSON(attemptedKey(uid), {

@@ -415,6 +415,8 @@ export default function NotificationsScreen() {
         setPreferences(previous);
         if (result.reason === 'denied' || result.reason === 'permission-required') {
           showToast('Notifications are blocked in device settings', 'error');
+        } else if (result.reason === 'push-unavailable') {
+          showToast('Push alerts are not available on this device or app build yet', 'error');
         }
       } else {
         showToast(enabled ? 'Push alerts enabled' : 'Push alerts disabled', 'success');
