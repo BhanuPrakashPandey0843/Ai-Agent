@@ -36,6 +36,7 @@ import {
   getMyPrayingState,
 } from '../services/firebaseService';
 import useFirestoreSubscription from '../hooks/useFirestoreSubscription';
+import { notifyPrayingChange } from '../hooks/usePrayingStates';
 
 const MAX_COMMENT_CHARS = 500;
 
@@ -94,6 +95,8 @@ export default function CommunityPrayerDetailScreen() {
     try {
       const next = await togglePrayingForRequest(item.id, user.uid);
       setIsPraying(next);
+      // Keep the Prayer Room list (still mounted underneath) in sync.
+      notifyPrayingChange(user.uid, item.id, next);
     } catch (err) {
       setIsPraying(prevPraying);
       setPrayCount(prevCount);

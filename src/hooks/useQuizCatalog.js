@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getQuestionsCatalog, fetchAttemptedQuestionIds } from '../services/quizService';
+import { fetchQuizCatalog } from '../services/quizService';
 
 export default function useQuizCatalog() {
   const { user } = useAuth();
@@ -14,12 +14,9 @@ export default function useQuizCatalog() {
     setLoading(true);
     setError(null);
     try {
-      const [questions, attempted] = await Promise.all([
-        getQuestionsCatalog(uid, { forceRefresh }),
-        fetchAttemptedQuestionIds(uid),
-      ]);
-      setQuestionCount(questions.filter((q) => q.active !== false).length);
-      setAttemptedCount(attempted.size);
+      const catalog = await fetchQuizCatalog(forceRefresh);
+      setQuestionCount(Number(catalog.totalQuestions) || 0);
+      setAttemptedCount(Number(catalog.attemptedCount) || 0);
     } catch (err) {
       setError(err?.message || 'Failed to load quiz catalog');
     } finally {

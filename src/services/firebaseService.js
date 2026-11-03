@@ -1877,18 +1877,26 @@ const prayerValidationError = (message) => {
   return err;
 };
 
+/** YYYY-MM-DD (local calendar day) */
+const isValidDateKey = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
 /** Submit a new user prayer. Returns the new doc with id. */
 export const createUserPrayer = async (payload) => {
   if (!payload?.userId) throw prayerValidationError('Missing user id');
   if (!payload?.title?.trim()) throw prayerValidationError('Prayer title is required');
   if (!payload?.content?.trim()) throw prayerValidationError('Prayer content is required');
 
+  const isPersonal = payload.category === 'personal';
+  const displayDate = isValidDateKey(payload.displayDate) ? String(payload.displayDate) : null;
+
   const data = {
     title: String(payload.title).trim(),
     description: String(payload.description || '').trim(),
     content: String(payload.content).trim(),
-    anonymous: payload.anonymous === true,
-    status: 'pending',
+    // Personal prayers are private to the owner: never anonymous, never moderated.
+    anonymous: isPersonal ? false : payload.anonymous === true,
+    category: isPersonal ? 'personal' : 'community',
+    status: isPersonal ? 'private' : 'pending',
     userId: String(payload.userId),
     username: String(payload.username || '').trim(),
     prayCount: 0,
@@ -1896,6 +1904,9 @@ export const createUserPrayer = async (payload) => {
     createdAt: serverTimestamp(),
     deviceTimestamp: Date.now(),
   };
+  // Only Personal prayers carry a day; community prayers are scheduled by
+  // createdAt/admin (the create rule only accepts `displayDate` when present).
+  if (isPersonal && displayDate) data.displayDate = displayDate;
 
   if (data.title.length > USER_PRAYER_LIMITS.title) {
     throw prayerValidationError(`Title must be ${USER_PRAYER_LIMITS.title} characters or fewer`);
@@ -1935,6 +1946,54 @@ export const createUserPrayer = async (payload) => {
 export const deleteMyUserPrayer = async (id, uid) => {
   if (!id || !uid) throw new Error('Missing prayer or user id');
   await deleteDoc(doc(db, COLLECTIONS.USER_PRAYERS, id));
+};
+
+/**
+ * Edit one of my own prayers (owner-only; enforced by firestore.rules).
+ * The category never changes. A Personal prayer stays 'private'; a community
+ * prayer goes back to 'pending' so edited text is moderated again before it is
+ * public. Returns the merged document.
+ */
+export const updateMyUserPrayer = async (id, uid, payload = {}) => {
+  if (!id || !uid) throw prayerValidationError('Missing prayer or user id');
+  const ref = doc(db, COLLECTIONS.USER_PRAYERS, id);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw prayerValidationError('This prayer no longer exists');
+  const current = snap.data();
+  if (current.userId !== uid) throw prayerValidationError('You can only edit your own prayers');
+
+  const isPersonal = current.category === 'personal';
+  const title = String(payload.title || '').trim();
+  const description = String(payload.description || '').trim();
+  const content = String(payload.content || '').trim();
+
+  if (!title) throw prayerValidationError('Prayer title is required');
+  if (!content) throw prayerValidationError('Prayer content is required');
+  if (title.length > USER_PRAYER_LIMITS.title) {
+    throw prayerValidationError(`Title must be ${USER_PRAYER_LIMITS.title} characters or fewer`);
+  }
+  if (description.length > USER_PRAYER_LIMITS.description) {
+    throw prayerValidationError(`Description must be ${USER_PRAYER_LIMITS.description} characters or fewer`);
+  }
+  if (content.length > USER_PRAYER_LIMITS.content) {
+    throw prayerValidationError(
+      `Prayer must be ${USER_PRAYER_LIMITS.content} characters or fewer (currently ${content.length})`
+    );
+  }
+
+  const changes = {
+    title,
+    description,
+    content,
+    anonymous: isPersonal ? false : payload.anonymous === true,
+    status: isPersonal ? 'private' : 'pending',
+    updatedAt: serverTimestamp(),
+  };
+  if (payload.username) changes.username = String(payload.username).trim();
+  if (isPersonal && isValidDateKey(payload.displayDate)) changes.displayDate = String(payload.displayDate);
+
+  await updateDoc(ref, changes);
+  return { id, ...current, ...changes };
 };
 
 // ─── Community Prayer Requests (Prayer Room → approved userPrayers) ────────

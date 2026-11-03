@@ -243,16 +243,15 @@ export default function QuizHomeScreen() {
         ) : null}
 
         {loading ? (
-          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
-        ) : (
-          QUIZ_TYPE_LIST.map((type) => (
-            <QuizTypeCard
-              key={type.id}
-              quizType={type}
-              onPress={() => startQuiz(type.id)}
-            />
-          ))
-        )}
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: 16 }} />
+        ) : null}
+        {QUIZ_TYPE_LIST.map((type) => (
+          <QuizTypeCard
+            key={type.id}
+            quizType={type}
+            onPress={() => startQuiz(type.id)}
+          />
+        ))}
 
         {starting ? (
           <View style={styles.overlay}>

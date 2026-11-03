@@ -1,9 +1,10 @@
 // src/components/prayer/MyPrayerStatusCard.js
-// Small status strip shown above the Community feed for the signed-in
-// user's own pending/rejected submissions. Approved ones need no special
-// card — they already render as a normal CommunityPrayerCard in the feed.
+// Small status strip shown above the Daily list for the signed-in user's own
+// pending/rejected community submissions. Approved ones need no special card —
+// they already render as a normal prayer card. The owner can edit (which sends
+// it for review again) or delete a submission right from here.
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const STATUS_META = {
@@ -17,12 +18,13 @@ const STATUS_META = {
     icon: 'close-circle-outline',
     color: '#EF4444',
     label: 'Not Approved',
-    message: 'Your prayer request could not be approved because it does not meet our community guidelines.',
+    message: 'Your prayer request could not be approved because it does not meet our community guidelines. Edit it to resubmit, or delete it.',
   },
 };
 
-export default function MyPrayerStatusCard({ item, colors }) {
+export default function MyPrayerStatusCard({ item, colors, onEdit, onDelete }) {
   const meta = STATUS_META[item?.status] || STATUS_META.pending;
+  const hasActions = typeof onEdit === 'function' || typeof onDelete === 'function';
 
   return (
     <View
@@ -44,6 +46,37 @@ export default function MyPrayerStatusCard({ item, colors }) {
           </View>
         </View>
         <Text style={[styles.message, { color: colors.textMuted }]}>{meta.message}</Text>
+
+        {hasActions ? (
+          <View style={styles.actions}>
+            {onEdit ? (
+              <TouchableOpacity
+                onPress={onEdit}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Edit prayer request"
+                style={styles.actionBtn}
+              >
+                <Ionicons name="create-outline" size={14} color={colors.primary} />
+                <Text style={[styles.actionText, { color: colors.primary }]}>Edit</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onDelete ? (
+              <TouchableOpacity
+                onPress={onDelete}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Delete prayer request"
+                style={styles.actionBtn}
+              >
+                <Ionicons name="trash-outline" size={14} color={colors.error} />
+                <Text style={[styles.actionText, { color: colors.error }]}>Delete</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -59,10 +92,10 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
   },
   iconWrap: {
     width: 36,
@@ -85,4 +118,7 @@ const styles = StyleSheet.create({
   },
   statusPillText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
   message: { fontSize: 12, fontWeight: '500', marginTop: 4, lineHeight: 17 },
+  actions: { flexDirection: 'row', gap: 18, marginTop: 10 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  actionText: { fontSize: 12.5, fontWeight: '700' },
 });

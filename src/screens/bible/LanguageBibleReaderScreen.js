@@ -1,40 +1,60 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Linking,
   Modal,
   Pressable,
+  Platform,
+  Share,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useBibleTheme } from "../../hooks/useBibleTheme";
 import { getLanguageBible } from "../../data/languageBibles";
+import { useBible } from "../../context/BibleContext";
 import {
   fetchLanguageBibleBooks,
-  fetchPublishedLanguageChapter,
-  fetchPublishedLanguageChapters,
+  fetchLanguageBibleChapter,
+  fetchLanguageBibleChapters,
+  searchLanguageBible,
 } from "../../services/languageBibleService";
+import { saveSelectedBibleLanguage } from "../../storage/bibleStorage";
 
 export default function LanguageBibleReaderScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
   const theme = useBibleTheme();
+  const { bookmarks, highlights, settings, updateSettings, toggleBookmark, highlightVerse, trackLanguageReading } = useBible();
   const languageId = route.params?.languageId;
   const language = getLanguageBible(languageId);
   const [books, setBooks] = useState([]);
-  const [bookId, setBookId] = useState(null);
+  const [bookId, setBookId] = useState(route.params?.bookId || null);
   const [testament, setTestament] = useState("OT");
-  const [chapter, setChapter] = useState(1);
+  const [chapter, setChapter] = useState(Number(route.params?.chapter) || 1);
   const [availableChapters, setAvailableChapters] = useState([]);
   const [chapterListVersion, setChapterListVersion] = useState(null);
   const [chapterData, setChapterData] = useState(null);
   const [picker, setPicker] = useState(null);
+  const [selectedVerse, setSelectedVerse] = useState(null);
+  const [pendingVerse, setPendingVerse] = useState(Number(route.params?.verse) || null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchProgress, setSearchProgress] = useState(null);
+  const [searchError, setSearchError] = useState("");
+  const [toast, setToast] = useState("");
   const [bookLoading, setBookLoading] = useState(true);
   const [chapterListLoading, setChapterListLoading] = useState(false);
   const [readerLoading, setReaderLoading] = useState(false);
@@ -47,10 +67,25 @@ export default function LanguageBibleReaderScreen() {
   const styles = useMemo(() => createStyles(theme), [theme]);
   const book = books.find((item) => item.id === bookId);
   const visibleBooks = books.filter((item) => item.testament === testament);
+  const fontSize = Math.min(28, Math.max(14, Number(settings?.fontSize) || 18));
+  const highlightedVerse = selectedVerse
+    ? highlights[`${languageId}_${bookId}_${chapter}_${selectedVerse.number}`]
+    : null;
+  const bookmarkedVerse = selectedVerse && bookmarks.some((item) => (
+    item.languageId === languageId
+    && item.bookId === bookId
+    && Number(item.chapter) === Number(chapter)
+    && Number(item.verse) === Number(selectedVerse.number)
+  ));
+  const toastTimer = useRef(null);
 
   useEffect(() => {
     activeChapter.current = chapter;
   }, [chapter]);
+
+  useEffect(() => {
+    if (languageId && language) saveSelectedBibleLanguage(languageId);
+  }, [languageId, language]);
 
   useEffect(() => {
     let active = true;
@@ -65,6 +100,8 @@ export default function LanguageBibleReaderScreen() {
       setAvailableChapters([]);
       setChapterListVersion(null);
       setChapterData(null);
+      setBookId(route.params?.bookId || null);
+      setChapter(Number(route.params?.chapter) || 1);
     }
 
     if (!language) {
@@ -78,7 +115,9 @@ export default function LanguageBibleReaderScreen() {
         setBooks(records);
         setBookId((selected) => records.some((item) => item.id === selected)
           ? selected
-          : records[0]?.id || null);
+          : records.some((item) => item.id === route.params?.bookId)
+            ? route.params.bookId
+            : records[0]?.id || null);
       })
       .catch((loadError) => {
         if (active) setError(loadError.message || "Could not load Bible books.");
@@ -90,7 +129,17 @@ export default function LanguageBibleReaderScreen() {
     return () => {
       active = false;
     };
-  }, [languageId, language, reloadKey]);
+  }, [languageId, language, reloadKey, route.params?.bookId, route.params?.chapter]);
+
+  useEffect(() => {
+    if (route.params?.bookId && books.some((item) => item.id === route.params.bookId)) {
+      setBookId(route.params.bookId);
+      setTestament(books.find((item) => item.id === route.params.bookId)?.testament || "OT");
+      setChapter(Number(route.params.chapter) || 1);
+      setPendingVerse(Number(route.params.verse) || null);
+      setSelectedVerse(null);
+    }
+  }, [route.params?.bookId, route.params?.chapter, route.params?.verse, books]);
 
   useEffect(() => {
     if (!language || !bookId) return undefined;
@@ -101,7 +150,7 @@ export default function LanguageBibleReaderScreen() {
     setChapterData(null);
     setError("");
 
-    fetchPublishedLanguageChapters(languageId, bookId)
+    fetchLanguageBibleChapters(languageId, bookId)
       .then((records) => {
         if (!active) return;
         setChapterListVersion(chapterListKey);
@@ -111,7 +160,7 @@ export default function LanguageBibleReaderScreen() {
         }
       })
       .catch((loadError) => {
-        if (active) setError(loadError.message || "Could not load the published chapters.");
+        if (active) setError(loadError.message || "Could not load the chapter list.");
       })
       .finally(() => {
         if (active) setChapterListLoading(false);
@@ -140,18 +189,14 @@ export default function LanguageBibleReaderScreen() {
     setIsUnavailable(false);
     setError("");
 
-    fetchPublishedLanguageChapter(languageId, bookId, chapter)
+    fetchLanguageBibleChapter(languageId, bookId, chapter)
       .then((data) => {
         if (!active) return;
         setChapterData(data);
       })
       .catch((loadError) => {
         if (!active) return;
-        if (loadError.code === "chapter/not-published") {
-          setIsUnavailable(true);
-        } else {
-          setError(loadError.message || "Could not load this chapter.");
-        }
+        setError(loadError.message || "Could not load this chapter.");
       })
       .finally(() => {
         if (active) setReaderLoading(false);
@@ -176,6 +221,8 @@ export default function LanguageBibleReaderScreen() {
     setBookId(nextBook.id);
     setTestament(nextBook.testament);
     setChapter(1);
+    setPendingVerse(null);
+    setSelectedVerse(null);
     setPicker(null);
   };
 
@@ -185,11 +232,142 @@ export default function LanguageBibleReaderScreen() {
       .filter((number) => direction < 0 ? number < chapter : number > chapter);
     if (!candidates.length) return;
     setChapter(direction < 0 ? Math.max(...candidates) : Math.min(...candidates));
+    setPendingVerse(null);
+    setSelectedVerse(null);
   };
 
   const retry = () => setReloadKey((key) => key + 1);
   const hasPrevious = availableChapters.some((item) => item.chapter < chapter);
   const hasNext = availableChapters.some((item) => item.chapter > chapter);
+
+  useEffect(() => {
+    if (!chapterData) return;
+    trackLanguageReading(languageId, { bookId, chapter, verse: 1, bookName: book?.name });
+  }, [chapterData, languageId, bookId, chapter, book?.name, trackLanguageReading]);
+
+  useEffect(() => {
+    if (
+      !pendingVerse
+      || chapterData?.bookId !== bookId
+      || Number(chapterData?.chapter) !== Number(chapter)
+    ) return;
+    const verse = chapterData.verses.find((item) => item.number === pendingVerse);
+    if (verse) setSelectedVerse(verse);
+    else showToast(`Verse ${pendingVerse} is not in this chapter.`);
+    setPendingVerse(null);
+  }, [pendingVerse, chapterData, bookId, chapter]);
+
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  }, []);
+
+  const showToast = (message) => {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), 2200);
+  };
+
+  const runSearch = async () => {
+    if (searchLoading) return;
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchError("Enter at least two characters to search.");
+      return;
+    }
+
+    const referenceMatch = query.match(/^(.+?)\s+(\d+)(?::(\d+))?$/);
+    if (referenceMatch) {
+      const requestedBook = referenceMatch[1].trim().toLocaleLowerCase();
+      const match = books.find((item) => (
+        [item.name, item.commonName, item.englishName]
+          .filter(Boolean)
+          .some((name) => name.toLocaleLowerCase() === requestedBook)
+      ));
+      if (match) {
+        const nextChapter = Number(referenceMatch[2]);
+        const nextVerse = referenceMatch[3] ? Number(referenceMatch[3]) : null;
+        if (nextChapter < 1 || nextChapter > match.chapters) {
+          setSearchError(`Choose a chapter from 1 to ${match.chapters}.`);
+          return;
+        }
+        setBookId(match.id);
+        setTestament(match.testament);
+        setChapter(nextChapter);
+        setPendingVerse(nextVerse);
+        setSelectedVerse(null);
+        setSearchOpen(false);
+        return;
+      }
+    }
+    if (!referenceMatch) {
+      const requestedBook = query.toLocaleLowerCase();
+      const exactBook = books.find((item) => [item.name, item.commonName, item.englishName]
+        .filter(Boolean)
+        .some((name) => name.toLocaleLowerCase() === requestedBook));
+      if (exactBook) {
+        setBookId(exactBook.id);
+        setTestament(exactBook.testament);
+        setChapter(1);
+        setPendingVerse(null);
+        setSearchOpen(false);
+        return;
+      }
+    }
+
+    setSearchLoading(true);
+    setSearchError("");
+    setSearchResults([]);
+    setSearchProgress(null);
+    try {
+      const results = await searchLanguageBible(languageId, query, (progress) => {
+        setSearchProgress(progress);
+      });
+      setSearchResults(results);
+      if (!results.length) setSearchError("No matching verses were found.");
+    } catch (searchFailure) {
+      setSearchError(searchFailure.message || "Search could not be completed. Please retry.");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const matchingBooks = searchQuery.trim().length > 1
+    ? books.filter((item) => [item.name, item.commonName, item.englishName]
+      .filter(Boolean)
+      .some((name) => name.toLocaleLowerCase().includes(searchQuery.trim().toLocaleLowerCase())))
+      .slice(0, 8)
+    : [];
+
+  const handleVerseAction = async (action) => {
+    if (!selectedVerse || !book) return;
+    const reference = `${book.name} ${chapter}:${selectedVerse.number}`;
+    const shareText = `${selectedVerse.text} — ${reference} (${language.translationName})\n${language.attribution}\n${language.copyright}\nCC BY-SA 4.0: ${language.licenseUrl}\nSource: ${language.sourceUrl}`;
+    try {
+      if (action === "bookmark") {
+        await toggleBookmark({
+          languageId,
+          bookId,
+          chapter,
+          verse: selectedVerse.number,
+          reference,
+          text: selectedVerse.text,
+        });
+        showToast(bookmarkedVerse ? "Bookmark removed" : "Verse saved");
+      } else if (action === "highlight") {
+        await highlightVerse(bookId, chapter, selectedVerse.number, "#FFE082", languageId);
+        showToast("Verse highlighted");
+      } else if (action === "copy") {
+        await Clipboard.setStringAsync(shareText);
+        showToast("Verse copied");
+      } else if (action === "share") {
+        await Share.share({ message: shareText });
+      }
+    } catch (actionError) {
+      Alert.alert("Could not complete action", actionError.message || "Please try again.");
+      return;
+    }
+    setSelectedVerse(null);
+  };
 
   if (!language) {
     return (
@@ -219,11 +397,22 @@ export default function LanguageBibleReaderScreen() {
         </View>
         <TouchableOpacity
           accessibilityRole="button"
-          accessibilityLabel="Refresh published Bible content"
+          accessibilityLabel={`Search ${language.title} Bible`}
+          onPress={() => {
+            setSearchOpen(true);
+            setSearchError("");
+          }}
+          style={styles.iconButton}
+        >
+          <Ionicons name="search" size={20} color={theme.text} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Refresh Bible content"
           onPress={retry}
           style={styles.iconButton}
         >
-          <Ionicons name="refresh" size={20} color={theme.text} />
+          <Ionicons name="refresh" size={19} color={theme.text} />
         </TouchableOpacity>
       </View>
 
@@ -266,7 +455,7 @@ export default function LanguageBibleReaderScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           accessibilityRole="button"
-          accessibilityLabel={`Select published chapter, current chapter ${chapter}`}
+          accessibilityLabel={`Select chapter, current chapter ${chapter}`}
           style={styles.selector}
           onPress={() => setPicker("chapter")}
           disabled={!availableChapters.length}
@@ -277,6 +466,30 @@ export default function LanguageBibleReaderScreen() {
             <Ionicons name="chevron-down" size={16} color={theme.primary} />
           </View>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.readerTools}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Decrease Bible text size"
+          disabled={fontSize <= 14}
+          onPress={() => updateSettings({ fontSize: Math.max(14, fontSize - 1) })}
+          style={styles.fontControl}
+        >
+          <Text style={styles.fontControlText}>A−</Text>
+        </TouchableOpacity>
+        <Text style={styles.fontSizeLabel}>Text size</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Increase Bible text size"
+          disabled={fontSize >= 28}
+          onPress={() => updateSettings({ fontSize: Math.min(28, fontSize + 1) })}
+          style={styles.fontControl}
+        >
+          <Text style={styles.fontControlText}>A+</Text>
+        </TouchableOpacity>
+        <View style={styles.toolSpacer} />
+        <Text style={styles.chapterCount}>{books.length ? "66 books · 1,189 chapters" : ""}</Text>
       </View>
 
       <ScrollView
@@ -302,18 +515,18 @@ export default function LanguageBibleReaderScreen() {
         ) : readerLoading ? (
           <View style={styles.statePanel}>
             <ActivityIndicator size="small" color={theme.primary} />
-            <Text style={styles.stateText}>Loading published verses…</Text>
+            <Text style={styles.stateText}>Loading verses…</Text>
           </View>
         ) : isUnavailable || !availableChapters.length ? (
           <View style={styles.statePanel}>
             <Ionicons name="book-outline" size={30} color={theme.primary} />
             <Text style={styles.stateTitle}>
               {!availableChapters.length && book
-                ? `No ${language.title} chapters published for ${book.name} yet`
-                : "This chapter is not available yet."}
+                ? `No chapters are listed for ${book.name}.`
+                : "This chapter is not available."}
             </Text>
             <Text style={styles.stateText}>
-              Published chapters will appear here when they are ready.
+              Check your connection and try loading the book again.
             </Text>
           </View>
         ) : chapterData ? (
@@ -322,11 +535,37 @@ export default function LanguageBibleReaderScreen() {
             <Text style={styles.chapterHeading}>{book?.name || chapterData.bookName} {chapter}</Text>
             <View style={styles.verseList}>
               {chapterData.verses.map((verse) => (
-                <Text key={verse.number} style={styles.verseText}>
-                  <Text style={styles.verseNumber}>{verse.number} </Text>
-                  {verse.text}
-                </Text>
+                <Pressable
+                  key={verse.number}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${book?.name || chapterData.bookName} ${chapter}, verse ${verse.number}. Open verse actions.`}
+                  onPress={() => setSelectedVerse(verse)}
+                  style={[
+                    styles.versePressable,
+                    highlights[`${languageId}_${bookId}_${chapter}_${verse.number}`] && styles.highlightedVerse,
+                  ]}
+                >
+                  <Text style={[styles.verseText, { fontSize, lineHeight: Math.round(fontSize * 1.72) }]}>
+                    <Text style={styles.verseNumber}>{verse.number} </Text>
+                    {verse.text}
+                  </Text>
+                </Pressable>
               ))}
+            </View>
+            <View style={styles.attribution}>
+              <Text style={styles.attributionTitle}>{language.translationName}</Text>
+              <Text style={styles.attributionText}>{language.attribution}</Text>
+              <Text style={styles.attributionText}>{language.copyright}</Text>
+              <TouchableOpacity
+                accessibilityRole="link"
+                onPress={() => Linking.openURL(language.sourceUrl).catch((linkError) => {
+                  Alert.alert("Could not open source", linkError.message || "Please try again.");
+                })}
+                style={styles.licenseLink}
+              >
+                <Text style={styles.licenseLinkText}>Source · CC BY-SA 4.0 license</Text>
+                <Ionicons name="open-outline" size={14} color={theme.primary} />
+              </TouchableOpacity>
             </View>
           </>
         ) : null}
@@ -342,7 +581,7 @@ export default function LanguageBibleReaderScreen() {
           <Ionicons name="arrow-back" size={16} color={theme.text} />
           <Text style={styles.buttonText}>Previous</Text>
         </TouchableOpacity>
-        <Text style={styles.footerMeta}>{availableChapters.length ? `${availableChapters.length} available` : ""}</Text>
+        <Text style={styles.footerMeta}>{availableChapters.length ? `${availableChapters.length} chapters` : ""}</Text>
         <TouchableOpacity
           accessibilityRole="button"
           disabled={!hasNext || readerLoading}
@@ -364,7 +603,7 @@ export default function LanguageBibleReaderScreen() {
           <Pressable style={styles.picker} onPress={() => {}}>
             <View style={styles.pickerHeader}>
               <Text style={styles.pickerTitle}>
-                {picker === "book" ? "Choose a book" : `Published chapters · ${book?.name || ""}`}
+                {picker === "book" ? "Choose a book" : `Chapters · ${book?.name || ""}`}
               </Text>
               <TouchableOpacity
                 accessibilityRole="button"
@@ -378,7 +617,6 @@ export default function LanguageBibleReaderScreen() {
             <ScrollView keyboardShouldPersistTaps="handled">
               {picker === "book" ? (
                 visibleBooks.map((item) => {
-                  const count = item.id === bookId ? availableChapters.length : null;
                   return (
                     <TouchableOpacity
                       key={item.id}
@@ -387,7 +625,7 @@ export default function LanguageBibleReaderScreen() {
                     >
                       <Text style={styles.optionText}>{item.name}</Text>
                       <Text style={styles.optionMeta}>
-                        {count === null ? `${item.chapters} expected` : `${count} available`}
+                        {`${item.chapters} chapters`}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -398,7 +636,7 @@ export default function LanguageBibleReaderScreen() {
                     <TouchableOpacity
                       key={item.chapter}
                       accessibilityRole="button"
-                      accessibilityLabel={`Chapter ${item.chapter}, published`}
+                      accessibilityLabel={`Chapter ${item.chapter}`}
                       accessibilityState={{ selected: item.chapter === chapter }}
                       style={[
                         styles.chapterOption,
@@ -406,6 +644,8 @@ export default function LanguageBibleReaderScreen() {
                       ]}
                       onPress={() => {
                         setChapter(item.chapter);
+                        setPendingVerse(null);
+                        setSelectedVerse(null);
                         setPicker(null);
                       }}
                     >
@@ -414,12 +654,217 @@ export default function LanguageBibleReaderScreen() {
                   ))}
                 </View>
               ) : (
-                <Text style={styles.emptyPicker}>No chapters published yet.</Text>
+                <Text style={styles.emptyPicker}>No chapters are available for this book.</Text>
               )}
             </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal
+        visible={!!selectedVerse}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedVerse(null)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setSelectedVerse(null)}>
+          <Pressable style={styles.verseActions} onPress={() => {}}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>
+                {selectedVerse ? `${book?.name || ""} ${chapter}:${selectedVerse.number}` : "Verse actions"}
+              </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Close verse actions"
+                onPress={() => setSelectedVerse(null)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={21} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            {selectedVerse ? (
+              <>
+                <Text style={styles.selectedVerseText}>{selectedVerse.text}</Text>
+                <View style={styles.verseActionGrid}>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => handleVerseAction("bookmark")}
+                    style={styles.verseAction}
+                  >
+                    <Ionicons name={bookmarkedVerse ? "bookmark" : "bookmark-outline"} size={20} color={theme.primary} />
+                    <Text style={styles.verseActionText}>{bookmarkedVerse ? "Saved" : "Save"}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => handleVerseAction("highlight")}
+                    style={styles.verseAction}
+                  >
+                    <Ionicons name={highlightedVerse ? "color-fill" : "color-fill-outline"} size={20} color={theme.primary} />
+                    <Text style={styles.verseActionText}>{highlightedVerse ? "Highlighted" : "Highlight"}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => handleVerseAction("copy")}
+                    style={styles.verseAction}
+                  >
+                    <Ionicons name="copy-outline" size={20} color={theme.primary} />
+                    <Text style={styles.verseActionText}>Copy</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => handleVerseAction("share")}
+                    style={styles.verseAction}
+                  >
+                    <Ionicons name="share-outline" size={20} color={theme.primary} />
+                    <Text style={styles.verseActionText}>Share</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={searchOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSearchOpen(false)}
+      >
+        <Pressable style={styles.searchBackdrop} onPress={() => setSearchOpen(false)}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.searchKeyboard}
+          >
+          <Pressable style={[styles.searchSheet, { paddingBottom: Math.max(insets.bottom, 16) }]} onPress={() => {}}>
+            <View style={styles.pickerHeader}>
+              <View style={styles.searchTitleWrap}>
+                <Text style={styles.pickerTitle}>Search {language.title} Bible</Text>
+                <Text style={styles.searchSubtitle}>Books, references, or verse text</Text>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Close Bible search"
+                onPress={() => setSearchOpen(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={21} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.searchInputRow}>
+              <Ionicons name="search" size={18} color={theme.textMuted} />
+              <TextInput
+                accessibilityLabel="Search books, references, or Bible text"
+                placeholder="Book, John 3:16, or a phrase"
+                placeholderTextColor={theme.textMuted}
+                value={searchQuery}
+                onChangeText={(value) => {
+                  setSearchQuery(value);
+                  setSearchError("");
+                  setSearchResults([]);
+                }}
+                onSubmitEditing={runSearch}
+                returnKeyType="search"
+                style={styles.searchInput}
+                autoCapitalize="none"
+              />
+              {searchQuery ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                  onPress={() => {
+                    setSearchQuery("");
+                    setSearchResults([]);
+                    setSearchError("");
+                    setSearchProgress(null);
+                  }}
+                  style={styles.clearSearch}
+                >
+                  <Ionicons name="close-circle" size={20} color={theme.textMuted} />
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={runSearch}
+                disabled={searchLoading}
+                style={styles.searchSubmit}
+              >
+                <Text style={styles.searchSubmitText}>Go</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.searchResults}>
+              {searchLoading ? (
+                <View style={styles.searchLoading}>
+                  <ActivityIndicator size="small" color={theme.primary} />
+                  <Text style={styles.stateText}>
+                    {searchProgress === null
+                      ? "Loading the complete Bible text for search. This may take a moment…"
+                      : `Downloading Bible text… ${Math.round(searchProgress * 100)}%`}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {matchingBooks.length ? (
+                    <>
+                      <Text style={styles.searchSectionLabel}>Books</Text>
+                      {matchingBooks.map((item) => (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={styles.searchResult}
+                          onPress={() => {
+                            setBookId(item.id);
+                            setTestament(item.testament);
+                            setChapter(1);
+                            setPendingVerse(null);
+                            setSearchOpen(false);
+                          }}
+                        >
+                          <Text style={styles.searchResultTitle}>{item.name}</Text>
+                          <Text style={styles.searchResultMeta}>{item.chapters} chapters</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </>
+                  ) : null}
+                  {searchResults.length ? (
+                    <>
+                      <Text style={styles.searchSectionLabel}>Matching verses</Text>
+                      {searchResults.map((item) => (
+                        <TouchableOpacity
+                          key={`${item.bookId}-${item.chapter}-${item.verse}`}
+                          style={styles.searchResult}
+                          onPress={() => {
+                            setBookId(item.bookId);
+                            setTestament(books.find((entry) => entry.id === item.bookId)?.testament || "OT");
+                            setChapter(Number(item.chapter));
+                            setPendingVerse(Number(item.verse));
+                            setSearchOpen(false);
+                          }}
+                        >
+                          <Text style={styles.searchResultTitle}>{item.reference}</Text>
+                          <Text style={styles.searchResultBody}>{item.text}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </>
+                  ) : null}
+                  {searchError ? <Text style={styles.searchError}>{searchError}</Text> : null}
+                  {!searchQuery.trim() ? (
+                    <Text style={styles.searchHint}>
+                      The first full-text search downloads about 13 MB of {language.translationName} and saves it for future offline searches.
+                    </Text>
+                  ) : null}
+                </>
+              )}
+            </ScrollView>
+          </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
+
+      {toast ? (
+        <View accessibilityLiveRegion="polite" style={[styles.toast, { bottom: Math.max(insets.bottom, 16) + 72 }]}>
+          <Text style={styles.toastText}>{toast}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -468,13 +913,49 @@ function createStyles(theme) {
     selectorLabel: { fontSize: 9, fontWeight: "800", letterSpacing: 1, color: theme.textMuted },
     selectorValueRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 4, marginTop: 4 },
     selectorText: { flexShrink: 1, fontSize: 13, fontWeight: "700", color: theme.text },
+    readerTools: {
+      minHeight: 40,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 18,
+      gap: 8,
+      marginBottom: 4,
+    },
+    fontControl: {
+      minWidth: 34,
+      minHeight: 34,
+      borderRadius: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    fontControlText: { color: theme.text, fontSize: 13, fontWeight: "700" },
+    fontSizeLabel: { color: theme.textMuted, fontSize: 11 },
+    toolSpacer: { flex: 1 },
+    chapterCount: { color: theme.textMuted, fontSize: 10 },
     reader: { flex: 1 },
     content: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 32 },
     chapterEyebrow: { color: theme.primary, fontSize: 11, fontWeight: "800", letterSpacing: 0.6 },
     chapterHeading: { color: theme.text, fontSize: 24, fontWeight: "800", marginTop: 5, marginBottom: 22 },
-    verseList: { gap: 15 },
+    verseList: { gap: 8 },
+    versePressable: { borderRadius: 10, paddingHorizontal: 6, paddingVertical: 4 },
+    highlightedVerse: { backgroundColor: theme.isDark ? "rgba(255,224,130,0.16)" : "rgba(255,224,130,0.28)" },
     verseText: { color: theme.text, fontSize: 19, lineHeight: 34, fontWeight: "400" },
     verseNumber: { color: theme.primary, fontSize: 13, fontWeight: "800" },
+    attribution: {
+      marginTop: 28,
+      padding: 14,
+      borderRadius: 13,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+    },
+    attributionTitle: { color: theme.text, fontSize: 12, fontWeight: "800" },
+    attributionText: { color: theme.textMuted, fontSize: 10, lineHeight: 15, marginTop: 5 },
+    licenseLink: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 9, minHeight: 30 },
+    licenseLinkText: { color: theme.primary, fontSize: 11, fontWeight: "700" },
     statePanel: {
       minHeight: 210,
       alignItems: "center",
@@ -544,5 +1025,50 @@ function createStyles(theme) {
     chapterOption: { width: "20%", aspectRatio: 1, alignItems: "center", justifyContent: "center", borderRadius: 12 },
     activeChapterOption: { backgroundColor: theme.isDark ? "rgba(225,138,58,0.2)" : "rgba(201,106,27,0.14)" },
     emptyPicker: { padding: 20, color: theme.textMuted, textAlign: "center", fontSize: 13 },
+    verseActions: { overflow: "hidden", borderRadius: 18, backgroundColor: theme.surface },
+    selectedVerseText: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 12, color: theme.text, fontSize: 16, lineHeight: 25 },
+    verseActionGrid: { flexDirection: "row", justifyContent: "space-around", paddingHorizontal: 8, paddingVertical: 10, borderTopWidth: 1, borderTopColor: theme.border },
+    verseAction: { minWidth: 66, minHeight: 62, alignItems: "center", justifyContent: "center", gap: 5, borderRadius: 12 },
+    verseActionText: { color: theme.text, fontSize: 11, fontWeight: "700" },
+    searchBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.48)" },
+    searchKeyboard: { flex: 1, justifyContent: "flex-end" },
+    searchSheet: { maxHeight: "88%", borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: theme.surface, overflow: "hidden" },
+    searchTitleWrap: { flex: 1 },
+    searchSubtitle: { color: theme.textMuted, fontSize: 11, marginTop: 3 },
+    searchInputRow: {
+      minHeight: 50,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginHorizontal: 16,
+      marginTop: 14,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 13,
+      backgroundColor: theme.bg,
+    },
+    searchInput: { flex: 1, minWidth: 0, color: theme.text, fontSize: 14, paddingVertical: 10 },
+    clearSearch: { width: 30, height: 40, alignItems: "center", justifyContent: "center" },
+    searchSubmit: { minWidth: 44, minHeight: 34, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: theme.primary },
+    searchSubmitText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
+    searchResults: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 20 },
+    searchLoading: { alignItems: "center", gap: 10, paddingVertical: 24 },
+    searchSectionLabel: { color: theme.textMuted, fontSize: 11, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase", marginTop: 8, marginBottom: 5 },
+    searchResult: { paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
+    searchResultTitle: { color: theme.primary, fontSize: 13, fontWeight: "800" },
+    searchResultBody: { color: theme.text, fontSize: 13, lineHeight: 19, marginTop: 4 },
+    searchResultMeta: { color: theme.textMuted, fontSize: 11, marginTop: 2 },
+    searchError: { color: theme.primary, fontSize: 12, lineHeight: 18, paddingVertical: 12 },
+    searchHint: { color: theme.textMuted, fontSize: 12, lineHeight: 19, paddingVertical: 14 },
+    toast: {
+      position: "absolute",
+      alignSelf: "center",
+      backgroundColor: theme.isDark ? "#F1E7DA" : "#29231F",
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 999,
+    },
+    toastText: { color: theme.isDark ? "#29231F" : "#FFFFFF", fontSize: 12, fontWeight: "700" },
   });
 }

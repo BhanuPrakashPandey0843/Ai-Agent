@@ -81,7 +81,7 @@ export default function BibleBookCard({ language, index, theme, disabled, onOpen
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   card: {
-    minHeight: 238,
+    minHeight: 250,
     padding: 9,
     borderWidth: 1,
     borderRadius: 16,
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     height: 152,
     width: '100%',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   languageName: {
     fontSize: 16,

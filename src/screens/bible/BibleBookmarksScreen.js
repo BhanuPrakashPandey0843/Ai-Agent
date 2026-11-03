@@ -24,7 +24,17 @@ export default function BibleBookmarksScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => navigation.navigate('BibleReader', { bookId: item.bookId, chapter: item.chapter, verse: item.verse })}
+            onPress={() => navigation.navigate(
+              item.languageId ? 'LanguageBibleReader' : 'BibleReader',
+              item.languageId
+                ? {
+                    languageId: item.languageId,
+                    bookId: item.bookId,
+                    chapter: item.chapter,
+                    verse: item.verse,
+                  }
+                : { bookId: item.bookId, chapter: item.chapter, verse: item.verse }
+            )}
           >
             <Text style={styles.ref}>{item.reference}</Text>
             {item.text ? <Text style={styles.text} numberOfLines={3}>{item.text}</Text> : null}

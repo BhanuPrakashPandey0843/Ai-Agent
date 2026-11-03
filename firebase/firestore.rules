@@ -420,8 +420,20 @@ service cloud.firestore {
     // User-Submitted Prayers
     // ------------------------------
     match /userPrayers/{docId} {
+      // Legacy documents have no `category`; they are all community requests.
+      function prayerCategory(data) {
+        return ('category' in data) ? data.category : 'community';
+      }
+      // Optional YYYY-MM-DD day a prayer belongs to (Personal prayers).
+      function validPrayerDate(data) {
+        return !('displayDate' in data)
+          || (data.displayDate is string && data.displayDate.size() == 10);
+      }
+
       // Owner can always read their own; ANY authenticated user can read it
       // once approved (Community Prayer Requests in the Prayer Room).
+      // Personal prayers (status 'private') are therefore readable only by their
+      // owner (and admins).
       allow read: if request.auth != null
         && (request.auth.uid == resource.data.userId || resource.data.status == 'approved' || isAdmin(request.auth.uid));
       allow create: if request.auth != null
@@ -435,12 +447,22 @@ service cloud.firestore {
         && request.resource.data.content.size() > 0
         && request.resource.data.content.size() <= 5000
         && request.resource.data.anonymous is bool
-        && request.resource.data.status == "pending"
+        // Community requests start 'pending' (moderated). Personal prayers are
+        // private to their owner and never enter the moderation/approval flow.
+        && (
+          (request.resource.data.status == "pending"
+            && (!('category' in request.resource.data) || request.resource.data.category == 'community'))
+          || (request.resource.data.status == "private"
+            && request.resource.data.category == 'personal'
+            && request.resource.data.anonymous == false)
+        )
         && request.resource.data.username is string
+        && validPrayerDate(request.resource.data)
         && request.resource.data.keys().hasOnly([
           'title', 'description', 'category', 'content',
           'anonymous', 'status', 'userId', 'username',
-          'createdAt', 'deviceTimestamp', 'prayCount', 'commentCount'
+          'createdAt', 'deviceTimestamp', 'prayCount', 'commentCount',
+          'displayDate'
         ]);
       // Admin approve/reject (any field set), OR any authenticated user
       // nudging prayCount/commentCount by at most 1 on an approved doc.
@@ -454,6 +476,35 @@ service cloud.firestore {
           && request.resource.data.commentCount is number
           && (request.resource.data.prayCount - (('prayCount' in resource.data) ? resource.data.prayCount : 0)) in [-1, 0, 1]
           && (request.resource.data.commentCount - (('commentCount' in resource.data) ? resource.data.commentCount : 0)) in [0, 1]
+        )
+        // Owner edits their own prayer. The category and owner can never change,
+        // and an edited community prayer goes back to 'pending' so approved
+        // content cannot be swapped after moderation.
+        || (
+          request.auth != null
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'description', 'content', 'anonymous', 'username',
+            'displayDate', 'status', 'updatedAt'
+          ])
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.description is string
+          && request.resource.data.description.size() <= 300
+          && request.resource.data.content is string
+          && request.resource.data.content.size() > 0
+          && request.resource.data.content.size() <= 5000
+          && request.resource.data.anonymous is bool
+          && request.resource.data.username is string
+          && validPrayerDate(request.resource.data)
+          && (
+            (prayerCategory(resource.data) == 'personal'
+              && request.resource.data.status == 'private')
+            || (prayerCategory(resource.data) != 'personal'
+              && request.resource.data.status == 'pending')
+          )
         );
       allow delete: if request.auth != null
         && (isAdmin(request.auth.uid) || request.auth.uid == resource.data.userId);

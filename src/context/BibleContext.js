@@ -6,6 +6,7 @@ import {
   saveBibleSettings,
   getContinueReading,
   saveContinueReading,
+  saveLanguageContinueReading,
   getBookmarks,
   toggleBookmark as storageToggleBookmark,
   getNotes,
@@ -104,6 +105,15 @@ export function BibleProvider({ children }) {
     setReadChapters(rc);
   }, []);
 
+  const trackLanguageReading = useCallback(async (languageId, reading) => {
+    const payload = { ...reading, verse: reading.verse || 1 };
+    await saveLanguageContinueReading(languageId, payload);
+    const nextStreak = await recordReadingActivity();
+    setStreak(nextStreak);
+    const rc = await markChapterRead(reading.bookId, reading.chapter, languageId);
+    setReadChapters(rc);
+  }, []);
+
   const toggleBookmark = useCallback(async (bookmark) => {
     await storageToggleBookmark(bookmark);
     const bm = await getBookmarks();
@@ -124,8 +134,8 @@ export function BibleProvider({ children }) {
     return updated;
   }, []);
 
-  const highlightVerse = useCallback(async (bookId, chapter, verse, color) => {
-    const hl = await saveHighlight(bookId, chapter, verse, color);
+  const highlightVerse = useCallback(async (bookId, chapter, verse, color, languageId = null) => {
+    const hl = await saveHighlight(bookId, chapter, verse, color, languageId);
     setHighlights(hl);
     await Haptics.selectionAsync();
   }, []);
@@ -219,6 +229,7 @@ export function BibleProvider({ children }) {
       loadAll,
       updateSettings,
       trackReading,
+      trackLanguageReading,
       resumeReading,
       toggleBookmark,
       upsertNote,
@@ -248,6 +259,7 @@ export function BibleProvider({ children }) {
       loadAll,
       updateSettings,
       trackReading,
+      trackLanguageReading,
       resumeReading,
       toggleBookmark,
       upsertNote,

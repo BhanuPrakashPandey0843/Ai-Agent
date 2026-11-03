@@ -99,6 +99,10 @@ export const fetchAllQuestionsFromFirestore = async () => {
   );
 };
 
+export const fetchQuizCatalog = async (forceRefresh = false) => {
+  return callQuizApi('getQuizCatalog', { forceRefresh });
+};
+
 export const getQuestionsCatalog = async (uid, { forceRefresh = false } = {}) => {
   const cacheUid = uid || 'guest';
   if (!forceRefresh) {

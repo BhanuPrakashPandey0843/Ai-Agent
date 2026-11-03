@@ -12,6 +12,7 @@ const KEYS = {
   RECENT_SEARCHES: 'faithframes_bible_recent_searches',
   PRAYERS: 'faithframes_bible_prayers',
   READ_CHAPTERS: 'faithframes_bible_read_chapters',
+  LANGUAGE: 'faithframes_bible_selected_language',
 };
 
 const defaultSettings = () => ({
@@ -47,12 +48,49 @@ export const saveContinueReading = async (payload) => {
   });
 };
 
+export const getSelectedBibleLanguage = async () => {
+  return (await getJSON(KEYS.LANGUAGE)) || null;
+};
+
+export const saveSelectedBibleLanguage = async (languageId) => {
+  await storeJSON(KEYS.LANGUAGE, languageId);
+};
+
+export const getLanguageContinueReading = async (languageId) => {
+  const progress = (await getJSON(KEYS.PROGRESS)) || {};
+  return progress.languageReadings?.[languageId] || null;
+};
+
+export const saveLanguageContinueReading = async (languageId, payload) => {
+  const progress = (await getJSON(KEYS.PROGRESS)) || {};
+  const previous = progress.languageReadings?.[languageId]?.recentChapters || [];
+  const recentChapters = [
+    { ...payload, updatedAt: Date.now() },
+    ...previous.filter((item) => item.bookId !== payload.bookId || item.chapter !== payload.chapter),
+  ].slice(0, 20);
+  await storeJSON(KEYS.PROGRESS, {
+    ...progress,
+    languageReadings: {
+      ...(progress.languageReadings || {}),
+      [languageId]: { ...payload, updatedAt: Date.now(), recentChapters },
+    },
+  });
+};
+
+export const getRecentLanguageReadings = async () => {
+  const progress = (await getJSON(KEYS.PROGRESS)) || {};
+  return Object.entries(progress.languageReadings || {})
+    .flatMap(([languageId, reading]) => (reading.recentChapters || [])
+      .map((item) => ({ ...item, languageId })))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+};
+
 export const getBookmarks = async () => (await getJSON(KEYS.BOOKMARKS)) || [];
 export const saveBookmarks = async (bookmarks) => storeJSON(KEYS.BOOKMARKS, bookmarks);
 
 export const toggleBookmark = async (bookmark) => {
   const bookmarks = await getBookmarks();
-  const key = `${bookmark.bookId}_${bookmark.chapter}_${bookmark.verse || 0}`;
+  const key = `${bookmark.languageId ? `${bookmark.languageId}_` : ''}${bookmark.bookId}_${bookmark.chapter}_${bookmark.verse || 0}`;
   const exists = bookmarks.find((b) => b.key === key);
   if (exists) {
     await saveBookmarks(bookmarks.filter((b) => b.key !== key));
@@ -88,9 +126,9 @@ export const deleteNote = async (id) => {
 };
 
 export const getHighlights = async () => (await getJSON(KEYS.HIGHLIGHTS)) || {};
-export const saveHighlight = async (bookId, chapter, verse, color = '#FFE082') => {
+export const saveHighlight = async (bookId, chapter, verse, color = '#FFE082', languageId = null) => {
   const highlights = await getHighlights();
-  const key = `${bookId}_${chapter}_${verse}`;
+  const key = `${languageId ? `${languageId}_` : ''}${bookId}_${chapter}_${verse}`;
   highlights[key] = { color, updatedAt: Date.now() };
   await storeJSON(KEYS.HIGHLIGHTS, highlights);
   return highlights;
@@ -162,13 +200,23 @@ export const getCachedChapter = async (cacheKey) => {
   const cache = (await getJSON(KEYS.CHAPTER_CACHE)) || {};
   const entry = cache[cacheKey];
   if (!entry) return null;
-  if (Date.now() - entry.cachedAt > 1000 * 60 * 60 * 24 * 30) return null;
+  if (
+    !cacheKey.startsWith('helloao_')
+    && Date.now() - entry.cachedAt > 1000 * 60 * 60 * 24 * 30
+  ) return null;
   return entry.data;
 };
 
 export const cacheChapter = async (cacheKey, data) => {
   const cache = (await getJSON(KEYS.CHAPTER_CACHE)) || {};
   cache[cacheKey] = { data, cachedAt: Date.now() };
+  const languageEntries = Object.entries(cache)
+    .filter(([key]) => key.startsWith('helloao_'))
+    .sort((a, b) => a[1].cachedAt - b[1].cachedAt);
+  while (languageEntries.length > 20) {
+    const [oldestKey] = languageEntries.shift();
+    delete cache[oldestKey];
+  }
   await storeJSON(KEYS.CHAPTER_CACHE, cache);
 };
 
@@ -191,14 +239,15 @@ export const savePrayer = async (prayer) => {
 
 // ─── Read-chapter tracking ────────────────────────────────────────────────
 // Powers the New/Old Testament reading-progress card (X of Y chapters read,
-// per-chapter pill color). Stored as { [bookId]: [chapterNumbers] }.
+// per-chapter pill color). Language-specific keys are prefixed with the language ID.
 export const getReadChapters = async () => (await getJSON(KEYS.READ_CHAPTERS)) || {};
 
-export const markChapterRead = async (bookId, chapter) => {
+export const markChapterRead = async (bookId, chapter, languageId = null) => {
   const map = await getReadChapters();
-  const chapters = map[bookId] || [];
+  const key = `${languageId ? `${languageId}_` : ''}${bookId}`;
+  const chapters = map[key] || [];
   if (!chapters.includes(chapter)) {
-    map[bookId] = [...chapters, chapter].sort((a, b) => a - b);
+    map[key] = [...chapters, chapter].sort((a, b) => a - b);
     await storeJSON(KEYS.READ_CHAPTERS, map);
   }
   return map;
